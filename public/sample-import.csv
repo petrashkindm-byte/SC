@@ -1,0 +1,11 @@
+name,amount,currency,category_slug,billing_cycle,first_charge_date,next_charge_date,status,icon,renewal_type,notes
+Spotify,299,RUB,entertainment,monthly,2024-01-15,2026-06-15,active,🎵,auto_renew,Музыка
+Netflix,799,RUB,entertainment,monthly,2024-03-01,2026-06-01,active,🎬,auto_renew,Стриминг
+ChatGPT Plus,2000,RUB,productivity,monthly,2024-06-10,2026-06-10,active,🤖,auto_renew,ИИ-ассистент
+iCloud 200GB,169,RUB,utilities,monthly,2024-01-20,2026-06-20,active,☁️,auto_renew,Хранилище
+GitHub Copilot,1000,RUB,productivity,monthly,2025-01-01,2026-06-01,active,👨‍💻,auto_renew,
+YouTube Premium,459,RUB,entertainment,monthly,2024-05-05,2026-06-05,active,▶️,auto_renew,Без рекламы
+Notion,1600,RUB,productivity,yearly,2025-04-01,2026-04-01,active,📝,auto_renew,Plan Pro
+Яндекс Плюс,399,RUB,entertainment,monthly,2024-02-10,2026-06-10,active,🟡,auto_renew,Подписка
+Adobe CC,3500,RUB,productivity,monthly,2024-08-15,2026-06-15,active,🎨,auto_renew,Дизайн
+Duolingo Plus,749,RUB,education,yearly,2025-03-20,2026-03-20,active,🦉,auto_renew,Языки
