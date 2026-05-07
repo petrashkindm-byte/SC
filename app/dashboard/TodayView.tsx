@@ -11,6 +11,7 @@ import CurrencyAmount from './CurrencyAmount'
 import { fmtCurrency, groupMonthlyByCurrency, formatGroups, getMonthlyAmount } from '@/lib/currency'
 import DashboardScreenHeader from './DashboardScreenHeader'
 import { estimateSavingsGroups } from '@/lib/savings-estimate'
+import { monthlyChargesByCurrency } from '@/lib/monthly-history'
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -396,6 +397,27 @@ export default function TodayView({ subs: allSubs }: { subs: Subscription[] }) {
     () => groupMonthlyByCurrency(activeSubs, getMonthlyAmount),
     [activeSubs],
   )
+  const monthComparison = useMemo(() => {
+    const now = new Date()
+    const current = monthlyChargesByCurrency(activeSubs, now.getFullYear(), now.getMonth())
+    const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    const previous = monthlyChargesByCurrency(activeSubs, prevMonthDate.getFullYear(), prevMonthDate.getMonth())
+    const currentMap = new Map(current.map((g) => [g.currency, g.total]))
+    const previousMap = new Map(previous.map((g) => [g.currency, g.total]))
+    const allCurrencies = Array.from(new Set([...currentMap.keys(), ...previousMap.keys()]))
+    const groups = allCurrencies.map((currency) => {
+      const cur = currentMap.get(currency) ?? 0
+      const prev = previousMap.get(currency) ?? 0
+      const diff = cur - prev
+      const pct = prev > 0 ? (diff / prev) * 100 : null
+      return { currency, diff, pct }
+    })
+    return {
+      current,
+      previous,
+      groups,
+    }
+  }, [activeSubs])
 
   // Оценка экономии по реальным сигналам: неиспользуемые/рискованные подписки.
   const saveGroups = useMemo(() => estimateSavingsGroups(activeSubs), [activeSubs])
@@ -453,7 +475,15 @@ export default function TodayView({ subs: allSubs }: { subs: Subscription[] }) {
             />
             <p className="text-sm text-[#8e8e93] mt-1.5">в месяц (эквивалент)</p>
             <span className="mt-auto inline-flex px-2.5 py-[5px] text-xs font-medium text-[#6b6b70] border border-[#d8d8dc] bg-white rounded-full w-fit">
-              — к прошлому месяцу
+              {monthComparison.groups.length === 0
+                ? 'Нет данных за прошлый месяц'
+                : monthComparison.groups.map((g) => {
+                  if (!g.pct || !Number.isFinite(g.pct)) {
+                    return `${g.currency}: ${g.diff >= 0 ? '+' : ''}${fmtCurrency(g.diff, g.currency)}`
+                  }
+                  const sign = g.pct >= 0 ? '+' : ''
+                  return `${g.currency}: ${sign}${g.pct.toFixed(0)}%`
+                }).join(' · ')}
             </span>
           </div>
           <div className="flex-shrink-0 w-20 h-20 rounded-2xl bg-gradient-to-b from-[#f7f4ff] to-[#ede8fc] flex items-center justify-center self-center">

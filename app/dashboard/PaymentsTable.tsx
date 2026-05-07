@@ -426,6 +426,20 @@ export default function PaymentsTable({
                     <td className="border-b border-[rgba(26,26,61,0.08)] px-4 py-3.5 align-middle transition-colors group-hover:bg-[rgba(124,58,237,0.06)]">
                       <div className="font-medium">{formatDateShort(sub.next_charge_date)}</div>
                       <div className="mt-0.5 text-xs text-[#6b6b80]">{dueRelativePhrase(days)}</div>
+                      {sub.status === 'active' ? (
+                        <button
+                          type="button"
+                          disabled={markingPaidId === sub.id}
+                          onClick={async (e) => {
+                            e.stopPropagation()
+                            setMarkingPaidId(sub.id)
+                            try { await markAsPaid(sub.id) } finally { setMarkingPaidId(null) }
+                          }}
+                          className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-[#0d9f6e] bg-[#e8faf0] px-2 py-0.5 text-xs font-semibold text-[#0d9f6e] hover:bg-[#d4f0e3] disabled:opacity-50"
+                        >
+                          {markingPaidId === sub.id ? '…' : '✓ Оплачено'}
+                        </button>
+                      ) : null}
                     </td>
                   )
 
