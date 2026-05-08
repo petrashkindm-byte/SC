@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Действия — SubCuro</title>
+  <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body data-page="actions">
+  <div class="app-shell">
+    <div id="sidebar-root"></div>
+    <main class="main">
+      <header class="main-header">
+        <div>
+          <h1 class="page-title">Действия</h1>
+          <p class="page-sub"></p>
+        </div>
+        <div class="header-actions">
+          <div class="search-wrap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input type="search" placeholder="Поиск по сервисам, категориям…" aria-label="Поиск">
+          </div>
+          <button type="button" class="icon-btn" aria-label="Уведомления"><span class="dot"></span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M18 8a6 6 0 10-12 0c0 7-3 7-3 7h18s-3 0-3-7M13.73 21a2 2 0 01-3.46 0"/></svg></button>
+          <button type="button" class="btn-primary" aria-label="Добавить подписку">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            Добавить
+          </button>
+        </div>
+      </header>
+
+      <section class="banner-actions" style="margin-bottom:22px;">
+        <div class="bolt-box"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#5b43d4" stroke-width="2"><path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/></svg></div>
+        <div class="copy">
+          <h2>⚡ Очередь по подпискам</h2>
+          <p>Подсказки по активным подпискам из «Платежей».</p>
+          <div class="chips" id="actions-banner-chips"></div>
+        </div>
+        <span style="font-size:3rem;line-height:1;" aria-hidden="true">⚡</span>
+      </section>
+
+      <p class="actions-intro">
+        Каждая карточка — это <strong>та же подписка</strong>, что в разделе
+        <a href="payments.html">«Платежи»</a>: те же сумма, дата списания и статус.
+        «Открыть подписку» ведёт в редактор этой записи; «Все платежи» — к общему списку;
+        «На паузу» отключает подписку (как в таблице платежей).
+      </p>
+
+      <section class="card ai-alerts" id="actions-ai-alerts" aria-labelledby="actions-ai-alerts-title" style="margin-bottom:14px;">
+        <div class="ai-alerts__head">
+          <h2 id="actions-ai-alerts-title">AI-предупреждения о рисках трат</h2>
+          <a href="savings-simulator.html" class="link-all">Детальный разбор →</a>
+        </div>
+        <div id="actions-ai-alerts-list"></div>
+      </section>
+
+      <div id="actions-list"></div>
+
+      <section class="card actions-sim" id="actions-savings-panel" aria-labelledby="actions-sim-title">
+        <div class="actions-sim__head">
+          <h2 id="actions-sim-title" class="actions-sim__title">Симулятор экономии</h2>
+          <p class="actions-sim__lead">
+            Отметьте подписки, от которых теоретически могли бы отказаться — сразу увидите экономию в месяц и в год.
+            Данные берутся из ваших активных платежей. Полная версия сценариев —
+            <a href="savings-simulator.html">отдельная страница симулятора</a>.
+          </p>
+        </div>
+        <div id="actions-sim-inner"></div>
+      </section>
+    </main>
+  </div>
+  <script src="js/payment-icons.js"></script>
+  <script src="js/dashboard-data.js"></script>
+  <script src="js/service-catalog.js"></script>
+  <script src="js/ai-advisor.js"></script>
+  <script src="js/sidebar.js"></script>
+  <script src="js/actions.js"></script>
+</body>
+</html>

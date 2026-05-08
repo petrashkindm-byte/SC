@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Аналитика — SubCuro</title>
+  <link rel="stylesheet" href="css/dashboard.css">
+  <link rel="stylesheet" href="css/payments.css">
+</head>
+<body data-page="analytics">
+  <div class="app-shell">
+    <div id="sidebar-root"></div>
+    <main class="main">
+      <header class="main-header">
+        <div>
+          <h1 class="page-title">Аналитика</h1>
+          <p class="page-sub" id="analytics-live-sub"></p>
+        </div>
+        <div class="header-actions">
+          <div class="search-wrap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input type="search" placeholder="Поиск по сервисам, категориям…" aria-label="Поиск">
+          </div>
+          <button type="button" class="icon-btn" aria-label="Уведомления"><span class="dot"></span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M18 8a6 6 0 10-12 0c0 7-3 7-3 7h18s-3 0-3-7M13.73 21a2 2 0 01-3.46 0"/></svg></button>
+          <button type="button" class="btn-primary" aria-label="Добавить подписку">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            Добавить
+          </button>
+        </div>
+      </header>
+
+      <div class="grid-3">
+        <article class="card stat-card">
+          <h3>Активных платежей</h3>
+          <div class="value" id="sync-analytics-count">—</div>
+          <div class="deco stat-deco stat-deco--lavender">
+            <img src="assets/analytics-stat-calendar.svg" width="44" height="44" alt="" decoding="async">
+          </div>
+        </article>
+        <article class="card stat-card">
+          <h3>В месяц</h3>
+          <div class="value" id="sync-analytics-month" style="color:var(--green);">—</div>
+          <div class="deco stat-deco stat-deco--mint">
+            <img src="assets/analytics-stat-change.svg" width="44" height="44" alt="" decoding="async">
+          </div>
+        </article>
+        <article class="card stat-card">
+          <h3>В год</h3>
+          <div class="value" id="sync-analytics-year" style="color:var(--purple);">—</div>
+          <div class="deco stat-deco stat-deco--lavender">
+            <img src="assets/analytics-stat-wallet.svg" width="44" height="44" alt="" decoding="async">
+          </div>
+        </article>
+      </div>
+
+      <div class="grid-2">
+        <article class="card card-pad">
+          <div class="section-head"><h2>Расходы по месяцам</h2></div>
+          <p class="analytics-panel-desc">По датам следующего списания в календарном месяце (Москва). Годовые подписки попадают в месяц очередного платежа.</p>
+          <div class="chart-bars" id="analytics-chart-bars" role="img" aria-label="Списания по месяцам"></div>
+          <div class="analytics-chart-axis" id="analytics-chart-labels"></div>
+        </article>
+        <article class="card card-pad">
+          <div class="section-head"><h2>По категориям</h2></div>
+          <p class="analytics-panel-desc">Доля регулярных трат в месяц (эквивалент в ₽) по категориям из «Платежей».</p>
+          <div id="analytics-categories"></div>
+        </article>
+      </div>
+
+      <h2 class="analytics-section-title">Все регулярные платежи по стоимости</h2>
+      <div class="card table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Сервис</th>
+              <th>Следующее</th>
+              <th>Сумма</th>
+              <th>Статус</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="analytics-payments-tbody"></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+  <script src="js/payment-icons.js"></script>
+  <script src="js/dashboard-data.js"></script>
+  <script src="js/sidebar.js"></script>
+  <script src="js/analytics-sync.js"></script>
+</body>
+</html>

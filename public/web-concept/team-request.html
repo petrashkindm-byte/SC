@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Заявка на тариф «Команда» — SubCuro</title>
+  <meta name="description" content="Оставьте заявку на корпоративный тариф SubCuro для команд и бизнеса.">
+  <link rel="stylesheet" href="team-request.css">
+</head>
+<body class="tr-page">
+  <div class="tr-shell">
+    <aside class="tr-aside">
+      <div class="tr-aside-inner">
+        <a href="index.html#pricing" class="tr-back" aria-label="Назад к тарифам">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          К тарифам
+        </a>
+        <div class="tr-brand">
+          <img src="assets/branding/subcuro_ribbon_s_transparent.png" width="36" height="36" alt="">
+          <span>SubCuro</span>
+        </div>
+        <span class="tr-aside-badge">Команда</span>
+        <h1 class="tr-aside-title">Тариф <span>«Команда»</span></h1>
+        <p class="tr-aside-text">
+          Расскажите о компании и задачах — мы свяжемся с вами, когда появится корпоративное предложение, и подберём формат: общее пространство, роли, отчёты и интеграции под ваш сценарий.
+        </p>
+      </div>
+    </aside>
+
+    <main class="tr-main">
+      <div class="tr-card">
+        <h1>Заявка на корпоративный доступ</h1>
+        <p class="tr-card-lead">
+          Заполните форму: чем подробнее опишете компанию и цели, тем точнее мы сможем ответить. Ответ обычно в течение нескольких рабочих дней.
+        </p>
+
+        <form id="team-request-form" action="#" method="post">
+          <div class="tr-field">
+            <label for="company">Название компании или команды <span aria-hidden="true">*</span></label>
+            <input class="tr-input" type="text" id="company" name="company" required autocomplete="organization" placeholder="ООО «Пример» или отдел маркетинга">
+          </div>
+
+          <div class="tr-row">
+            <div class="tr-field">
+              <label for="name">Контактное лицо <span aria-hidden="true">*</span></label>
+              <input class="tr-input" type="text" id="name" name="name" required autocomplete="name" placeholder="Имя и фамилия">
+            </div>
+            <div class="tr-field">
+              <label for="role">Должность / роль</label>
+              <input class="tr-input" type="text" id="role" name="role" autocomplete="organization-title" placeholder="Например, CFO, руководитель IT">
+            </div>
+          </div>
+
+          <div class="tr-row">
+            <div class="tr-field">
+              <label for="email">Рабочий email <span aria-hidden="true">*</span></label>
+              <input class="tr-input" type="email" id="email" name="email" required autocomplete="email" placeholder="you@company.ru">
+            </div>
+            <div class="tr-field">
+              <label for="phone">Телефон</label>
+              <input class="tr-input" type="tel" id="phone" name="phone" autocomplete="tel" placeholder="+7 …">
+            </div>
+          </div>
+
+          <div class="tr-field">
+            <label for="size">Размер команды (приблизительно)</label>
+            <select class="tr-select" id="size" name="team_size">
+              <option value="" selected>Выберите вариант</option>
+              <option value="2-10">2–10 человек</option>
+              <option value="11-50">11–50</option>
+              <option value="51-200">51–200</option>
+              <option value="200+">Более 200</option>
+            </select>
+          </div>
+
+          <div class="tr-field">
+            <label for="goals">Для чего вам нужен SubCuro? <span aria-hidden="true">*</span></label>
+            <textarea class="tr-textarea" id="goals" name="goals" required placeholder="Например: единый учёт подписок и связи по филиалам, контроль регулярных платежей, отчёты для финансов, разграничение доступа между отделами…"></textarea>
+            <p class="tr-hint">Опишите сценарий и ожидания — чем конкретнее, тем лучше.</p>
+          </div>
+
+          <div class="tr-field">
+            <label for="extra">Дополнительно</label>
+            <textarea class="tr-textarea tr-textarea--short" id="extra" name="extra" placeholder="Сроки внедрения, интеграции, требования к безопасности — по желанию."></textarea>
+          </div>
+
+          <button type="submit" class="tr-submit">Отправить заявку</button>
+        </form>
+
+        <p class="tr-foot">
+          Нажимая кнопку, вы соглашаетесь с обработкой данных для связи по заявке.
+          Личный вход для себя — <a href="auth.html#register" class="tr-foot-link">зарегистрироваться</a>.
+        </p>
+      </div>
+    </main>
+  </div>
+  <script src="team-request.js"></script>
+</body>
+</html>

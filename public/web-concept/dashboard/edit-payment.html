@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Редактировать платёж — SubCuro</title>
+  <link rel="stylesheet" href="css/dashboard.css">
+  <link rel="stylesheet" href="css/payments.css">
+  <link rel="stylesheet" href="css/edit-payment.css">
+</head>
+<body data-page="payments" class="edit-payment">
+  <div class="app-shell">
+    <div id="sidebar-root"></div>
+    <main class="main" style="padding-bottom:120px;">
+      <header class="main-header" style="margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <a href="payments.html" class="icon-btn" style="text-decoration:none;color:inherit;" aria-label="Назад">←</a>
+          <h1 class="page-title" style="margin:0;">Редактировать платёж</h1>
+        </div>
+        <div class="header-actions">
+          <div class="search-wrap" style="max-width:280px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input type="search" placeholder="Поиск…" aria-label="Поиск">
+            <span style="font-size:11px;color:#9a9aaf;border:1px solid var(--border);padding:2px 6px;border-radius:6px;">⌘K</span>
+          </div>
+          <button type="button" class="icon-btn" aria-label="Уведомления"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M18 8a6 6 0 10-12 0c0 7-3 7-3 7h18s-3 0-3-7M13.73 21a2 2 0 01-3.46 0"/></svg></button>
+          <div class="user-avatar" style="width:40px;height:40px;font-size:13px;">АК</div>
+        </div>
+      </header>
+
+      <div class="summary-strip">
+        <div class="edit-sum-left">
+          <div id="edit-sum-icon" aria-hidden="true"></div>
+          <div style="min-width:0;">
+            <strong id="edit-sum-name" style="font-size:1.1rem;">—</strong>
+            <span class="chip tag-purple" id="edit-sum-cat" style="margin-left:8px;font-size:11px;">—</span>
+          </div>
+        </div>
+        <div id="edit-sum-amt" style="font-size:13px;">—</div>
+        <div id="edit-sum-due" style="font-size:13px;">—</div>
+        <span class="chip tag-green" id="edit-sum-status" style="margin-left:auto;">● Активен</span>
+        <div style="display:flex;gap:8px;">
+          <a href="payments.html" class="btn-outline" style="display:inline-flex;align-items:center;height:40px;text-decoration:none;">Назад</a>
+          <button type="button" class="btn-primary btn-save-green" id="edit-btn-save-top" style="height:40px;">Сохранить</button>
+        </div>
+      </div>
+
+      <div class="edit-layout">
+        <div class="card card-pad">
+          <div class="tabs-inline">
+            <button type="button" class="on" data-edit-tab="data">Данные</button>
+            <button type="button" data-edit-tab="visual">Визуал</button>
+            <button type="button" data-edit-tab="reminders">Напоминания</button>
+            <button type="button" data-edit-tab="extra">Дополнительно</button>
+          </div>
+
+          <div class="edit-tab-pane" data-edit-pane="data">
+            <h3 style="margin:0 0 14px;font-size:13px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;">Основная информация</h3>
+            <div class="field"><label for="edit-name">Название</label><input id="edit-name" type="text" maxlength="60" autocomplete="off"></div>
+            <div class="field"><label for="edit-amount"><span id="edit-amount-lbl">Сумма, ₽</span></label><input id="edit-amount" type="number" min="0" step="1"></div>
+            <p id="edit-fx-hint" style="font-size:12px;color:var(--text-muted);margin:-6px 0 10px;line-height:1.4;"></p>
+            <div class="field"><label>Валюта подписки</label>
+              <div class="pill-row" id="edit-currency-pills" role="group" aria-label="Валюта">
+                <button type="button" class="pill-btn" data-cur="RUB"><span class="pill-check">✓</span> RUB</button>
+                <button type="button" class="pill-btn" data-cur="USD"><span class="pill-check">✓</span> USD</button>
+                <button type="button" class="pill-btn" data-cur="EUR"><span class="pill-check">✓</span> EUR</button>
+              </div>
+            </div>
+            <div class="field"><label for="edit-category">Категория</label>
+              <select id="edit-category">
+                <option value="Развлечения">Развлечения</option>
+                <option value="Продуктивность">Продуктивность</option>
+                <option value="Здоровье и образ жизни">Здоровье и образ жизни</option>
+                <option value="Сервисы и утилиты">Сервисы и утилиты</option>
+                <option value="Покупки и повседневные сервисы">Покупки и повседневные сервисы</option>
+                <option value="Другое">Другое</option>
+              </select>
+            </div>
+            <div class="field"><label for="edit-cycle">Периодичность</label>
+              <select id="edit-cycle">
+                <option value="monthly">Ежемесячно</option>
+                <option value="yearly">Ежегодно</option>
+              </select>
+            </div>
+            <div class="field"><label for="edit-next-due">Следующее списание</label><input id="edit-next-due" type="date" required></div>
+            <div class="field"><label>Статус</label>
+              <div class="segmented purple-on" id="edit-seg-status" style="margin-top:6px;">
+                <button type="button" class="on" data-val="active">Активен</button>
+                <button type="button" data-val="paused">Пауза</button>
+                <button type="button" data-val="cancelled">Отменён</button>
+                <button type="button" data-val="archived">Архив</button>
+              </div>
+            </div>
+            <div class="field"><label>Повторяется автоматически</label>
+              <div class="segmented" id="edit-seg-repeat" style="margin-top:6px;">
+                <button type="button" class="on" data-val="yes">Да</button>
+                <button type="button" data-val="no">Нет</button>
+              </div>
+            </div>
+
+            <h3 style="margin:24px 0 14px;font-size:13px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;">Оплата</h3>
+            <div class="field"><label>Способ оплаты</label>
+              <div class="pill-row card-pick-row" id="edit-card-pills" role="group" aria-label="Карта"></div>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;">
+                <button type="button" class="btn-outline" id="edit-card-manage" style="border-radius:999px;font-size:13px;">Изменить карту…</button>
+                <button type="button" class="btn-outline" id="edit-card-new" style="border-radius:999px;font-size:13px;">+ Новая карта</button>
+              </div>
+            </div>
+            <div class="field"><label>Автопродление</label>
+              <div class="segmented purple-on" id="edit-seg-autopay" style="margin-top:6px;">
+                <button type="button" class="on" data-val="enabled">Включено</button>
+                <button type="button" data-val="manual">Ручное</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="edit-tab-pane" data-edit-pane="visual" hidden>
+            <p style="margin:0;color:var(--text-muted);line-height:1.5;">Иконку, цвет, форму и заливку карточки настройте в панели <strong>справа</strong> — изменения сразу видны вверху и в предпросмотре.</p>
+            <p style="margin:16px 0 0;"><a href="#edit-visual-aside" class="btn-outline" style="display:inline-block;text-decoration:none;padding:8px 14px;border-radius:10px;">К панели «Визуал»</a></p>
+          </div>
+
+          <div class="edit-tab-pane" data-edit-pane="reminders" hidden>
+            <h3 style="margin:0 0 14px;font-size:13px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;">Напоминания</h3>
+            <div class="dash-flex-between" style="padding:12px 0;border-bottom:1px solid var(--border);">
+              <span>Напомнить за 3 дня</span>
+              <button type="button" class="toggle" data-edit-toggle id="tog-3d" aria-label="Переключить"></button>
+            </div>
+            <div class="dash-flex-between" style="padding:12px 0;border-bottom:1px solid var(--border);">
+              <span>Напоминание о trial</span>
+              <button type="button" class="toggle" data-edit-toggle id="tog-trial" aria-label="Переключить"></button>
+            </div>
+            <div class="dash-flex-between" style="padding:12px 0;">
+              <span>Уведомление об изменении цены</span>
+              <button type="button" class="toggle" data-edit-toggle id="tog-price" aria-label="Переключить"></button>
+            </div>
+          </div>
+
+          <div class="edit-tab-pane" data-edit-pane="extra" hidden>
+            <h3 style="margin:0 0 14px;font-size:13px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;">Ссылки</h3>
+            <div class="field"><label for="edit-link-manage">Ссылка на управление</label><input id="edit-link-manage" type="url" placeholder="https://…"></div>
+            <div class="field"><label for="edit-link-cancel">Ссылка на отмену</label><input id="edit-link-cancel" type="url" placeholder="https://…"></div>
+            <div class="field"><label for="edit-notes">Заметки</label><textarea id="edit-notes" rows="4" maxlength="500" placeholder="Заметка…"></textarea><div id="edit-notes-count" style="text-align:right;font-size:12px;color:var(--text-muted);">0 / 500</div></div>
+            <p style="margin-top:24px;"><button type="button" class="link-danger" id="edit-btn-delete">🗑 Удалить платёж</button></p>
+          </div>
+        </div>
+
+        <aside class="card card-pad" id="edit-visual-aside">
+          <h2 class="edit-aside-title">Визуал и предпросмотр</h2>
+          <p class="edit-aside-hint">Иконка</p>
+          <div id="edit-icon-picker" class="icon-picker edit-icon-picker-host" aria-label="Выбор иконки категории"></div>
+          <p class="edit-aside-hint">Цвет фона иконки</p>
+          <div class="edit-color-row">
+            <button type="button" class="edit-color-btn on" data-hex="#5b43d4" style="background:#5b43d4;" aria-label="Фиолетовый"></button>
+            <button type="button" class="edit-color-btn" data-hex="#12b76a" style="background:#12b76a;" aria-label="Зелёный"></button>
+            <button type="button" class="edit-color-btn" data-hex="#e5484d" style="background:#e5484d;" aria-label="Красный"></button>
+            <button type="button" class="edit-color-btn" data-hex="#ea580c" style="background:#ea580c;" aria-label="Оранжевый"></button>
+            <button type="button" class="edit-color-btn" data-hex="#2563eb" style="background:#2563eb;" aria-label="Синий"></button>
+            <button type="button" class="edit-color-btn" data-hex="#f5a524" style="background:#f5a524;" aria-label="Жёлтый"></button>
+            <button type="button" class="edit-color-reset" id="edit-color-reset">Как у категории</button>
+          </div>
+          <p class="edit-aside-hint">Форма иконки</p>
+          <div class="segmented" id="edit-shape-seg" style="margin-bottom:16px;">
+            <button type="button" class="on" data-shape="rounded">Скруглённый квадрат</button>
+            <button type="button" data-shape="circle">Круг</button>
+            <button type="button" data-shape="square">Квадрат</button>
+          </div>
+          <p class="edit-aside-hint">Заливка карточки предпросмотра</p>
+          <div class="edit-cardfill-row">
+            <button type="button" class="edit-cardfill-btn on" data-fill="none" title="Нейтральная" aria-label="Без заливки"></button>
+            <button type="button" class="edit-cardfill-btn" data-fill="lavender" title="Лаванда" aria-label="Лаванда"></button>
+            <button type="button" class="edit-cardfill-btn" data-fill="mint" title="Мята" aria-label="Мята"></button>
+            <button type="button" class="edit-cardfill-btn" data-fill="peach" title="Персик" aria-label="Персик"></button>
+          </div>
+          <p class="edit-aside-hint">Предпросмотр в приложении</p>
+          <div class="preview-phone" id="edit-preview-phone">
+            <div id="edit-preview-inner"></div>
+          </div>
+        </aside>
+      </div>
+
+      <div class="sticky-bar" style="left:var(--sidebar-w);background:#2d0c33;justify-content:center;">
+        <button type="button" class="btn-p btn-save-green" id="edit-btn-save-foot" style="color:#fff;">✓ Сохранить изменения</button>
+      </div>
+    </main>
+  </div>
+
+  <div id="edit-save-toast" class="edit-save-toast" hidden role="status" aria-live="polite">
+    <div class="edit-save-toast__panel">
+      <div class="edit-save-toast__icon" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+      </div>
+      <div class="edit-save-toast__text">
+        <strong class="edit-save-toast__title">Изменения сохранены</strong>
+        <span class="edit-save-toast__sub">Данные подписки обновлены в списке платежей.</span>
+      </div>
+      <button type="button" class="edit-save-toast__btn" id="edit-save-toast-close">Понятно</button>
+    </div>
+  </div>
+
+  <div id="card-edit-modal" class="dash-modal" hidden>
+    <div class="dash-modal__backdrop" data-card-close></div>
+    <div class="dash-modal__panel">
+      <button type="button" class="dash-modal__x" data-card-close aria-label="Закрыть">×</button>
+      <h2 class="dash-modal__title">Карта оплаты</h2>
+      <p class="dash-modal__text">Реквизиты сохраняются в приложении и доступны для всех подписок, где выбрана эта карта.</p>
+      <label class="dash-modal__field">Выбор карты
+        <select id="card-modal-select"></select>
+      </label>
+      <label class="dash-modal__field">Бренд (Visa, Mastercard…)
+        <input id="card-modal-brand" type="text" maxlength="24" autocomplete="off">
+      </label>
+      <label class="dash-modal__field">Последние 4 цифры
+        <input id="card-modal-last4" type="text" maxlength="4" inputmode="numeric" autocomplete="off">
+      </label>
+      <div class="dash-modal__actions">
+        <button type="button" class="btn-outline" data-card-close>Отмена</button>
+        <button type="button" class="btn-primary btn-save-green" id="card-modal-save">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/payment-icons.js"></script>
+  <script src="js/dashboard-data.js"></script>
+  <script src="js/sidebar.js"></script>
+  <script src="js/edit-payment.js"></script>
+</body>
+</html>

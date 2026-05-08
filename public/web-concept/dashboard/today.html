@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Сегодня — SubCuro</title>
+  <link rel="stylesheet" href="css/dashboard.css">
+  <link rel="stylesheet" href="css/payments.css">
+  <link rel="stylesheet" href="css/today.css">
+</head>
+<body class="page-today" data-page="today">
+  <div class="app-shell">
+    <div id="sidebar-root"></div>
+    <main class="main">
+      <header class="main-header">
+        <div>
+          <h1 class="page-title">Сегодня</h1>
+          <p class="page-sub" id="today-page-sub"></p>
+        </div>
+        <div class="header-actions">
+          <div class="search-wrap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input id="today-search" type="search" placeholder="Поиск по платежам и сервисам…" aria-label="Поиск по платежам" autocomplete="off">
+          </div>
+          <button type="button" class="icon-btn" id="btn-add-payment" aria-label="Добавить платёж" title="Добавить платёж">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+          <button type="button" class="icon-btn" id="btn-gift" aria-label="Подарить другу" title="Подарки">
+            <img src="assets/icon-gift.svg" width="22" height="22" alt="">
+          </button>
+          <button type="button" class="btn-outline" id="btn-invite">Пригласить друга</button>
+          <div class="notif-wrap">
+            <button type="button" class="icon-btn" id="btn-notif" aria-label="Уведомления" title="Уведомления">
+              <span class="dot"></span>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M18 8a6 6 0 10-12 0c0 7-3 7-3 7h18s-3 0-3-7M13.73 21a2 2 0 01-3.46 0"/></svg>
+            </button>
+            <div id="notif-pop" class="notif-pop" hidden>
+              <div class="notif-pop__title">Уведомления</div>
+              <div id="notif-list" class="notif-pop__list"></div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div class="today-stats">
+        <a href="analytics.html" class="today-stat today-stat--exp today-stat--link">
+          <div class="today-stat__body">
+            <h3 class="today-stat__title">Расходы на платежи</h3>
+            <p class="today-stat__value" id="stat-monthly-value">—</p>
+            <p class="today-stat__sub">в этом месяце (эквивалент)</p>
+            <span class="today-stat__pill" id="stat-pill-compare">—</span>
+          </div>
+          <div class="today-stat__art" aria-hidden="true">
+            <img src="assets/icon-stat-bars.svg" width="52" height="52" alt="">
+          </div>
+        </a>
+        <a href="savings-simulator.html" class="today-stat today-stat--save today-stat--link">
+          <div class="today-stat__body">
+            <h3 class="today-stat__title">Можно сэкономить</h3>
+            <p class="today-stat__value today-stat__value--green" id="stat-save-value">—</p>
+            <p class="today-stat__sub">оценка по активным платежам</p>
+            <span class="today-stat__cta">Открыть симулятор экономии →</span>
+          </div>
+          <div class="today-stat__art" aria-hidden="true">
+            <img src="assets/icon-wallet.svg" width="72" height="72" alt="">
+          </div>
+        </a>
+        <a href="payments.html" class="today-stat today-stat--active today-stat--link">
+          <div class="today-stat__body">
+            <h3 class="today-stat__title">Активные платежи</h3>
+            <div class="today-stat__value-row">
+              <span class="today-stat__value" id="stat-active-count">—</span>
+              <span class="today-stat__value-suffix">сервисов</span>
+            </div>
+            <p class="today-stat__sub">в учёте</p>
+            <span class="today-stat__pill" id="stat-pill-active">—</span>
+          </div>
+          <div class="today-stat__art" aria-hidden="true">
+            <img src="assets/icon-four-dots.svg" width="44" height="44" alt="">
+          </div>
+        </a>
+      </div>
+
+      <section class="banner-actions">
+        <div class="bolt-box" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#5b43d4" stroke-width="2"><path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/></svg>
+        </div>
+        <div class="copy">
+          <h2>Очередь действий — <span id="banner-actions-count">4</span></h2>
+          <p id="banner-save-line">Экономия до — / мес</p>
+          <div class="chips">
+            <span class="chip" style="background:var(--red-soft);color:var(--red);">Срочно 3</span>
+            <span class="chip" style="background:var(--orange-soft);color:#b35a00;">На неделе 0</span>
+            <span class="chip" style="background:var(--green-soft);color:var(--green);">Авто 1</span>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px;">
+          <a class="btn-wide" href="actions.html">Разобрать очередь →</a>
+          <a class="link-all" href="savings-simulator.html">Симулятор экономии</a>
+        </div>
+      </section>
+
+      <section class="card ai-alerts" id="today-ai-alerts" aria-labelledby="today-ai-alerts-title">
+        <div class="ai-alerts__head">
+          <h2 id="today-ai-alerts-title">AI-предупреждения о лишних тратах</h2>
+          <a href="savings-simulator.html" class="link-all">Открыть симулятор →</a>
+        </div>
+        <div id="today-ai-alerts-list"></div>
+      </section>
+
+      <div class="grid-2">
+        <article class="card upcoming-card">
+          <div class="upcoming-card__head">
+            <h2 class="upcoming-card__title">Ближайшие списания</h2>
+            <a class="upcoming-card__all" href="payments.html">Все →</a>
+          </div>
+          <div id="upcoming-list"></div>
+        </article>
+
+        <article class="card writeoff-cal">
+          <div class="writeoff-cal__head">
+            <div class="writeoff-cal__month-line">
+              <button type="button" class="writeoff-cal__nav cal-nav-btn" id="cal-prev-month" aria-label="Предыдущий месяц">‹</button>
+              <h2 class="writeoff-cal__month" id="writeoff-month"></h2>
+              <button type="button" class="writeoff-cal__nav cal-nav-btn" id="cal-next-month" aria-label="Следующий месяц">›</button>
+            </div>
+            <div class="writeoff-cal__spend">
+              <span class="writeoff-cal__spend-label">Списания в этом месяце:</span>
+              <span class="writeoff-cal__spend-val" id="writeoff-spend-val">—</span>
+            </div>
+          </div>
+
+          <div class="writeoff-cal__dow">
+            <span>ПН</span><span>ВТ</span><span>СР</span><span>ЧТ</span><span>ПТ</span><span>СБ</span><span>ВС</span>
+          </div>
+          <div class="writeoff-cal__days" id="writeoff-days"></div>
+          <p class="writeoff-cal__hint" id="cal-day-hint"></p>
+        </article>
+      </div>
+    </main>
+  </div>
+
+  <div id="modal-gift" class="dash-modal" hidden>
+    <div class="dash-modal__backdrop" data-modal-close></div>
+    <div class="dash-modal__panel" role="dialog" aria-labelledby="gift-title">
+      <button type="button" class="dash-modal__x" data-modal-close aria-label="Закрыть">×</button>
+      <h2 id="gift-title" class="dash-modal__title">Подарки SubCuro</h2>
+      <p class="dash-modal__text">Пригласите друга — после его первой синхронизации вы оба получите бонусные подсказки по экономии (демо).</p>
+      <button type="button" class="btn-primary" data-modal-close>Закрыть</button>
+    </div>
+  </div>
+
+  <div id="modal-invite" class="dash-modal" hidden>
+    <div class="dash-modal__backdrop" data-modal-close></div>
+    <div class="dash-modal__panel" role="dialog" aria-labelledby="inv-title">
+      <button type="button" class="dash-modal__x" data-modal-close aria-label="Закрыть">×</button>
+      <h2 id="inv-title" class="dash-modal__title">Пригласить друга</h2>
+      <p class="dash-modal__text">Скопируйте ссылку и отправьте в мессенджер или на почту.</p>
+      <input id="invite-url" class="dash-modal__input" readonly value="https://subcuro.app/invite/demo">
+      <button type="button" class="btn-primary" id="btn-copy-invite">Копировать ссылку</button>
+    </div>
+  </div>
+
+  <div id="modal-add-payment" class="dash-modal" hidden>
+    <div class="dash-modal__backdrop" data-modal-close></div>
+    <div class="dash-modal__panel" role="dialog" aria-labelledby="add-title">
+      <button type="button" class="dash-modal__x" data-modal-close aria-label="Закрыть">×</button>
+      <h2 id="add-title" class="dash-modal__title">Добавить платёж</h2>
+      <form id="form-add-payment" class="dash-modal__form">
+        <label class="dash-modal__field">Название
+          <input name="name" id="add-name" required maxlength="60" placeholder="Например, Стриминг">
+        </label>
+        <label class="dash-modal__field">Сумма, ₽
+          <input name="amount" id="add-amount" type="number" min="0" step="1" required placeholder="990">
+        </label>
+        <label class="dash-modal__field">Периодичность
+          <select name="cycle" id="add-cycle">
+            <option value="monthly">Ежемесячно</option>
+            <option value="yearly">Ежегодно</option>
+          </select>
+        </label>
+        <label class="dash-modal__field">Следующее списание
+          <input name="nextDue" id="add-next-due" type="date" required>
+        </label>
+        <div class="dash-modal__actions">
+          <button type="button" class="btn-outline" data-modal-close>Отмена</button>
+          <button type="submit" class="btn-primary">Добавить</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/payment-icons.js"></script>
+  <script src="js/dashboard-data.js"></script>
+  <script src="js/service-catalog.js"></script>
+  <script src="js/ai-advisor.js"></script>
+  <script src="js/sidebar.js"></script>
+  <script src="js/today.js"></script>
+</body>
+</html>

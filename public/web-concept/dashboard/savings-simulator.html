@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Симулятор экономии — SubCuro</title>
+  <link rel="stylesheet" href="css/dashboard.css">
+  <link rel="stylesheet" href="css/payments.css">
+</head>
+<body data-page="today">
+  <div class="app-shell">
+    <div id="sidebar-root"></div>
+    <main class="main simx-main">
+      <a class="back-link simx-back" href="today.html">← Назад к Сегодня</a>
+      <header class="main-header">
+        <div>
+          <h1 class="page-title">Симулятор экономии</h1>
+          <p class="page-sub">Посмотрите, где можно сократить регулярные расходы без потери ценности.</p>
+        </div>
+        <div class="header-actions">
+          <button type="button" class="btn-outline simx-help-btn" id="simx-help-btn" style="height:40px;">
+            <img src="/Users/daniil/Downloads/1477521928_10_icon-icons.com_74620.svg" alt="" width="16" height="16">
+            Как работает симулятор?
+          </button>
+          <button type="button" class="btn-outline" id="simx-sync-usage-btn" style="height:40px;">Синхронизировать активность</button>
+          <div class="notif-wrap">
+            <button type="button" class="icon-btn" id="btn-simx-notif" aria-label="Уведомления" title="Уведомления">
+              <span class="dot"></span>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M18 8a6 6 0 10-12 0c0 7-3 7-3 7h18s-3 0-3-7M13.73 21a2 2 0 01-3.46 0"/></svg>
+            </button>
+            <div id="notif-pop-simx" class="notif-pop" hidden>
+              <div class="notif-pop__title">Уведомления</div>
+              <div id="notif-list-simx" class="notif-pop__list"></div>
+            </div>
+          </div>
+          <button type="button" class="btn-primary" id="simx-header-add">+ Добавить</button>
+        </div>
+      </header>
+
+      <section class="card simx-top">
+        <div class="simx-top__art" aria-hidden="true">
+          <img src="/Users/daniil/Downloads/calculator_report_dollar_pen_icon_205113.svg" alt="" width="92" height="92">
+        </div>
+        <div class="simx-top__kpi">
+          <p>Потенциальная экономия</p>
+          <strong id="simx-top-monthly">—<span> / мес</span></strong>
+          <b>Ежемесячно</b>
+        </div>
+        <div class="simx-top__kpi">
+          <p>&nbsp;</p>
+          <strong id="simx-top-yearly">—<span> / год</span></strong>
+          <b>Ежегодно</b>
+        </div>
+        <div class="simx-top__flag" id="simx-top-flag">✦ …</div>
+      </section>
+
+      <section class="card simx-usage-bar" id="simx-usage-bar">
+        <div class="simx-usage-bar__text" id="simx-usage-status">Источник активности: нет данных</div>
+        <div class="simx-usage-bar__actions">
+          <select id="simx-usage-source" class="simx-usage-select" aria-label="Источник активности">
+            <option value="demo">Демо</option>
+            <option value="phone">Телефон</option>
+            <option value="manual">Ручной ввод</option>
+          </select>
+          <button type="button" class="btn-outline" id="simx-sync-usage-btn-inline">Синхронизировать активность</button>
+          <button type="button" class="btn-outline" id="simx-reset-usage-btn">Сбросить активность</button>
+        </div>
+      </section>
+
+      <section class="card simx-price-track" id="simx-price-track-wrap" hidden>
+        <div class="simx-price-track__inner">
+          <div class="simx-price-track__head">
+            <span class="simx-price-track__label">Отслеживание цены</span>
+            <span class="simx-price-track__badge" id="simx-price-track-badge" hidden></span>
+          </div>
+          <p class="simx-price-track__text" id="simx-price-track-text"></p>
+          <div class="simx-price-track__actions">
+            <button type="button" class="btn-outline" id="simx-price-snap-open">Запомнить цену с сайта</button>
+            <button type="button" class="btn-outline" id="simx-price-snap-edit" hidden>Обновить снимок</button>
+            <a class="btn-outline simx-price-track__link" id="simx-price-track-link" href="#" target="_blank" rel="noopener noreferrer" hidden>Страница тарифов</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="card simx-paused-section" id="simx-paused-section" title="«Добавить в очередь» ставит остальные сервисы группы на паузу; включить снова — в редакторе платежа.">
+        <div class="simx-paused-bar">
+          <h2 class="simx-paused-title" id="simx-queue-block">На паузе</h2>
+          <a href="payments.html#paused" class="simx-paused-link">Платежи → на паузе</a>
+        </div>
+        <div id="simx-paused-list" class="simx-paused-list"></div>
+      </section>
+
+      <section class="card simx-manual" id="simx-manual-wrap" hidden>
+        <div class="simx-manual__head">
+          <h3>Ручной ввод активности (часы за 30 дней)</h3>
+          <button type="button" class="btn-outline" id="simx-manual-apply">Применить</button>
+        </div>
+        <div id="simx-manual-list" class="simx-manual__list"></div>
+      </section>
+
+      <section class="simx-grid">
+        <div class="simx-left">
+          <article class="card simx-card">
+            <div class="simx-card__head">
+              <h2>1. Найдены похожие сервисы</h2>
+              <span class="chip">Высокий приоритет</span>
+            </div>
+            <p class="simx-muted">Пересечение по категории: <strong id="simx-category-label">—</strong></p>
+            <div class="simx-pairs">
+              <div class="simx-services" id="simx-services-list"></div>
+              <aside class="simx-ai">
+                <span class="chip simx-ai-chip">✦ AI-рекомендация</span>
+                <h3 id="simx-ai-title">У вас 0 похожих сервисов в категории.</h3>
+                <p id="simx-ai-text">Выберите 1 основной сервис, остальные можно отключить.</p>
+                <strong id="simx-ai-save">Возможная экономия: 0 ₽ / мес.</strong>
+                <div class="simx-ai__actions">
+                  <button type="button" class="btn-outline simx-btn-inline" id="simx-btn-compare" data-sim-action="compare">
+                    <img src="/Users/daniil/Downloads/chart_vertical_bar_chart_icon_264076.svg" alt="" width="18" height="18">
+                    Сравнить
+                  </button>
+                  <button type="button" class="btn-primary" id="simx-btn-best" data-sim-action="best">Оставить лучший</button>
+                </div>
+                <button type="button" class="btn-outline simx-ai__queue" id="simx-btn-queue" data-sim-action="queue">＋ Добавить в очередь</button>
+              </aside>
+            </div>
+          </article>
+
+          <article class="card simx-card">
+            <h2>2. Сценарии</h2>
+            <div class="simx-scenarios" id="simx-scenarios-list">
+              <div class="simx-scenario simx-scenario--hot">
+                <div class="simx-scenario__title">Отключить дубликаты</div>
+                <div class="simx-scenario__kpi"><strong>2 890 ₽</strong><span>/ мес</span></div>
+                <div class="simx-scenario__sub">34 680 ₽ / год</div>
+              </div>
+              <div class="simx-scenario">
+                <div class="simx-scenario__title">Поставить на паузу</div>
+                <div class="simx-scenario__kpi"><strong>1 240 ₽</strong><span>/ мес</span></div>
+                <div class="simx-scenario__sub">14 880 ₽ / год</div>
+              </div>
+              <div class="simx-scenario">
+                <div class="simx-scenario__title">Перейти на более дешёвый тариф</div>
+                <div class="simx-scenario__kpi"><strong>1 180 ₽</strong><span>/ мес</span></div>
+                <div class="simx-scenario__sub">14 160 ₽ / год</div>
+              </div>
+            </div>
+            <a href="#" class="link-all simx-link" id="simx-show-all-scenarios">Показать все сценарии (6)</a>
+          </article>
+        </div>
+
+        <aside class="simx-right">
+          <article class="card simx-card">
+            <h2>После изменений</h2>
+            <div class="simx-after-head">
+              <div><span>Сейчас</span><strong id="simx-now">0 ₽ / мес</strong></div>
+              <div><span>После изменений</span><strong id="simx-after">0 ₽ / мес</strong></div>
+            </div>
+            <span class="chip tag-green" id="simx-pct">0%</span>
+            <div class="simx-after-bar">
+              <span id="simx-bar-now" style="width:100%"></span>
+              <i id="simx-bar-save" style="width:0%"></i>
+            </div>
+            <div class="simx-donut-row">
+              <div class="simx-donut" id="simx-donut"><span id="simx-donut-text">0%</span></div>
+              <div class="simx-legend">
+                <p><em class="a"></em>Останется <b id="simx-left">0 ₽ / мес</b></p>
+                <p><em class="b"></em>Вы сэкономите <b id="simx-save">0 ₽ / мес</b></p>
+              </div>
+            </div>
+            <a href="#" class="link-all simx-link" id="simx-detail-link">Посмотреть детализацию →</a>
+          </article>
+
+          <article class="card simx-card">
+            <h2>3. Почему мы советуем это</h2>
+            <ul class="simx-reasons" id="simx-reasons-list"></ul>
+          </article>
+        </aside>
+      </section>
+
+      <div class="sticky-bar simx-sticky">
+        <button type="button" class="btn-p" id="simx-btn-queue-main" data-sim-action="queue">⚡ Добавить рекомендации в очередь действий</button>
+        <button type="button" class="btn-g" onclick="window.location.href='today.html'">Вернуться к Сегодня</button>
+        <span class="disclaimer">Ничего не будет изменено автоматически — вы решаете, что отключить или изменить.</span>
+      </div>
+    </main>
+  </div>
+  <script src="js/payment-icons.js"></script>
+  <script src="js/dashboard-data.js"></script>
+  <script src="js/service-catalog.js"></script>
+  <script src="js/scenario-library.js"></script>
+  <script src="js/price-snapshot.js"></script>
+  <script src="js/ai-advisor.js"></script>
+  <script src="js/sidebar.js"></script>
+  <script src="js/savings-simulator.js"></script>
+</body>
+</html>

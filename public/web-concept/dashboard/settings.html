@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Настройки — SubCuro</title>
+  <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body data-page="settings">
+  <div class="app-shell">
+    <div id="sidebar-root"></div>
+    <main class="main">
+      <header class="main-header">
+        <div>
+          <h1 class="page-title">Настройки</h1>
+          <p class="page-sub">Воскресенье, 26 апреля 2025</p>
+        </div>
+        <div class="header-actions">
+          <div class="search-wrap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input type="search" placeholder="Поиск по сервисам, категориям…" aria-label="Поиск">
+          </div>
+          <button type="button" class="icon-btn" aria-label="Уведомления"><span class="dot"></span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M18 8a6 6 0 10-12 0c0 7-3 7-3 7h18s-3 0-3-7M13.73 21a2 2 0 01-3.46 0"/></svg></button>
+          <button type="button" class="btn-primary">+ Добавить</button>
+        </div>
+      </header>
+
+      <div class="settings-section">
+        <p class="label">УВЕДОМЛЕНИЯ</p>
+        <div class="card settings-card">
+          <div class="row">
+            <div class="row-icon" style="background:#ede9fc;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="1.75"><path d="M18 8a6 6 0 10-12 0c0 7-3 7-3 7h18s-3 0-3-7M13.73 21a2 2 0 01-3.46 0"/></svg></div>
+            <div class="row-body"><strong>Push-уведомления</strong><span>О списаниях и действиях по платежам</span></div>
+            <button type="button" class="toggle settings-toggle is-on" data-setting-toggle="push" aria-label="Push-уведомления"></button>
+          </div>
+          <div class="row">
+            <div class="row-icon" style="background:#ede9fc;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="1.75"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 8l9 5 9-5"/></svg></div>
+            <div class="row-body"><strong>Email-уведомления</strong><span>Еженедельный отчёт и важные обновления</span></div>
+            <button type="button" class="toggle settings-toggle is-on" data-setting-toggle="email" aria-label="Email-уведомления"></button>
+          </div>
+          <div class="row">
+            <div class="row-icon" style="background:#ede9fc;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="1.75"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/></svg></div>
+            <div class="row-body"><strong>Напоминание о пробном периоде</strong><span>За 3 дня до окончания пробного периода</span></div>
+            <button type="button" class="toggle settings-toggle is-on" data-setting-toggle="trial" aria-label="Напоминание о пробном периоде"></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <p class="label">БЕЗОПАСНОСТЬ</p>
+        <div class="card settings-card">
+          <a href="#" class="row" style="text-decoration:none;color:inherit;" data-action="change-password">
+            <div class="row-icon" style="background:#f2fcfc;">
+              <img src="/Users/daniil/Downloads/locker_safe_lock_password_secure_protection_safety_security_shield_icon_258626.svg" alt="" width="22" height="22">
+            </div>
+            <div class="row-body"><strong>Изменить пароль</strong><span>Обновите пароль для защиты аккаунта</span></div>
+            <span class="row-arrow">›</span>
+          </a>
+          <a href="#" class="row" style="text-decoration:none;color:inherit;" data-action="2fa">
+            <div class="row-icon" style="background:#f2fcfc;">
+              <img src="/Users/daniil/Downloads/security-protection-protect-key-password-login_108554.svg" alt="" width="22" height="22">
+            </div>
+            <div class="row-body"><strong>Двухфакторная аутентификация</strong><span>Дополнительный уровень защиты для входа</span></div>
+            <span class="row-arrow">›</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <p class="label">ПОДДЕРЖКА</p>
+        <div class="card settings-card">
+          <a href="#" class="row" style="text-decoration:none;color:inherit;" data-action="support-email">
+            <div class="row-body"><strong>Написать в поддержку</strong><span>hello@subcuro.app</span></div>
+            <span class="row-arrow">›</span>
+          </a>
+          <a href="#" class="row" style="text-decoration:none;color:inherit;" data-action="faq">
+            <div class="row-body"><strong>Частые вопросы</strong><span>Ответы на основные вопросы</span></div>
+            <span class="row-arrow">›</span>
+          </a>
+          <a href="#" class="row" style="text-decoration:none;color:inherit;" data-action="report-problem">
+            <div class="row-body"><strong>Сообщить о проблеме</strong><span>Отправить отчёт разработчикам</span></div>
+            <span class="row-arrow">›</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <p class="label">ПРАВОВАЯ ИНФОРМАЦИЯ</p>
+        <div class="card settings-card">
+          <a href="#" class="row" style="text-decoration:none;color:inherit;" data-action="privacy">
+            <div class="row-body"><strong>Политика конфиденциальности</strong></div>
+            <span class="row-arrow">›</span>
+          </a>
+          <a href="#" class="row" style="text-decoration:none;color:inherit;" data-action="terms">
+            <div class="row-body"><strong>Условия использования</strong></div>
+            <span class="row-arrow">›</span>
+          </a>
+          <a href="#" class="row" style="text-decoration:none;color:inherit;" data-action="license">
+            <div class="row-body"><strong>Лицензионное соглашение</strong></div>
+            <span class="row-arrow">›</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <p class="label">О ПРИЛОЖЕНИИ</p>
+        <div class="card settings-card">
+          <div class="row">
+            <div class="row-body"><strong>Версия приложения</strong></div>
+            <span class="badge-status active">1.4.2</span>
+          </div>
+          <a href="#" class="row" style="text-decoration:none;color:inherit;" data-action="whats-new">
+            <div class="row-body"><strong>Что нового</strong></div>
+            <span class="row-arrow">›</span>
+          </a>
+          <a href="#" class="row" style="text-decoration:none;color:inherit;" data-action="rate-app">
+            <div class="row-body"><strong>Оценить приложение</strong></div>
+            <span class="row-arrow">›</span>
+          </a>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="settings-modal" class="settings-modal" hidden>
+    <div class="settings-modal__backdrop" data-settings-modal-close></div>
+    <div class="settings-modal__panel" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
+      <button type="button" class="settings-modal__close" data-settings-modal-close aria-label="Закрыть">×</button>
+      <h2 id="settings-modal-title" class="settings-modal__title">Информация</h2>
+      <div id="settings-modal-body" class="settings-modal__body"></div>
+      <div class="settings-modal__actions">
+        <button type="button" class="btn-outline" data-settings-modal-close>Понятно</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/dashboard-data.js"></script>
+  <script src="js/sidebar.js"></script>
+  <script src="js/settings.js"></script>
+</body>
+</html>

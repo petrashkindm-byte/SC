@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Платежи — SubCuro</title>
+  <link rel="stylesheet" href="css/dashboard.css">
+  <link rel="stylesheet" href="css/payments.css">
+</head>
+<body data-page="payments">
+  <div class="app-shell">
+    <div id="sidebar-root"></div>
+    <main class="main">
+      <header class="main-header">
+        <div>
+          <h1 class="page-title">Платежи</h1>
+          <p class="page-sub" id="payments-live-sub">Загрузка…</p>
+        </div>
+        <div class="header-actions">
+          <div class="search-wrap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input id="payments-search" type="search" placeholder="Поиск по сервисам, категориям…" aria-label="Поиск">
+          </div>
+          <div class="notif-wrap">
+            <button type="button" class="icon-btn" id="btn-pay-notif" aria-label="Уведомления" title="Уведомления">
+              <span class="dot"></span>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M18 8a6 6 0 10-12 0c0 7-3 7-3 7h18s-3 0-3-7M13.73 21a2 2 0 01-3.46 0"/></svg>
+            </button>
+            <div id="notif-pop-pay" class="notif-pop" hidden>
+              <div class="notif-pop__title">Уведомления</div>
+              <div id="notif-list-pay" class="notif-pop__list"></div>
+            </div>
+          </div>
+          <button type="button" class="btn-primary" id="payments-btn-add">+ Добавить</button>
+        </div>
+      </header>
+
+      <div class="filter-tabs">
+        <button type="button" class="active" data-filter="all">Все</button>
+        <button type="button" data-filter="active">Активные</button>
+        <button type="button" data-filter="soon">Скоро спишутся</button>
+        <button type="button" data-filter="paused">На паузе</button>
+        <button type="button" data-filter="cancelled">Отменённые</button>
+      </div>
+
+      <div class="card table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Сервис</th>
+              <th>Следующее списание</th>
+              <th>Цикл оплаты</th>
+              <th>Сумма</th>
+              <th>Статус</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="payments-tbody"></tbody>
+        </table>
+      </div>
+
+      <section class="payments-collections" aria-labelledby="payments-collections-title">
+        <a href="collections.html" class="pc-entry-card">
+          <div class="pc-entry-card__text">
+            <span class="pc-entry-card__eyebrow" id="payments-collections-title">Коллекции</span>
+            <h2>Подписки по разделам</h2>
+            <p>Откройте отдельную страницу категорий с суммой в месяц, долей и списком сервисов, включая пустые разделы.</p>
+          </div>
+          <span class="pc-entry-card__go" aria-hidden="true">›</span>
+        </a>
+      </section>
+    </main>
+  </div>
+
+  <div id="pay-add-modal" class="dash-modal" hidden>
+    <div class="dash-modal__backdrop" data-close></div>
+    <div class="dash-modal__panel dash-modal__panel--wide">
+      <button type="button" class="dash-modal__x" data-close aria-label="Закрыть">×</button>
+      <h2 class="dash-modal__title">Новый платёж</h2>
+      <p class="dash-modal__text">Выберите иконку категории и заполните данные — строка в списке и предпросмотр обновляются сразу.</p>
+      <form id="pay-add-form" class="dash-modal__form">
+        <label class="dash-modal__field">Название сервиса
+          <input id="pay-add-name" name="name" type="text" required maxlength="60" placeholder="Например, Музыка" autocomplete="off">
+        </label>
+        <label class="dash-modal__field" id="pay-add-amount-label"><span id="pay-add-amount-lbl">Сумма, ₽</span>
+          <input id="pay-add-amount" name="amount" type="number" min="0" step="1" value="299" required>
+        </label>
+        <span class="dash-modal__field" style="margin-bottom:4px;">Валюта</span>
+        <div class="pill-row" id="pay-add-currency-pills" role="group" aria-label="Валюта">
+          <button type="button" class="pill-btn is-on" data-cur="RUB"><span class="pill-check">✓</span> RUB</button>
+          <button type="button" class="pill-btn" data-cur="USD"><span class="pill-check">✓</span> USD</button>
+          <button type="button" class="pill-btn" data-cur="EUR"><span class="pill-check">✓</span> EUR</button>
+        </div>
+        <span class="dash-modal__field" style="margin-top:10px;margin-bottom:4px;">Карта оплаты</span>
+        <div class="pill-row card-pick-row" id="pay-add-card-pills" role="group" aria-label="Карта"></div>
+        <label class="dash-modal__field">Цикл оплаты
+          <select id="pay-add-cycle" name="cycle">
+            <option value="monthly" selected>Ежемесячно</option>
+            <option value="yearly">Ежегодно</option>
+          </select>
+        </label>
+        <label class="dash-modal__field">Следующее списание
+          <input id="pay-add-next" name="nextDue" type="date" required>
+        </label>
+        <input type="hidden" id="pay-form-icon" name="icon" value="payments">
+        <span class="dash-modal__field" style="margin-bottom:4px;">Иконка категории</span>
+        <div id="pay-icon-picker" class="icon-picker" aria-label="Выбор иконки"></div>
+        <span class="dash-modal__field" style="margin-top:12px;margin-bottom:4px;">Предпросмотр в списке</span>
+        <div id="pay-add-preview" class="pay-add-preview"></div>
+        <div class="dash-modal__actions">
+          <button type="button" class="btn-outline" data-close>Отмена</button>
+          <button type="submit" class="btn-primary btn-save-green">Добавить</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/payment-icons.js"></script>
+  <script src="js/dashboard-data.js"></script>
+  <script src="js/sidebar.js"></script>
+  <script src="js/payments-table.js"></script>
+</body>
+</html>
