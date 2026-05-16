@@ -543,20 +543,15 @@ export default function AuthLanding() {
                 </button>
                 <button
                   type="button"
-                  className="auth-social-btn"
-                  disabled={oauthLoading !== null}
-                  onClick={() => void handleOAuth('apple')}
+                  className="auth-social-btn auth-social-btn--soon"
+                  disabled
+                  title="Скоро"
                 >
-                  {oauthLoading === 'apple' ? (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="auth-spinner">
-                      <circle cx="12" cy="12" r="9" stroke="#9ca3af" strokeWidth="2" strokeDasharray="28 56" />
-                    </svg>
-                  ) : (
-                    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-                      <path fill="#111827" d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701" />
-                    </svg>
-                  )}
-                  {oauthLoading === 'apple' ? 'Перенаправление…' : 'Продолжить с Apple'}
+                  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+                    <path fill="#9ca3af" d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701" />
+                  </svg>
+                  Продолжить с Apple
+                  <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, color: '#9ca3af', background: 'rgba(0,0,0,0.06)', borderRadius: 6, padding: '2px 7px' }}>Скоро</span>
                 </button>
               </div>
               <p className="auth-footnote">
@@ -634,6 +629,7 @@ export default function AuthLanding() {
         .auth-footnote { margin-top: 12px; text-align: center; font-size: 12px; color: #6b7280; display: flex; align-items: center; justify-content: center; gap: 8px; }
         .auth-footnote svg { color: #9ca3af; flex-shrink: 0; }
         .auth-social-btn:disabled { opacity: .6; cursor: not-allowed; }
+        .auth-social-btn--soon { opacity: .5; color: #9ca3af; }
         @keyframes auth-spin { to { transform: rotate(360deg); } }
         .auth-spinner { animation: auth-spin .8s linear infinite; }
         @media (max-width: 760px) {
