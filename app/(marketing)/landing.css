@@ -3192,7 +3192,9 @@ p.ws-proof-copy {
 .forwhom-hz--4 { left: 66.5%; }
 
 /* ── Текст внутри hover-зоны ── */
+/* На десктопе текст скрыт — он встроен в фоновую картинку */
 .forwhom-card-text {
+  display: none;
   padding: 0;
 }
 
@@ -3241,6 +3243,10 @@ p.ws-proof-copy {
   .forwhom-bg,
   .forwhom-board::after {
     display: none;
+  }
+  /* На мобильном показываем HTML-текст */
+  .forwhom-card-text {
+    display: block;
   }
   .forwhom-card-title { font-size: 14px; }
   .forwhom-card-desc  { font-size: 13px; }
