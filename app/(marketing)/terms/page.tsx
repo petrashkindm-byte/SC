@@ -7,12 +7,12 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   return (
-    <div style={{ minHeight: '100vh' }}>
+    <div style={{ minHeight: '100vh', background: '#F7EDE2' }}>
       {/* Simple nav */}
       <nav style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '16px 32px', borderBottom: '1px solid rgba(0,0,0,0.07)',
-        background: 'rgba(249,247,242,0.92)', backdropFilter: 'blur(12px)',
+        background: 'rgba(247,237,226,0.96)', backdropFilter: 'blur(12px)',
         position: 'sticky', top: 0, zIndex: 100,
       }}>
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
