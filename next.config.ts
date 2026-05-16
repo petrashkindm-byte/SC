@@ -9,6 +9,17 @@ const nextConfig: NextConfig = {
   async redirects() {
     return []
   },
+  // Proxy Supabase through subcuro.app — browser never touches supabase.co directly.
+  // Fixes access for Russian users without VPN.
+  async rewrites() {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+    return [
+      {
+        source: '/api/sb/:path*',
+        destination: `${supabaseUrl}/:path*`,
+      },
+    ]
+  },
   // Статика лендинга: не кэшировать в dev, иначе кажется что «ничего не меняется».
   async headers() {
     return [
