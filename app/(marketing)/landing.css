@@ -770,9 +770,11 @@ a.btn-ghost {
     position: static;
     inset: auto;
     margin: 0 0 12px;
+    background: none; /* убираем desktop background-image, используем <img> */
   }
 
   .slide1__bg-image {
+    display: block; /* показываем img тег на мобильном */
     position: static;
     width: 100%;
     max-width: 1024px;
@@ -789,6 +791,7 @@ a.btn-ghost {
   }
 
   .slide1__content {
+    width: 100%;
     max-width: 100%;
     padding-top: 0;
   }
@@ -798,7 +801,7 @@ a.btn-ghost {
   }
 
   .slide1__features {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, 1fr);
     max-width: 100%;
     gap: 10px;
   }
