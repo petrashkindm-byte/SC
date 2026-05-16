@@ -2730,7 +2730,7 @@ p.ws-proof-copy {
 }
 
 .app-store-btn--soon .app-store-text small::after {
-  content: ' · скоро';
+  content: '';
 }
 
 .app-store-icon {
