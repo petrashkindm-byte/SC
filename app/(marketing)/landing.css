@@ -2945,6 +2945,8 @@ p.ws-proof-copy {
   .nav-links { display: none; }
   .nav-hamburger { display: flex; }
   .lang-switcher { display: none; }
+  /* На мобильном скрываем большую кнопку в навбаре — она есть в гамбургер-меню */
+  .nav-pill .btn-primary { display: none; }
   .btn-ghost {
     font-size: 15px;
     padding: 10px 14px;
