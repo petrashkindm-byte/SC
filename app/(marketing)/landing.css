@@ -3215,7 +3215,7 @@ p.ws-proof-copy {
 }
 
 @media (max-width: 720px) {
-  /* На планшете/мобайле — текст отдельным блоком под картинкой */
+  /* На планшете/мобайле — текст отдельным блоком, без фоновой картинки */
   .forwhom-hz {
     position: static;
     width: 100%;
@@ -3229,6 +3229,13 @@ p.ws-proof-copy {
     display: flex;
     flex-direction: column;
     gap: 12px;
+    aspect-ratio: unset;
+    overflow: visible;
+  }
+  /* Скрываем фоновую картинку и оверлеи — на мобильном не нужны */
+  .forwhom-bg,
+  .forwhom-board::after {
+    display: none;
   }
   .forwhom-card-title { font-size: 14px; }
   .forwhom-card-desc  { font-size: 13px; }

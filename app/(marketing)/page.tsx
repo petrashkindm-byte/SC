@@ -368,10 +368,30 @@ export default function LandingPage() {
 
           <div className="forwhom-board">
             <div className="forwhom-bg" aria-hidden="true" />
-            <div className="forwhom-hz forwhom-hz--1" role="listitem" />
-            <div className="forwhom-hz forwhom-hz--2" role="listitem" />
-            <div className="forwhom-hz forwhom-hz--3" role="listitem" />
-            <div className="forwhom-hz forwhom-hz--4" role="listitem" />
+            <div className="forwhom-hz forwhom-hz--1" role="listitem">
+              <div className="forwhom-card-text">
+                <p className="forwhom-card-title">Для тех, у кого много регулярных платежей</p>
+                <p className="forwhom-card-desc">Все сервисы и списания в одном месте — легко управлять и ничего не забывать.</p>
+              </div>
+            </div>
+            <div className="forwhom-hz forwhom-hz--2" role="listitem">
+              <div className="forwhom-card-text">
+                <p className="forwhom-card-title">Для семейного бюджета</p>
+                <p className="forwhom-card-desc">Контролируйте общие расходы и планируйте вместе с близкими.</p>
+              </div>
+            </div>
+            <div className="forwhom-hz forwhom-hz--3" role="listitem">
+              <div className="forwhom-card-text">
+                <p className="forwhom-card-title">Для фрилансеров и small business</p>
+                <p className="forwhom-card-desc">Отслеживайте рабочие сервисы и оптимизируйте бизнес-расходы.</p>
+              </div>
+            </div>
+            <div className="forwhom-hz forwhom-hz--4" role="listitem">
+              <div className="forwhom-card-text">
+                <p className="forwhom-card-title">Для тех, кто не хочет сюрпризов</p>
+                <p className="forwhom-card-desc">Получайте уведомления о списаниях и продлениях заранее.</p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
