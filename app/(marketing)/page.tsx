@@ -1,4 +1,5 @@
 import LandingInteractions from './LandingInteractions'
+import LangSwitcherWidget from './LangSwitcherWidget'
 
 const CheckIcon = () => (
   <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
@@ -38,10 +39,7 @@ export default function LandingPage() {
           </ul>
 
           <div className="nav-right">
-            <div className="lang-switcher" role="group" aria-label="Язык">
-              <button className="lang-btn active" aria-pressed="true">RU</button>
-              <button className="lang-btn" aria-pressed="false">EN</button>
-            </div>
+            <LangSwitcherWidget />
             <a href="/auth?tab=login" className="btn-ghost" data-i18n="nav.login">Войти</a>
             <a href="/auth?tab=register" className="btn-primary" data-i18n="nav.start">Начать бесплатно</a>
             <button className="nav-hamburger" id="hamburger" aria-label="Открыть меню" aria-expanded="false">

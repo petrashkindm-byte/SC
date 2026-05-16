@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { Suspense } from 'react'
 import type { Subscription } from '@/lib/supabase/types'
 import CollectionsClient from './CollectionsClient'
 
@@ -19,7 +20,9 @@ export default async function CollectionsPage() {
   return (
     <main className="px-6 py-6">
       <div className="max-w-[1180px]">
-        <CollectionsClient subs={subs} />
+        <Suspense fallback={null}>
+          <CollectionsClient subs={subs} />
+        </Suspense>
       </div>
     </main>
   )

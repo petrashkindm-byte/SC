@@ -1,12 +1,15 @@
 'use client'
 
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState, useTransition } from 'react'
-import DashboardScreenHeader from '@/app/dashboard/DashboardScreenHeader'
-import type { Subscription } from '@/lib/supabase/types'
+import { useEffect, useMemo, useState, useTransition } from 'react'
+import type { Reminder, Subscription } from '@/lib/supabase/types'
 import PasswordChangeForm from '@/app/dashboard/profile/PasswordChangeForm'
-import { setPushEnabled } from './actions'
+import { setPriceAlertPreferences, setPushEnabled } from './actions'
+import { usePushSubscription } from '@/lib/usePushSubscription'
 import { getSettingsModalContent, type SettingsModalKey } from './settings-modal-content'
+import { actionButtonClass } from '@/app/dashboard/ui/action-button'
+import { useLang } from '@/lib/LangContext'
 
 const LS_KEY = 'subcuro_settings_v1'
 
@@ -114,6 +117,10 @@ function Icon2FA() {
 type Props = {
   subs: Subscription[]
   pushEnabledInitial: boolean
+  priceAlertsEnabledInitial: boolean
+  priceAlertMinChangePctInitial: number
+  priceAlertDigestInitial: 'instant' | 'daily' | 'weekly'
+  reminderHistory: Reminder[]
   pwdOk?: boolean
   pwdError?: string | null
   error?: string | null
@@ -124,15 +131,39 @@ const APP_VERSION = '1.4.2'
 export default function SettingsPageClient({
   subs,
   pushEnabledInitial,
+  priceAlertsEnabledInitial,
+  priceAlertMinChangePctInitial,
+  priceAlertDigestInitial,
+  reminderHistory,
   pwdOk,
   pwdError,
   error,
 }: Props) {
+  const { lang, strings } = useLang()
+  const s = strings.settings
+  const formatDateTime = (iso: string) => {
+    try {
+      const locale = lang === 'en' ? 'en-US' : 'ru-RU'
+      return new Date(iso).toLocaleString(locale, {
+        day: '2-digit',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    } catch {
+      return iso
+    }
+  }
   const router = useRouter()
   const [pending, startTransition] = useTransition()
+  const { status: pushBrowserStatus, subscribe: pushSubscribe, unsubscribe: pushUnsubscribe } = usePushSubscription()
   const [pushOn, setPushOn] = useState(() => pushEnabledInitial)
   const [emailOn, setEmailOn] = useState(() => readLocalEmailTrial().email)
   const [trialOn, setTrialOn] = useState(() => readLocalEmailTrial().trial)
+  const [priceAlertsOn, setPriceAlertsOn] = useState(() => priceAlertsEnabledInitial)
+  const [priceAlertMinChangePct, setPriceAlertMinChangePct] = useState(() => priceAlertMinChangePctInitial)
+  const [priceAlertDigest, setPriceAlertDigest] = useState<'instant' | 'daily' | 'weekly'>(() => priceAlertDigestInitial)
+  const [historyFilter, setHistoryFilter] = useState<'all' | 'queued' | 'sent'>('all')
   const [modal, setModal] = useState<SettingsModalKey | null>(null)
   const [pwdOpen, setPwdOpen] = useState(() => Boolean(pwdOk || pwdError))
   const [toast, setToast] = useState<string | null>(null)
@@ -146,19 +177,34 @@ export default function SettingsPageClient({
   const toastMsg = (text: string) => setToast(text)
 
   const syncPush = (next: boolean) => {
+    if (pushBrowserStatus === 'unsupported') {
+      toastMsg(s.pushUnsupportedBrowser)
+      return
+    }
+    if (pushBrowserStatus === 'denied') {
+      toastMsg(s.pushBrowserBlocked)
+      return
+    }
     const prev = pushOn
     setPushOn(next)
     saveLocalPrefs(next, emailOn, trialOn)
     startTransition(async () => {
-      try {
-        await setPushEnabled(next)
-        router.refresh()
-        toastMsg(next ? 'Включено' : 'Выключено')
-      } catch {
-        // Если сервер не применил изменение, откатываем UI к прошлому состоянию.
+      // 1. Browser-level subscribe / unsubscribe
+      const browserOk = next ? await pushSubscribe() : await pushUnsubscribe()
+      if (!browserOk) {
         setPushOn(prev)
         saveLocalPrefs(prev, emailOn, trialOn)
-        toastMsg('Не удалось сохранить настройку')
+        toastMsg(next ? s.pushPermissionDenied : s.pushDisableFailed)
+        return
+      }
+      // 2. Save flag to DB
+      const result = await setPushEnabled(next)
+      if (!result.ok) {
+        setPushOn(prev)
+        saveLocalPrefs(prev, emailOn, trialOn)
+        toastMsg(s.saveFailed)
+      } else {
+        toastMsg(next ? s.pushOn : s.pushOff)
       }
     })
   }
@@ -166,69 +212,227 @@ export default function SettingsPageClient({
   const setEmail = (next: boolean) => {
     setEmailOn(next)
     saveLocalPrefs(pushOn, next, trialOn)
-    toastMsg(next ? 'Включено' : 'Выключено')
+    toastMsg(next ? s.on : s.off)
   }
 
   const setTrial = (next: boolean) => {
     setTrialOn(next)
     saveLocalPrefs(pushOn, emailOn, next)
-    toastMsg(next ? 'Включено' : 'Выключено')
+    toastMsg(next ? s.on : s.off)
+  }
+
+  const syncPriceAlerts = (next: {
+    enabled?: boolean
+    minChangePct?: number
+    digest?: 'instant' | 'daily' | 'weekly'
+  }) => {
+    const prev = {
+      enabled: priceAlertsOn,
+      minChangePct: priceAlertMinChangePct,
+      digest: priceAlertDigest,
+    }
+    const merged = {
+      enabled: next.enabled ?? prev.enabled,
+      minChangePct: next.minChangePct ?? prev.minChangePct,
+      digest: next.digest ?? prev.digest,
+    }
+    setPriceAlertsOn(merged.enabled)
+    setPriceAlertMinChangePct(merged.minChangePct)
+    setPriceAlertDigest(merged.digest)
+    startTransition(async () => {
+      try {
+        await setPriceAlertPreferences({
+          enabled: merged.enabled,
+          minChangePct: merged.minChangePct,
+          digest: merged.digest,
+        })
+        router.refresh()
+        toastMsg(s.alertsUpdated)
+      } catch {
+        setPriceAlertsOn(prev.enabled)
+        setPriceAlertMinChangePct(prev.minChangePct)
+        setPriceAlertDigest(prev.digest)
+        toastMsg(s.alertsSaveFailed)
+      }
+    })
   }
 
   const mc = modal ? getSettingsModalContent(modal) : null
+  const filteredHistory = useMemo(() => {
+    if (historyFilter === 'queued') return reminderHistory.filter((r) => !r.delivered_at)
+    if (historyFilter === 'sent') return reminderHistory.filter((r) => Boolean(r.delivered_at))
+    return reminderHistory
+  }, [historyFilter, reminderHistory])
+  const subscriptionNameById = useMemo(
+    () => new Map(subs.map((s) => [s.id, s.name])),
+    [subs],
+  )
 
   return (
     <>
-      <DashboardScreenHeader title="Настройки" subs={subs} addButtonVariant="plus-text" />
+      <header className="mb-6">
+        <h1 className="text-[1.75rem] font-bold tracking-[-0.03em] text-[#1a1a2e]">{s.title}</h1>
+      </header>
 
       {error === 'push' ? (
         <p className="mb-4 rounded-xl border border-[#f3c5c7] bg-[#fdecec] px-4 py-3 text-sm text-[#e5484d]">
-          Не удалось сохранить настройку push. Попробуйте снова.
+          {s.errorPush}
+        </p>
+      ) : null}
+      {error === 'price_alerts' ? (
+        <p className="mb-4 rounded-xl border border-[#f3c5c7] bg-[#fdecec] px-4 py-3 text-sm text-[#e5484d]">
+          {s.errorPriceAlerts}
         </p>
       ) : null}
 
       <section className="mb-5">
-        <p className="mb-2.5 ml-1 text-[11px] font-semibold tracking-[0.06em] text-[#6b6b80]">УВЕДОМЛЕНИЯ</p>
+        <p className="mb-2.5 ml-1 text-[11px] font-semibold tracking-[0.06em] text-[#6b6b80]">{s.notifications}</p>
         <div className={cardClass}>
           <div className={rowClass}>
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] bg-[#ede9fc]" aria-hidden>
               <IconBell />
             </div>
             <div className="min-w-0 flex-1">
-              <strong className="block text-sm text-[#1a1a2e]">Push-уведомления</strong>
-              <span className="text-xs text-[#6b6b80]">О списаниях и действиях по платежам</span>
+              <strong className="block text-sm text-[#1a1a2e]">{s.push}</strong>
+              <span className="text-xs text-[#6b6b80]">{s.pushSub}</span>
             </div>
-            <RowToggle
-              on={pushOn}
-              ariaLabel="Push-уведомления"
-              onClick={() => !pending && syncPush(!pushOn)}
-            />
+            {pushBrowserStatus === 'denied' ? (
+              <span className="text-[11px] text-[#e5484d] font-medium">{s.pushBlocked}</span>
+            ) : pushBrowserStatus === 'unsupported' ? (
+              <span className="text-[11px] text-[#8e8e93]">{s.pushUnsupported}</span>
+            ) : (
+              <RowToggle
+                on={pushBrowserStatus === 'subscribed' || pushOn}
+                ariaLabel={s.push}
+                onClick={() => !pending && pushBrowserStatus !== 'loading' && syncPush(!(pushBrowserStatus === 'subscribed' || pushOn))}
+              />
+            )}
           </div>
           <div className={rowClass}>
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] bg-[#ede9fc]" aria-hidden>
               <IconMail />
             </div>
             <div className="min-w-0 flex-1">
-              <strong className="block text-sm text-[#1a1a2e]">Email-уведомления</strong>
-              <span className="text-xs text-[#6b6b80]">Еженедельный отчёт и важные обновления</span>
+              <strong className="block text-sm text-[#1a1a2e]">{s.email}</strong>
+              <span className="text-xs text-[#6b6b80]">{s.emailSub}</span>
             </div>
-            <RowToggle on={emailOn} ariaLabel="Email-уведомления" onClick={() => setEmail(!emailOn)} />
+            <RowToggle on={emailOn} ariaLabel={s.email} onClick={() => setEmail(!emailOn)} />
           </div>
           <div className={rowClass}>
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] bg-[#ede9fc]" aria-hidden>
               <IconCalendar />
             </div>
             <div className="min-w-0 flex-1">
-              <strong className="block text-sm text-[#1a1a2e]">Напоминание о пробном периоде</strong>
-              <span className="text-xs text-[#6b6b80]">За 3 дня до окончания пробного периода</span>
+              <strong className="block text-sm text-[#1a1a2e]">{s.trial}</strong>
+              <span className="text-xs text-[#6b6b80]">{s.trialSub}</span>
             </div>
-            <RowToggle on={trialOn} ariaLabel="Напоминание о пробном периоде" onClick={() => setTrial(!trialOn)} />
+            <RowToggle on={trialOn} ariaLabel={s.trial} onClick={() => setTrial(!trialOn)} />
           </div>
         </div>
       </section>
 
       <section className="mb-5">
-        <p className="mb-2.5 ml-1 text-[11px] font-semibold tracking-[0.06em] text-[#6b6b80]">БЕЗОПАСНОСТЬ</p>
+        <p className="mb-2.5 ml-1 text-[11px] font-semibold tracking-[0.06em] text-[#6b6b80]">{s.priceNotifications}</p>
+        <div className={cardClass}>
+          <div className={rowClass}>
+            <div className="min-w-0 flex-1">
+              <strong className="block text-sm text-[#1a1a2e]">{s.priceTracking}</strong>
+              <span className="text-xs text-[#6b6b80]">{s.priceTrackingSub}</span>
+            </div>
+            <RowToggle
+              on={priceAlertsOn}
+              ariaLabel={s.priceTracking}
+              onClick={() => !pending && syncPriceAlerts({ enabled: !priceAlertsOn })}
+            />
+          </div>
+          <div className={rowClass}>
+            <div className="min-w-0 flex-1">
+              <strong className="block text-sm text-[#1a1a2e]">{s.priceThreshold}</strong>
+              <span className="text-xs text-[#6b6b80]">{s.priceThresholdSub}</span>
+            </div>
+            <input
+              type="number"
+              min={1}
+              max={50}
+              value={priceAlertMinChangePct}
+              disabled={!priceAlertsOn || pending}
+              onChange={(e) => setPriceAlertMinChangePct(Math.max(1, Math.min(50, Number(e.target.value) || 1)))}
+              onBlur={() => syncPriceAlerts({ minChangePct: priceAlertMinChangePct })}
+              className="w-20 rounded-lg border border-[rgba(26,26,61,0.12)] bg-white px-2 py-1.5 text-right text-sm text-[#1a1a2e] disabled:opacity-50"
+            />
+          </div>
+          <div className={rowClass}>
+            <div className="min-w-0 flex-1">
+              <strong className="block text-sm text-[#1a1a2e]">{s.priceFrequency}</strong>
+              <span className="text-xs text-[#6b6b80]">{s.priceFrequencySub}</span>
+            </div>
+            <select
+              value={priceAlertDigest}
+              disabled={!priceAlertsOn || pending}
+              onChange={(e) => syncPriceAlerts({ digest: e.target.value as 'instant' | 'daily' | 'weekly' })}
+              className={`${actionButtonClass('ghost', 'sm')} disabled:opacity-50`}
+            >
+              <option value="instant">{s.instant}</option>
+              <option value="daily">{s.daily}</option>
+              <option value="weekly">{s.weekly}</option>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <section className="mb-5">
+        <p className="mb-2.5 ml-1 text-[11px] font-semibold tracking-[0.06em] text-[#6b6b80]">{s.priceHistory}</p>
+        <div className={cardClass}>
+          <div className="flex items-center justify-between gap-3 border-b border-[rgba(26,26,61,0.08)] px-[18px] py-3">
+            <div className="flex items-center gap-2">
+              {([
+                ['all', s.filterAll],
+                ['queued', s.filterQueued],
+                ['sent', s.filterSent],
+              ] as const).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setHistoryFilter(key)}
+                  className={`rounded-full px-3 py-1.5 text-xs font-medium ${
+                    historyFilter === key ? 'bg-[#ede9fc] text-[#5b43d4]' : 'bg-[#f3f3f7] text-[#6b6b80]'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <Link href="/dashboard/reminders?type=price_check" className="text-xs font-medium text-[#5b43d4] hover:text-[#4b36b6]">
+              {s.viewAll}
+            </Link>
+          </div>
+          {filteredHistory.length === 0 ? (
+            <div className="px-[18px] py-4 text-sm text-[#6b6b80]">{s.noHistory}</div>
+          ) : (
+            filteredHistory.map((r) => (
+              <div key={r.id} className={rowClass}>
+                <div className="min-w-0 flex-1">
+                  <strong className="block truncate text-sm text-[#1a1a2e]">
+                    {subscriptionNameById.get(r.subscription_id) ?? s.subscription}
+                  </strong>
+                  <span className="block text-sm text-[#1a1a2e]">
+                    {r.delivered_at ? s.delivered : s.queued}
+                  </span>
+                  <span className="text-xs text-[#6b6b80]">
+                    {s.channel} {r.channel} · {r.delivered_at ? formatDateTime(r.delivered_at) : formatDateTime(r.remind_at)}
+                  </span>
+                </div>
+                <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${r.delivered_at ? 'bg-[#e4f6ec] text-[#0f8f54]' : 'bg-[#ede9fc] text-[#5b43d4]'}`}>
+                  {r.delivered_at ? s.filterSent : s.filterQueued}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
+
+      <section className="mb-5">
+        <p className="mb-2.5 ml-1 text-[11px] font-semibold tracking-[0.06em] text-[#6b6b80]">{s.security}</p>
         <div className={cardClass}>
           <button
             type="button"
@@ -239,8 +443,8 @@ export default function SettingsPageClient({
               <IconLock />
             </div>
             <div className="min-w-0 flex-1">
-              <strong className="block text-sm text-[#1a1a2e]">Изменить пароль</strong>
-              <span className="text-xs text-[#6b6b80]">Обновите пароль для защиты аккаунта</span>
+              <strong className="block text-sm text-[#1a1a2e]">{s.changePassword}</strong>
+              <span className="text-xs text-[#6b6b80]">{s.changePasswordSub}</span>
             </div>
             <span className="text-lg opacity-35">›</span>
           </button>
@@ -253,8 +457,8 @@ export default function SettingsPageClient({
               <Icon2FA />
             </div>
             <div className="min-w-0 flex-1">
-              <strong className="block text-sm text-[#1a1a2e]">Двухфакторная аутентификация</strong>
-              <span className="text-xs text-[#6b6b80]">Дополнительный уровень защиты для входа</span>
+              <strong className="block text-sm text-[#1a1a2e]">{s.twoFA}</strong>
+              <span className="text-xs text-[#6b6b80]">{s.twoFASub}</span>
             </div>
             <span className="text-lg opacity-35">›</span>
           </button>
@@ -262,14 +466,14 @@ export default function SettingsPageClient({
       </section>
 
       <section className="mb-5">
-        <p className="mb-2.5 ml-1 text-[11px] font-semibold tracking-[0.06em] text-[#6b6b80]">ПОДДЕРЖКА</p>
+        <p className="mb-2.5 ml-1 text-[11px] font-semibold tracking-[0.06em] text-[#6b6b80]">{s.support}</p>
         <div className={cardClass}>
           <a
             href="mailto:hello@subcuro.app?subject=SubCuro%20Support"
             className={`${rowClass} text-inherit no-underline hover:bg-[rgba(91,67,212,0.04)]`}
           >
             <div className="min-w-0 flex-1">
-              <strong className="block text-sm text-[#1a1a2e]">Написать в поддержку</strong>
+              <strong className="block text-sm text-[#1a1a2e]">{s.contactSupport}</strong>
               <span className="text-xs text-[#6b6b80]">hello@subcuro.app</span>
             </div>
             <span className="text-lg opacity-35">›</span>
@@ -280,8 +484,8 @@ export default function SettingsPageClient({
             onClick={() => setModal('faq')}
           >
             <div className="min-w-0 flex-1">
-              <strong className="block text-sm text-[#1a1a2e]">Частые вопросы</strong>
-              <span className="text-xs text-[#6b6b80]">Ответы на основные вопросы</span>
+              <strong className="block text-sm text-[#1a1a2e]">{s.faq}</strong>
+              <span className="text-xs text-[#6b6b80]">{s.faqSub}</span>
             </div>
             <span className="text-lg opacity-35">›</span>
           </button>
@@ -291,8 +495,8 @@ export default function SettingsPageClient({
             onClick={() => setModal('report')}
           >
             <div className="min-w-0 flex-1">
-              <strong className="block text-sm text-[#1a1a2e]">Сообщить о проблеме</strong>
-              <span className="text-xs text-[#6b6b80]">Отправить отчёт разработчикам</span>
+              <strong className="block text-sm text-[#1a1a2e]">{s.reportIssue}</strong>
+              <span className="text-xs text-[#6b6b80]">{s.reportIssueSub}</span>
             </div>
             <span className="text-lg opacity-35">›</span>
           </button>
@@ -300,7 +504,7 @@ export default function SettingsPageClient({
       </section>
 
       <section className="mb-5">
-        <p className="mb-2.5 ml-1 text-[11px] font-semibold tracking-[0.06em] text-[#6b6b80]">ПРАВОВАЯ ИНФОРМАЦИЯ</p>
+        <p className="mb-2.5 ml-1 text-[11px] font-semibold tracking-[0.06em] text-[#6b6b80]">{s.legal}</p>
         <div className={cardClass}>
           <button
             type="button"
@@ -308,7 +512,7 @@ export default function SettingsPageClient({
             onClick={() => setModal('privacy')}
           >
             <div className="min-w-0 flex-1">
-              <strong className="block text-sm text-[#1a1a2e]">Политика конфиденциальности</strong>
+              <strong className="block text-sm text-[#1a1a2e]">{s.privacy}</strong>
             </div>
             <span className="text-lg opacity-35">›</span>
           </button>
@@ -318,17 +522,7 @@ export default function SettingsPageClient({
             onClick={() => setModal('terms')}
           >
             <div className="min-w-0 flex-1">
-              <strong className="block text-sm text-[#1a1a2e]">Условия использования</strong>
-            </div>
-            <span className="text-lg opacity-35">›</span>
-          </button>
-          <button
-            type="button"
-            className={`${rowClass} w-full cursor-pointer border-0 bg-transparent text-left hover:bg-[rgba(91,67,212,0.04)]`}
-            onClick={() => setModal('license')}
-          >
-            <div className="min-w-0 flex-1">
-              <strong className="block text-sm text-[#1a1a2e]">Лицензионное соглашение</strong>
+              <strong className="block text-sm text-[#1a1a2e]">{s.terms}</strong>
             </div>
             <span className="text-lg opacity-35">›</span>
           </button>
@@ -336,11 +530,11 @@ export default function SettingsPageClient({
       </section>
 
       <section className="mb-5">
-        <p className="mb-2.5 ml-1 text-[11px] font-semibold tracking-[0.06em] text-[#6b6b80]">О ПРИЛОЖЕНИИ</p>
+        <p className="mb-2.5 ml-1 text-[11px] font-semibold tracking-[0.06em] text-[#6b6b80]">{s.about}</p>
         <div className={cardClass}>
           <div className={rowClass}>
             <div className="min-w-0 flex-1">
-              <strong className="block text-sm text-[#1a1a2e]">Версия приложения</strong>
+              <strong className="block text-sm text-[#1a1a2e]">{s.appVersion}</strong>
             </div>
             <span className="inline-flex shrink-0 rounded-full bg-[#ede9fc] px-2.5 py-1 text-xs font-semibold text-[#5b43d4]">
               {APP_VERSION}
@@ -352,17 +546,17 @@ export default function SettingsPageClient({
             onClick={() => setModal('whats-new')}
           >
             <div className="min-w-0 flex-1">
-              <strong className="block text-sm text-[#1a1a2e]">Что нового</strong>
+              <strong className="block text-sm text-[#1a1a2e]">{s.whatsNew}</strong>
             </div>
             <span className="text-lg opacity-35">›</span>
           </button>
           <button
             type="button"
             className={`${rowClass} w-full cursor-pointer border-0 bg-transparent text-left hover:bg-[rgba(91,67,212,0.04)]`}
-            onClick={() => toastMsg('Спасибо! Оценка будет доступна в релизной версии.')}
+            onClick={() => toastMsg(s.rateToast)}
           >
             <div className="min-w-0 flex-1">
-              <strong className="block text-sm text-[#1a1a2e]">Оценить приложение</strong>
+              <strong className="block text-sm text-[#1a1a2e]">{s.rate}</strong>
             </div>
             <span className="text-lg opacity-35">›</span>
           </button>
@@ -370,33 +564,40 @@ export default function SettingsPageClient({
       </section>
 
       {modal && mc ? (
-        <div className="fixed inset-0 z-[1200]" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
+        <div className="fixed inset-0 z-[1200] flex items-start justify-center p-5 pt-[8vh]" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
           <button
             type="button"
             className="absolute inset-0 cursor-default border-0 bg-[rgba(15,15,35,0.5)]"
-            aria-label="Закрыть"
+            aria-label={s.modalClose}
             onClick={() => setModal(null)}
           />
-          <div className="relative z-[1] mx-auto mt-[8vh] max-w-[560px] rounded-2xl border border-[rgba(26,26,61,0.08)] bg-white px-[18px] pb-4 pt-[18px] shadow-[0_20px_50px_rgba(20,20,50,0.2)]">
-            <button
-              type="button"
-              className="absolute right-2 top-2 flex h-[34px] w-[34px] items-center justify-center rounded-full border-0 bg-transparent text-2xl text-[#8b8ba2] hover:bg-[#f3f3fa]"
-              onClick={() => setModal(null)}
-              aria-label="Закрыть"
-            >
-              ×
-            </button>
-            <h2 id="settings-modal-title" className="mb-3 mt-0.5 pr-10 text-xl font-bold text-[#1a1a2e]">
-              {mc.title}
-            </h2>
-            <div className="text-[14px]">{mc.body}</div>
-            <div className="mt-4 flex justify-end">
+          <div className="relative z-[1] flex w-full max-w-[560px] max-h-[min(84vh,720px)] flex-col rounded-2xl border border-[rgba(26,26,61,0.08)] bg-white shadow-[0_20px_50px_rgba(20,20,50,0.2)]">
+            {/* Sticky header */}
+            <div className="shrink-0 px-[18px] pt-[18px] pb-3">
               <button
                 type="button"
-                className="rounded-xl border border-[rgba(26,26,61,0.08)] bg-white px-4 py-2 text-sm font-medium text-[#1a1a2e] hover:bg-[#f8f8fb]"
+                className="absolute right-2 top-2 flex h-[34px] w-[34px] items-center justify-center rounded-full border-0 bg-transparent text-2xl text-[#8b8ba2] hover:bg-[#f3f3fa]"
+                onClick={() => setModal(null)}
+                aria-label="Закрыть"
+              >
+                ×
+              </button>
+              <h2 id="settings-modal-title" className="mb-0 mt-0.5 pr-10 text-xl font-bold text-[#1a1a2e]">
+                {mc.title}
+              </h2>
+            </div>
+            {/* Scrollable body */}
+            <div className="min-h-0 flex-1 overflow-y-auto px-[18px] pb-2 text-[14px]">
+              {mc.body}
+            </div>
+            {/* Sticky footer */}
+            <div className="shrink-0 flex justify-end border-t border-[rgba(26,26,61,0.07)] px-[18px] py-3">
+              <button
+                type="button"
+                className={actionButtonClass('secondary')}
                 onClick={() => setModal(null)}
               >
-                Понятно
+                {s.modalOk}
               </button>
             </div>
           </div>
@@ -413,7 +614,7 @@ export default function SettingsPageClient({
           <button
             type="button"
             className="absolute inset-0 cursor-default border-0 bg-transparent"
-            aria-label="Закрыть"
+            aria-label={s.modalClose}
             onClick={() => setPwdOpen(false)}
           />
           <div className="relative z-[1] w-[min(480px,100%)] max-h-[min(88vh,640px)] overflow-y-auto rounded-2xl border border-[rgba(26,26,61,0.08)] bg-white p-5 shadow-[0_20px_50px_rgba(20,20,50,0.2)]">
@@ -426,7 +627,7 @@ export default function SettingsPageClient({
               ×
             </button>
             <h2 id="pwd-modal-title" className="m-0 mb-4 pr-10 text-xl font-bold text-[#1a1a2e]">
-              Изменить пароль
+              {s.changePasswordTitle}
             </h2>
             <PasswordChangeForm pwdOk={pwdOk} pwdError={pwdError} embedded redirectAfter="/dashboard/settings" />
           </div>

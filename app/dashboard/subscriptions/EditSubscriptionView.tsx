@@ -2,10 +2,12 @@
 
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { coerceNumber } from '@/lib/coerce-number'
 import { categoryLabelRu, CATEGORY_FORM_OPTIONS, formatBillingCycleRu } from '@/lib/subscription-labels'
 import type { BillingCycle, CategorySlug, Subscription, SubscriptionStatus } from '@/lib/supabase/types'
+import { useLang } from '@/lib/LangContext'
+import { CARD_COLOR_PRESETS } from '@/lib/subscription-viz-notes'
 import type { SubcuroEditViz } from '@/lib/subscription-viz-notes'
 import { effectiveIconBackgroundFromViz } from '@/lib/subscription-icon-background'
 import PaymentServiceIcon from '@/app/dashboard/PaymentServiceIcon'
@@ -15,35 +17,13 @@ import { deleteSubscription, updateSubscriptionFields } from './actions'
 
 const CURRENCIES = ['RUB', 'USD', 'EUR'] as const
 
-const VIZ_COLORS: { hex: string; label: string }[] = [
-  { hex: '#5b43d4', label: 'Фиолетовый' },
-  { hex: '#12b76a', label: 'Зелёный' },
-  { hex: '#e5484d', label: 'Красный' },
-  { hex: '#ea580c', label: 'Оранжевый' },
-  { hex: '#2563eb', label: 'Синий' },
-  { hex: '#f5a524', label: 'Жёлтый' },
-]
+const VIZ_COLOR_HEXES = ['#5b43d4', '#12b76a', '#e5484d', '#ea580c', '#2563eb', '#f5a524'] as const
 
-const STRIP_STATUS: Record<
-  SubscriptionStatus,
-  { label: string; chipClass: string }
-> = {
-  active: {
-    label: '● Активен',
-    chipClass: 'bg-[#e6f7f1] text-[#0d9f6e]',
-  },
-  paused: {
-    label: '● Пауза',
-    chipClass: 'bg-[#fff4e0] text-[#b35a00]',
-  },
-  cancelled: {
-    label: '● Отменён',
-    chipClass: 'bg-[#fdecec] text-[#e5484d]',
-  },
-  archived: {
-    label: '● Архив',
-    chipClass: 'bg-[#ececf0] text-[#6b6b80]',
-  },
+const STRIP_STATUS_CLASS: Record<SubscriptionStatus, string> = {
+  active:    'bg-[#e6f7f1] text-[#0d9f6e]',
+  paused:    'bg-[#fff4e0] text-[#b35a00]',
+  cancelled: 'bg-[#fdecec] text-[#e5484d]',
+  archived:  'bg-[#ececf0] text-[#6b6b80]',
 }
 
 type Props = {
@@ -55,11 +35,18 @@ type Props = {
   error: string | null
 }
 
-function previewFillClass(fill: SubcuroEditViz['cardFill']): string {
-  if (fill === 'lavender') return 'bg-gradient-to-b from-[#faf5ff] to-white'
-  if (fill === 'mint') return 'bg-gradient-to-b from-[#f0fdf4] to-white'
-  if (fill === 'peach') return 'bg-gradient-to-b from-[#fff7ed] to-white'
-  return 'bg-gradient-to-b from-[#f8f8fa] to-white'
+function previewFillStyle(fill: SubcuroEditViz['cardFill']): React.CSSProperties {
+  const map: Record<string, string> = {
+    lavender: '#F1EAFF',
+    blush:    '#FCECEF',
+    peach:    '#FFF0E7',
+    butter:   '#FFF7D9',
+    mint:     '#E7F7F2',
+    sky:      '#EBF5FF',
+    sage:     '#EEF3E7',
+    sand:     '#F4ECE4',
+  }
+  return { background: `linear-gradient(to bottom, ${map[fill] ?? '#f8f8fa'}, #fff)` }
 }
 
 export default function EditSubscriptionView({
@@ -70,12 +57,21 @@ export default function EditSubscriptionView({
   reminderFlags: initialReminderFlags,
   error,
 }: Props) {
+  const { strings } = useLang()
+  const e = strings.editSub
   const router = useRouter()
   const searchParams = useSearchParams()
   const toastShownRef = useRef(false)
   const [saveToast, setSaveToast] = useState(false)
 
-  const [tab, setTab] = useState<'data' | 'visual' | 'reminders' | 'extra'>('data')
+  const backHref = `/dashboard/subscriptions/${sub.id}`
+
+  const initialTab = (() => {
+    const t = searchParams.get('tab')
+    if (t === 'reminders' || t === 'extra') return t
+    return 'data'
+  })()
+  const [tab, setTab] = useState<'data' | 'reminders' | 'extra'>(initialTab)
 
   const [name, setName] = useState(sub.name)
   const [amount, setAmount] = useState(String(coerceNumber(sub.amount)))
@@ -103,6 +99,7 @@ export default function EditSubscriptionView({
   const [notes, setNotes] = useState(initialUserNotes)
   const [manageUrl, setManageUrl] = useState(sub.management_url ?? '')
   const [cancelUrl, setCancelUrl] = useState(sub.cancellation_url ?? '')
+  const [pricingUrl, setPricingUrl] = useState(sub.pricing_url ?? '')
 
   const [remRenewal, setRemRenewal] = useState(initialReminderFlags.renewal)
   const [remTrial, setRemTrial] = useState(initialReminderFlags.trial)
@@ -134,12 +131,9 @@ export default function EditSubscriptionView({
   }, [searchParams, router, sub.id])
 
   const amountLabel =
-    currency === 'RUB' ? 'Сумма, ₽' : currency === 'USD' ? 'Сумма, $' : 'Сумма, €'
+    currency === 'RUB' ? e.amountRub : currency === 'USD' ? e.amountUsd : e.amountEur
 
-  const fxHint =
-    currency !== 'RUB'
-      ? 'Сумма в валюте подписки. Курсы для отчётов берутся из настроек (скоро).'
-      : ''
+  const fxHint = currency !== 'RUB' ? e.fxHint : e.fxHintRu
 
   const stripAmount = useMemo(() => {
     const n = Number(amount.replace(',', '.'))
@@ -193,16 +187,16 @@ export default function EditSubscriptionView({
   )
 
   const onDelete = useCallback(() => {
-    if (!window.confirm('Удалить этот платёж? Действие необратимо.')) return
+    if (!window.confirm(e.deleteConfirm)) return
     startDelete(async () => {
       try {
         await deleteSubscription(sub.id)
-        router.push('/dashboard?tab=payments')
+        router.push('/dashboard?tab=payments') // после удаления — в список платежей
       } catch {
         /* keep */
       }
     })
-  }, [router, sub.id])
+  }, [router, sub.id, e])
 
   const billingOptions = useMemo(() => {
     const o = new Set<BillingCycle>(['monthly', 'yearly'])
@@ -212,14 +206,12 @@ export default function EditSubscriptionView({
   }, [sub.billing_cycle, billingCycle])
 
   const TABS = useMemo(
-    () =>
-      [
-        { id: 'data' as const, label: 'Данные', hover: 'hover:text-[#5b43d4]' },
-        { id: 'visual' as const, label: 'Визуал', hover: 'hover:text-[#2563eb]' },
-        { id: 'reminders' as const, label: 'Напоминания', hover: 'hover:text-[#db2777]' },
-        { id: 'extra' as const, label: 'Дополнительно', hover: 'hover:text-[#ca8a04]' },
-      ] as const,
-    [],
+    () => [
+      { id: 'data' as const, label: e.tabData, hover: 'hover:text-[#5b43d4]' },
+      { id: 'reminders' as const, label: e.tabReminders, hover: 'hover:text-[#db2777]' },
+      { id: 'extra' as const, label: e.tabExtra, hover: 'hover:text-[#ca8a04]' },
+    ],
+    [e],
   )
 
   const iconBg = effectiveIconBackgroundFromViz(viz, categorySlug)
@@ -230,45 +222,15 @@ export default function EditSubscriptionView({
         <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-3">
             <Link
-              href="/dashboard?tab=payments"
+              href={backHref}
               className="flex h-10 w-10 items-center justify-center rounded-[10px] border-0 bg-white text-[#1a1a2e] shadow-[0_1px_3px_rgba(26,26,61,0.08)] no-underline hover:bg-[#f8f6f2]"
-              aria-label="Назад"
+              aria-label={e.backLabel}
             >
               ←
             </Link>
             <h1 className="m-0 text-[1.35rem] font-bold tracking-[-0.03em] text-[#1a1a2e]">
-              Редактировать платёж
+              {e.title}
             </h1>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative hidden max-w-[280px] items-center gap-2 rounded-[12px] border border-[#e7e3dc] bg-white px-2.5 py-1.5 sm:flex">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-[#9a9aaf]">
-                <circle cx="11" cy="11" r="7" />
-                <path d="M21 21l-4.3-4.3" />
-              </svg>
-              <input
-                type="search"
-                readOnly
-                placeholder="Поиск…"
-                className="min-w-0 flex-1 border-0 bg-transparent text-sm text-[#1a1a2e] outline-none placeholder:text-[#9a9aaf]"
-                aria-label="Поиск"
-              />
-              <span className="shrink-0 rounded-md border border-[#e7e3dc] px-1.5 py-0.5 text-[11px] text-[#9a9aaf]">
-                ⌘K
-              </span>
-            </div>
-            <button
-              type="button"
-              className="flex h-10 w-10 items-center justify-center rounded-[10px] border-0 bg-white text-[#1a1a2e] shadow-[0_1px_3px_rgba(26,26,61,0.08)]"
-              aria-label="Уведомления"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
-                <path d="M18 8a6 6 0 10-12 0c0 7-3 7-3 7h18s-3 0-3-7M13.73 21a2 2 0 01-3.46 0" />
-              </svg>
-            </button>
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#5b43d4] text-[13px] font-semibold text-white">
-              {initials}
-            </div>
           </div>
         </header>
 
@@ -310,22 +272,22 @@ export default function EditSubscriptionView({
             </div>
             <div className="text-[13px] text-[#1a1a2e]">{stripAmount}</div>
             <div className="text-[13px] text-[#6b6b80]">{stripDue}</div>
-            <span className={`ml-auto rounded-full px-2.5 py-1 text-[12px] font-semibold ${STRIP_STATUS[status].chipClass}`}>
-              {STRIP_STATUS[status].label}
+            <span className={`ml-auto rounded-full px-2.5 py-1 text-[12px] font-semibold ${STRIP_STATUS_CLASS[status]}`}>
+              {status === 'active' ? e.stripStatusActive : status === 'paused' ? e.stripStatusPaused : status === 'cancelled' ? e.stripStatusCancelled : e.stripStatusArchived}
             </span>
             <div className="flex gap-2">
               <Link
-                href="/dashboard?tab=payments"
+                href={backHref}
                 className="inline-flex h-10 items-center rounded-[10px] border border-[#e7e3dc] bg-white px-4 text-[13px] font-semibold text-[#1a1a2e] no-underline hover:bg-[#f8f6f2]"
               >
-                Назад
+                {e.backButton}
               </Link>
               <button
                 type="submit"
                 form="edit-sub-form"
                 className="inline-flex h-10 items-center rounded-[10px] border-0 bg-[#0d9f6e] px-4 text-[13px] font-semibold text-white shadow-[0_2px_8px_rgba(13,159,110,0.35)] hover:brightness-105"
               >
-                Сохранить
+                {e.saveButton}
               </button>
             </div>
           </div>
@@ -352,11 +314,11 @@ export default function EditSubscriptionView({
               {tab === 'data' ? (
                 <div className="space-y-4">
                   <h3 className="m-0 mb-3.5 text-[13px] font-semibold uppercase tracking-[0.06em] text-[#6b6b80]">
-                    Основная информация
+                    {e.sectionMain}
                   </h3>
                   <div>
                     <label htmlFor="edit-name" className="mb-1 block text-[13px] text-[#6b6b80]">
-                      Название
+                      {e.fieldName}
                     </label>
                     <input
                       id="edit-name"
@@ -389,8 +351,8 @@ export default function EditSubscriptionView({
                     <p className="m-0 -mt-1 text-[12px] leading-snug text-[#6b6b80]">{fxHint}</p>
                   ) : null}
                   <div>
-                    <span className="mb-1 block text-[13px] text-[#6b6b80]">Валюта подписки</span>
-                    <div className="flex flex-wrap gap-2" role="group" aria-label="Валюта">
+                    <span className="mb-1 block text-[13px] text-[#6b6b80]">{e.fieldCurrency}</span>
+                    <div className="flex flex-wrap gap-2" role="group" aria-label={e.fieldCurrencyGroup}>
                       {CURRENCIES.map((c) => (
                         <button
                           key={c}
@@ -412,7 +374,7 @@ export default function EditSubscriptionView({
                   </div>
                   <div>
                     <label htmlFor="edit-category" className="mb-1 block text-[13px] text-[#6b6b80]">
-                      Категория
+                      {e.fieldCategory}
                     </label>
                     <select
                       id="edit-category"
@@ -430,7 +392,7 @@ export default function EditSubscriptionView({
                   </div>
                   <div>
                     <label htmlFor="edit-cycle" className="mb-1 block text-[13px] text-[#6b6b80]">
-                      Периодичность
+                      {e.fieldCycle}
                     </label>
                     <select
                       id="edit-cycle"
@@ -453,7 +415,7 @@ export default function EditSubscriptionView({
                   {billingCycle === 'custom' ? (
                     <div>
                       <label htmlFor="edit-custom-days" className="mb-1 block text-[13px] text-[#6b6b80]">
-                        Дней в цикле
+                        {e.fieldCustomDays}
                       </label>
                       <input
                         id="edit-custom-days"
@@ -470,7 +432,7 @@ export default function EditSubscriptionView({
                   )}
                   <div>
                     <label htmlFor="edit-next-due" className="mb-1 block text-[13px] text-[#6b6b80]">
-                      Следующее списание
+                      {e.fieldNextDue}
                     </label>
                     <input
                       id="edit-next-due"
@@ -483,7 +445,7 @@ export default function EditSubscriptionView({
                     />
                   </div>
                   <div>
-                    <span className="mb-1 block text-[13px] text-[#6b6b80]">Статус</span>
+                    <span className="mb-1 block text-[13px] text-[#6b6b80]">{e.fieldStatus}</span>
                     <div className="mt-1.5 flex flex-wrap rounded-[12px] bg-[#f4f4f6] p-1">
                       {(['active', 'paused', 'cancelled', 'archived'] as const).map((s) => (
                         <button
@@ -497,18 +459,18 @@ export default function EditSubscriptionView({
                           }`}
                         >
                           {s === 'active'
-                            ? 'Активен'
+                            ? e.statusActive
                             : s === 'paused'
-                              ? 'Пауза'
+                              ? e.statusPaused
                               : s === 'cancelled'
-                                ? 'Отменён'
-                                : 'Архив'}
+                                ? e.statusCancelled
+                                : e.statusArchived}
                         </button>
                       ))}
                     </div>
                   </div>
                   <div>
-                    <span className="mb-1 block text-[13px] text-[#6b6b80]">Повторяется автоматически</span>
+                    <span className="mb-1 block text-[13px] text-[#6b6b80]">{e.fieldRepeat}</span>
                     <div className="mt-1.5 flex rounded-[12px] bg-[#f4f4f6] p-1">
                       <button
                         type="button"
@@ -517,7 +479,7 @@ export default function EditSubscriptionView({
                           repeatYes ? 'bg-white text-[#1a1a2e] shadow-sm' : 'bg-transparent text-[#6b6b80]'
                         }`}
                       >
-                        Да
+                        {e.repeatYes}
                       </button>
                       <button
                         type="button"
@@ -526,19 +488,19 @@ export default function EditSubscriptionView({
                           !repeatYes ? 'bg-white text-[#1a1a2e] shadow-sm' : 'bg-transparent text-[#6b6b80]'
                         }`}
                       >
-                        Нет
+                        {e.repeatNo}
                       </button>
                     </div>
                   </div>
 
                   <h3 className="mb-3.5 mt-6 text-[13px] font-semibold uppercase tracking-[0.06em] text-[#6b6b80]">
-                    Оплата
+                    {e.sectionPayment}
                   </h3>
                   <div>
-                    <span className="mb-1 block text-[13px] text-[#6b6b80]">Способ оплаты</span>
-                    <div className="flex flex-wrap gap-2" role="group" aria-label="Карта">
+                    <span className="mb-1 block text-[13px] text-[#6b6b80]">{e.fieldPayMethod}</span>
+                    <div className="flex flex-wrap gap-2" role="group" aria-label={e.fieldPayMethod}>
                       <span className="inline-flex items-center rounded-full border border-[#e7e3dc] bg-[#f8f6f2] px-3 py-2 text-[13px] text-[#6b6b80]">
-                        •••• — скоро
+                        {e.payMethodSoon}
                       </span>
                     </div>
                     <div className="mt-2.5 flex flex-wrap gap-2.5">
@@ -547,19 +509,19 @@ export default function EditSubscriptionView({
                         onClick={() => setCardModalOpen(true)}
                         className="rounded-full border border-[#e7e3dc] bg-white px-3.5 py-2 text-[13px] font-semibold text-[#1a1a2e] hover:bg-[#f8f6f2]"
                       >
-                        Изменить карту…
+                        {e.changeCard}
                       </button>
                       <button
                         type="button"
                         onClick={() => setCardModalOpen(true)}
                         className="rounded-full border border-[#e7e3dc] bg-white px-3.5 py-2 text-[13px] font-semibold text-[#1a1a2e] hover:bg-[#f8f6f2]"
                       >
-                        + Новая карта
+                        {e.newCard}
                       </button>
                     </div>
                   </div>
                   <div>
-                    <span className="mb-1 block text-[13px] text-[#6b6b80]">Автопродление</span>
+                    <span className="mb-1 block text-[13px] text-[#6b6b80]">{e.fieldAutopay}</span>
                     <div className="mt-1.5 flex rounded-[12px] bg-[#f4f4f6] p-1">
                       <button
                         type="button"
@@ -568,7 +530,7 @@ export default function EditSubscriptionView({
                           autopayEnabled ? 'bg-white text-[#5b43d4] shadow-sm' : 'bg-transparent text-[#6b6b80]'
                         }`}
                       >
-                        Включено
+                        {e.autopayOn}
                       </button>
                       <button
                         type="button"
@@ -577,37 +539,20 @@ export default function EditSubscriptionView({
                           !autopayEnabled ? 'bg-white text-[#5b43d4] shadow-sm' : 'bg-transparent text-[#6b6b80]'
                         }`}
                       >
-                        Ручное
+                        {e.autopayOff}
                       </button>
                     </div>
                   </div>
                 </div>
               ) : null}
 
-              {tab === 'visual' ? (
-                <div>
-                  <p className="m-0 text-[14px] leading-relaxed text-[#6b6b80]">
-                    Иконку, цвет, форму и заливку карточки настройте в панели{' '}
-                    <strong className="text-[#1a1a2e]">справа</strong> — изменения сразу видны вверху и в предпросмотре.
-                  </p>
-                  <p className="mt-4">
-                    <a
-                      href="#edit-visual-aside"
-                      className="inline-block rounded-[10px] border border-[#e7e3dc] bg-white px-3.5 py-2 text-[13px] font-semibold text-[#1a1a2e] no-underline hover:bg-[#f8f6f2]"
-                    >
-                      К панели «Визуал»
-                    </a>
-                  </p>
-                </div>
-              ) : null}
-
-              {tab === 'reminders' ? (
+{tab === 'reminders' ? (
                 <div>
                   <h3 className="m-0 mb-3.5 text-[13px] font-semibold uppercase tracking-[0.06em] text-[#6b6b80]">
-                    Напоминания
+                    {e.sectionReminders}
                   </h3>
                   <div className="flex items-center justify-between border-b border-[#e7e3dc] py-3">
-                    <span className="text-[14px] text-[#1a1a2e]">Напомнить за 3 дня</span>
+                    <span className="text-[14px] text-[#1a1a2e]">{e.remindRenewal}</span>
                     <button
                       type="button"
                       disabled={pendingReminder}
@@ -615,7 +560,7 @@ export default function EditSubscriptionView({
                       className={`relative h-7 w-12 shrink-0 rounded-full border-0 transition-colors ${
                         remRenewal ? 'bg-[#5b43d4]' : 'bg-[#c8c9d4]'
                       }`}
-                      aria-label="Переключить напоминание за 3 дня"
+                      aria-label={e.remindRenewalAriaLabel}
                     >
                       <span
                         className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all ${
@@ -625,7 +570,7 @@ export default function EditSubscriptionView({
                     </button>
                   </div>
                   <div className="flex items-center justify-between border-b border-[#e7e3dc] py-3">
-                    <span className="text-[14px] text-[#1a1a2e]">Напоминание о trial</span>
+                    <span className="text-[14px] text-[#1a1a2e]">{e.remindTrial}</span>
                     <button
                       type="button"
                       disabled={pendingReminder || !sub.free_trial_end_date}
@@ -636,7 +581,7 @@ export default function EditSubscriptionView({
                       className={`relative h-7 w-12 shrink-0 rounded-full border-0 transition-colors ${
                         remTrial ? 'bg-[#5b43d4]' : 'bg-[#c8c9d4]'
                       } disabled:opacity-40`}
-                      aria-label="Переключить напоминание о trial"
+                      aria-label={e.remindTrialAriaLabel}
                     >
                       <span
                         className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all ${
@@ -646,7 +591,7 @@ export default function EditSubscriptionView({
                     </button>
                   </div>
                   <div className="flex items-center justify-between py-3">
-                    <span className="text-[14px] text-[#1a1a2e]">Уведомление об изменении цены</span>
+                    <span className="text-[14px] text-[#1a1a2e]">{e.remindPrice}</span>
                     <button
                       type="button"
                       disabled={pendingReminder}
@@ -654,7 +599,7 @@ export default function EditSubscriptionView({
                       className={`relative h-7 w-12 shrink-0 rounded-full border-0 transition-colors ${
                         remPrice ? 'bg-[#5b43d4]' : 'bg-[#c8c9d4]'
                       }`}
-                      aria-label="Переключить уведомление о цене"
+                      aria-label={e.remindPriceAriaLabel}
                     >
                       <span
                         className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all ${
@@ -665,8 +610,7 @@ export default function EditSubscriptionView({
                   </div>
                   {!sub.free_trial_end_date ? (
                     <p className="mt-2 text-[12px] text-[#6b6b80]">
-                      Для trial-напоминания укажите дату окончания пробного периода в данных подписки (скоро в этом
-                      редакторе).
+                      {e.trialHint}
                     </p>
                   ) : null}
                 </div>
@@ -675,11 +619,26 @@ export default function EditSubscriptionView({
               {tab === 'extra' ? (
                 <div className="space-y-4">
                   <h3 className="m-0 mb-3.5 text-[13px] font-semibold uppercase tracking-[0.06em] text-[#6b6b80]">
-                    Ссылки
+                    {e.sectionLinks}
                   </h3>
                   <div>
+                    <label htmlFor="edit-link-pricing" className="mb-1 block text-[13px] text-[#6b6b80]">
+                      {e.fieldPricingUrl}
+                    </label>
+                    <input
+                      id="edit-link-pricing"
+                      name="pricing_url"
+                      type="url"
+                      value={pricingUrl}
+                      onChange={(e) => setPricingUrl(e.target.value)}
+                      placeholder="https://…"
+                      className="w-full rounded-[10px] border border-[#dcd6ce] bg-white px-3 py-2.5 text-sm outline-none"
+                    />
+                    <p className="mt-1 text-[11px] text-[#9b9bab]">{e.fieldPricingUrlHint}</p>
+                  </div>
+                  <div>
                     <label htmlFor="edit-link-manage" className="mb-1 block text-[13px] text-[#6b6b80]">
-                      Ссылка на управление
+                      {e.fieldManageUrl}
                     </label>
                     <input
                       id="edit-link-manage"
@@ -693,7 +652,7 @@ export default function EditSubscriptionView({
                   </div>
                   <div>
                     <label htmlFor="edit-link-cancel" className="mb-1 block text-[13px] text-[#6b6b80]">
-                      Ссылка на отмену
+                      {e.fieldCancelUrl}
                     </label>
                     <input
                       id="edit-link-cancel"
@@ -707,7 +666,7 @@ export default function EditSubscriptionView({
                   </div>
                   <div>
                     <label htmlFor="edit-notes" className="mb-1 block text-[13px] text-[#6b6b80]">
-                      Заметки
+                      {e.fieldNotes}
                     </label>
                     <textarea
                       id="edit-notes"
@@ -715,24 +674,30 @@ export default function EditSubscriptionView({
                       rows={4}
                       maxLength={500}
                       value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      placeholder="Заметка…"
+                      onChange={(ev) => setNotes(ev.target.value)}
+                      placeholder={e.notesPlaceholder}
                       className="w-full resize-y rounded-[10px] border border-[#dcd6ce] bg-white px-3 py-2.5 text-sm outline-none"
                     />
                     <div className="mt-1 text-right text-[12px] text-[#6b6b80]">
                       {notes.length} / 500
                     </div>
                   </div>
-                  <p className="mt-6">
+                  <div className="mt-8 pt-5 border-t border-[#f0ece6]">
                     <button
                       type="button"
                       onClick={onDelete}
                       disabled={pendingDelete}
-                      className="border-0 bg-transparent p-0 text-[15px] font-semibold text-[#e5484d] hover:underline"
+                      className="inline-flex items-center gap-2 rounded-[10px] border border-[#f3c5c7] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#e5484d] transition-colors hover:bg-[#fff0f0] hover:border-[#e5484d] disabled:opacity-50"
                     >
-                      🗑 Удалить платёж
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <polyline points="3 6 5 6 21 6" />
+                        <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+                        <path d="M10 11v6M14 11v6" />
+                        <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
+                      </svg>
+                      {e.deleteButton}
                     </button>
-                  </p>
+                  </div>
                 </div>
               ) : null}
             </div>
@@ -741,11 +706,11 @@ export default function EditSubscriptionView({
               id="edit-visual-aside"
               className="h-fit rounded-[18px] border border-[#e7e3dc] bg-white p-5 shadow-[0_1px_3px_rgba(26,26,61,0.06)]"
             >
-              <h2 className="m-0 mb-3.5 text-[1rem] font-bold text-[#1a1a2e]">Визуал и предпросмотр</h2>
-              <p className="edit-aside-hint m-0 mb-2.5 text-[12px] text-[#6b6b80]">Иконка</p>
+              <h2 className="m-0 mb-3.5 text-[1rem] font-bold text-[#1a1a2e]">{e.asideTitle}</h2>
+              <p className="edit-aside-hint m-0 mb-2.5 text-[12px] text-[#6b6b80]">{e.asideIconLabel}</p>
               <div
                 className="mb-2 grid max-h-[320px] grid-cols-6 gap-1.5 overflow-y-auto sm:grid-cols-8"
-                aria-label="Выбор иконки категории"
+                aria-label={e.asideIconLabel}
               >
                 {PAYMENT_ICON_PRESETS.map((p) => (
                   <button
@@ -769,18 +734,18 @@ export default function EditSubscriptionView({
                   </button>
                 ))}
               </div>
-              <p className="m-0 mb-2.5 text-[12px] text-[#6b6b80]">Цвет фона иконки</p>
+              <p className="m-0 mb-2.5 text-[12px] text-[#6b6b80]">{e.asideIconBgLabel}</p>
               <div className="mb-3.5 flex flex-wrap items-center gap-2.5">
-                {VIZ_COLORS.map((c) => (
+                {VIZ_COLOR_HEXES.map((hex, i) => (
                   <button
-                    key={c.hex}
+                    key={hex}
                     type="button"
-                    aria-label={c.label}
-                    onClick={() => setViz((v) => ({ ...v, iconBg: c.hex }))}
+                    aria-label={e.vizColorLabels[i]}
+                    onClick={() => setViz((v) => ({ ...v, iconBg: hex }))}
                     className={`h-8 w-8 shrink-0 rounded-full border-2 border-transparent ${
-                      viz.iconBg === c.hex ? 'shadow-[0_0_0_2px_#fff,0_0_0_4px_#5b43d4]' : ''
+                      viz.iconBg === hex ? 'shadow-[0_0_0_2px_#fff,0_0_0_4px_#5b43d4]' : ''
                     }`}
-                    style={{ background: c.hex }}
+                    style={{ background: hex }}
                   />
                 ))}
                 <button
@@ -788,22 +753,22 @@ export default function EditSubscriptionView({
                   onClick={resetVizCategory}
                   className="border-0 bg-transparent p-1 text-[12px] text-[#5b43d4] underline"
                 >
-                  Как у категории
+                  {e.asideResetColor}
                 </button>
               </div>
-              <p className="m-0 mb-2.5 text-[12px] text-[#6b6b80]">Форма иконки</p>
+              <p className="m-0 mb-2.5 text-[12px] text-[#6b6b80]">{e.asideShapeLabel}</p>
               <div className="mb-4 flex flex-col gap-1 rounded-[12px] bg-[#f4f4f6] p-1 sm:flex-row">
                 {(
                   [
-                    ['rounded', 'Скруглённый квадрат'],
-                    ['circle', 'Круг'],
-                    ['square', 'Квадрат'],
-                  ] as const
+                    ['rounded', e.shapeRounded],
+                    ['circle', e.shapeCircle],
+                    ['square', e.shapeSquare],
+                  ] as [SubcuroEditViz['shape'], string][]
                 ).map(([shape, label]) => (
                   <button
                     key={shape}
                     type="button"
-                    onClick={() => setViz((v) => ({ ...v, shape: shape as SubcuroEditViz['shape'] }))}
+                    onClick={() => setViz((v) => ({ ...v, shape }))}
                     className={`flex-1 rounded-[10px] border-0 px-2 py-2 text-[12px] font-semibold leading-tight ${
                       viz.shape === shape ? 'bg-white text-[#1a1a2e] shadow-sm' : 'bg-transparent text-[#6b6b80]'
                     }`}
@@ -812,40 +777,31 @@ export default function EditSubscriptionView({
                   </button>
                 ))}
               </div>
-              <p className="m-0 mb-2.5 text-[12px] text-[#6b6b80]">Заливка карточки предпросмотра</p>
+              <p className="m-0 mb-2.5 text-[12px] text-[#6b6b80]">{e.asideCardFillLabel}</p>
               <div className="mb-4 flex flex-wrap gap-2">
-                {(
-                  [
-                    ['none', 'Нейтральная'],
-                    ['lavender', 'Лаванда'],
-                    ['mint', 'Мята'],
-                    ['peach', 'Персик'],
-                  ] as const
-                ).map(([fill, title]) => (
+                <button
+                  type="button"
+                  title={e.asideNeutral}
+                  aria-label={e.asideNeutral}
+                  onClick={() => setViz((v) => ({ ...v, cardFill: 'none' }))}
+                  className={`h-9 w-9 rounded-lg border-2 bg-[#f4f4f6] ${viz.cardFill === 'none' ? 'border-[#5b43d4] shadow-[0_0_0_1px_rgba(91,67,212,0.2)]' : 'border-[#e7e3dc]'}`}
+                />
+                {CARD_COLOR_PRESETS.map(({ key, label, swatch }) => (
                   <button
-                    key={fill}
+                    key={key}
                     type="button"
-                    title={title}
-                    aria-label={title}
-                    onClick={() => setViz((v) => ({ ...v, cardFill: fill }))}
-                    className={`h-9 w-9 rounded-lg border-2 ${
-                      fill === 'none' ? 'bg-[#fafafa]' : ''
-                    } ${viz.cardFill === fill ? 'border-[#5b43d4] shadow-[0_0_0_1px_rgba(91,67,212,0.2)]' : 'border-[#e7e3dc]'}`}
-                    style={
-                      fill === 'lavender'
-                        ? { background: '#faf5ff' }
-                        : fill === 'mint'
-                          ? { background: '#f0fdf4' }
-                          : fill === 'peach'
-                            ? { background: '#fff7ed' }
-                            : undefined
-                    }
+                    title={label}
+                    aria-label={label}
+                    onClick={() => setViz((v) => ({ ...v, cardFill: key }))}
+                    className={`h-9 w-9 rounded-lg border-2 ${viz.cardFill === key ? 'border-[#5b43d4] shadow-[0_0_0_1px_rgba(91,67,212,0.2)]' : 'border-[#e7e3dc]'}`}
+                    style={{ background: swatch }}
                   />
                 ))}
               </div>
-              <p className="m-0 mb-2.5 text-[12px] text-[#6b6b80]">Предпросмотр в приложении</p>
+              <p className="m-0 mb-2.5 text-[12px] text-[#6b6b80]">{e.asidePreviewLabel}</p>
               <div
-                className={`preview-phone overflow-hidden rounded-[28px] border border-[#e7e3dc] p-4 shadow-inner ${previewFillClass(viz.cardFill)}`}
+                className="preview-phone overflow-hidden rounded-[28px] border border-[#e7e3dc] p-4 shadow-inner"
+                style={previewFillStyle(viz.cardFill)}
               >
                 <div className="flex items-center gap-3">
                   <PaymentServiceIcon
@@ -867,20 +823,8 @@ export default function EditSubscriptionView({
         </form>
       </main>
 
-      <div
-        className="fixed bottom-0 left-0 right-0 z-40 flex justify-center py-4 pl-[250px] max-lg:pl-0"
-        style={{ background: '#2d0c33' }}
-      >
-        <button
-          type="submit"
-          form="edit-sub-form"
-          className="rounded-[12px] border-0 bg-[#0d9f6e] px-8 py-3 text-[15px] font-semibold text-white shadow-[0_4px_16px_rgba(0,0,0,0.25)] hover:brightness-105"
-        >
-          ✓ Сохранить изменения
-        </button>
-      </div>
 
-      {saveToast ? (
+{saveToast ? (
         <div
           className="fixed bottom-[max(24px,88px)] left-1/2 z-[80] w-[min(440px,calc(100vw-32px))] -translate-x-1/2 motion-safe:animate-[edit-toast_0.35s_cubic-bezier(0.22,1,0.36,1)_both]"
           role="status"
@@ -893,9 +837,9 @@ export default function EditSubscriptionView({
               </svg>
             </div>
             <div className="min-w-0 flex-1">
-              <strong className="block text-[15px] font-semibold text-[#1a1a2e]">Изменения сохранены</strong>
+              <strong className="block text-[15px] font-semibold text-[#1a1a2e]">{e.savedToast}</strong>
               <span className="mt-1 block text-[13px] leading-snug text-[#6b6b80]">
-                Данные подписки обновлены в списке платежей.
+                {e.savedToastSub}
               </span>
             </div>
             <button
@@ -903,7 +847,7 @@ export default function EditSubscriptionView({
               onClick={() => setSaveToast(false)}
               className="shrink-0 rounded-[10px] border-0 bg-[#0d9f6e] px-[18px] py-2.5 text-[13px] font-semibold text-white shadow-[0_2px_8px_rgba(13,159,110,0.35)] hover:brightness-105"
             >
-              Понятно
+              {e.savedToastOk}
             </button>
           </div>
         </div>
@@ -914,35 +858,34 @@ export default function EditSubscriptionView({
           <button
             type="button"
             className="absolute inset-0 cursor-default border-0 bg-[rgba(26,26,61,0.35)]"
-            aria-label="Закрыть"
+            aria-label={e.cardModalClose}
             onClick={() => setCardModalOpen(false)}
           />
           <div className="relative z-[1] w-[min(420px,100%)] rounded-[18px] border border-[#e7e3dc] bg-white p-6 shadow-[0_16px_48px_rgba(0,0,0,0.18)]">
             <button
               type="button"
               className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-[10px] border-0 bg-[#f4f4f6] text-[22px] text-[#6b6b80]"
-              aria-label="Закрыть"
+              aria-label={e.cardModalClose}
               onClick={() => setCardModalOpen(false)}
             >
               ×
             </button>
-            <h2 className="m-0 mb-2 text-[1.1rem] font-bold text-[#1a1a2e]">Карта оплаты</h2>
+            <h2 className="m-0 mb-2 text-[1.1rem] font-bold text-[#1a1a2e]">{e.cardModalTitle}</h2>
             <p className="m-0 mb-4 text-[14px] leading-snug text-[#6b6b80]">
-              Реквизиты сохраняются в приложении и доступны для всех подписок, где выбрана эта карта. Функция скоро
-              появится.
+              {e.cardModalDesc}
             </p>
             <label className="mb-3 block text-[13px] text-[#1a1a2e]">
-              Выбор карты
+              {e.cardModalSelectCard}
               <select className="mt-1 w-full rounded-[10px] border border-[#dcd6ce] px-3 py-2 text-sm" disabled>
                 <option>—</option>
               </select>
             </label>
             <label className="mb-3 block text-[13px] text-[#1a1a2e]">
-              Бренд (Visa, Mastercard…)
+              {e.cardModalBrand}
               <input className="mt-1 w-full rounded-[10px] border border-[#dcd6ce] px-3 py-2 text-sm" disabled />
             </label>
             <label className="mb-5 block text-[13px] text-[#1a1a2e]">
-              Последние 4 цифры
+              {e.cardModalLast4}
               <input className="mt-1 w-full rounded-[10px] border border-[#dcd6ce] px-3 py-2 text-sm" disabled />
             </label>
             <div className="flex justify-end gap-2">
@@ -951,14 +894,14 @@ export default function EditSubscriptionView({
                 onClick={() => setCardModalOpen(false)}
                 className="rounded-[10px] border border-[#e7e3dc] bg-white px-4 py-2.5 text-[13px] font-semibold"
               >
-                Отмена
+                {e.cardModalCancel}
               </button>
               <button
                 type="button"
                 onClick={() => setCardModalOpen(false)}
                 className="rounded-[10px] border-0 bg-[#0d9f6e] px-4 py-2.5 text-[13px] font-semibold text-white"
               >
-                Сохранить
+                {e.cardModalSave}
               </button>
             </div>
           </div>

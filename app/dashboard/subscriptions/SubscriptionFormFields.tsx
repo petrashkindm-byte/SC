@@ -244,6 +244,18 @@ export default function SubscriptionFormFields({
       </div>
 
       <div>
+        <label className="block text-sm text-[#6b6b80] mb-1">Страница с тарифами</label>
+        <input
+          name="pricing_url"
+          type="url"
+          defaultValue={sub?.pricing_url ?? ''}
+          className="w-full rounded-lg border border-[#dcd6ce] bg-white px-3 py-2 text-[#1a1a2e] text-sm"
+          placeholder="https://..."
+        />
+        <p className="mt-1 text-xs text-[#9b9bab]">Публичная страница с ценами — система будет отслеживать изменение цены</p>
+      </div>
+
+      <div>
         <label className="block text-sm text-[#6b6b80] mb-1">Ссылка на отмену</label>
         <input
           name="cancellation_url"

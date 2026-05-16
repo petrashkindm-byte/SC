@@ -1,5 +1,14 @@
 export type AiLocale = 'ru' | 'en'
 
+/** Один проактивный совет для экрана «Сегодня» (ответ `/api/ai/daily-tip`). */
+export type DailyTipResult = {
+  text: string
+  savings_rub: number | null
+  action_path: string
+  kind: string
+  related_subscription_ids: string[]
+}
+
 /** Поля в духе мобильного `SubscriptionForAI` / симулятора экономии. */
 export interface SubscriptionForAI {
   name: string
@@ -14,4 +23,7 @@ export interface SubscriptionForAI {
   /** Как в приложении: regular | rarely_used | needs_review | unknown (если данных нет). */
   usageState?: string | null
   daysUntilRenewal: number
+  category: string
+  renewalType: string
+  monthlyEquivalent: number
 }

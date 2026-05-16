@@ -1,5 +1,8 @@
-import { monthlyNormalizedAmount } from '@/lib/ai/map-subscription'
-import type { AiLocale, SubscriptionForAI } from '@/lib/ai/types'
+import { monthlyNormalizedAmount, subscriptionToAiPayload } from '@/lib/ai/map-subscription'
+import type { AiLocale, DailyTipResult, SubscriptionForAI } from '@/lib/ai/types'
+import type { Subscription } from '@/lib/supabase/types'
+import { findServiceEntry } from '@/lib/service-comparison-db'
+import type { ServiceEntry } from '@/lib/service-comparison-db'
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const MODEL = 'openai/gpt-4o-mini'
@@ -19,29 +22,86 @@ function lastUsedLabel(lastUsedAt: string | null | undefined): string {
   return `${days} days ago`
 }
 
-/** Блок подписки в промпте: как в мобильном симуляторе + интервал/кастом из БД. */
+/**
+ * Форматирует блок характеристик сервиса из базы для промта.
+ * Включает: сильные стороны (good), уникальное преимущество (exclusive),
+ * годовой тариф со скидкой, семейный план, bundleNote (что входит в пакет).
+ */
+function formatDbFeatures(entry: ServiceEntry): string {
+  const lines: string[] = []
+
+  // Сильные стороны: только good-фичи, кроме exclusive (он идёт отдельно)
+  const strengths = entry.features
+    .filter(f => f.level === 'good' && f.key !== 'exclusive' && f.key !== 'lossless')
+    .map(f => f.value)
+  // Lossless отдельно — важная аудиофича
+  const lossless = entry.features.find(f => f.key === 'lossless' && f.level === 'good')
+  if (lossless) strengths.unshift(`Lossless: ${lossless.value}`)
+
+  if (strengths.length > 0) {
+    lines.push(`   - Strengths: ${strengths.join(' · ')}`)
+  }
+
+  // Уникальное преимущество (exclusive) — только если good
+  const exclusive = entry.features.find(f => f.key === 'exclusive' && f.level === 'good')
+  if (exclusive) {
+    lines.push(`   - Unique value: ${exclusive.value}`)
+  }
+
+  // Что входит в пакет (bundleNote)
+  if (entry.bundleNote) {
+    lines.push(`   - Bundle note: ${entry.bundleNote}`)
+  }
+
+  // Годовой тариф + расчёт экономии
+  if (entry.annualPrice && entry.monthlyPrice) {
+    const monthlyFromAnnual = Math.round(entry.annualPrice / 12)
+    const saving = Math.round((entry.monthlyPrice - monthlyFromAnnual) * 12)
+    const cur = entry.priceCurrency ?? 'RUB'
+    if (saving > 0) {
+      lines.push(`   - Annual plan: ${entry.annualPrice} ${cur} (≈${monthlyFromAnnual} ${cur}/mo, saves ~${saving} ${cur}/year vs monthly)`)
+    }
+  }
+
+  // Семейный план
+  if (entry.familyPlan) {
+    const fp = entry.familyPlan
+    lines.push(`   - Family plan: ${fp.monthlyApprox} ${fp.currency}/mo for up to ${fp.slots} people`)
+  }
+
+  return lines.join('\n')
+}
+
+/** Блок подписки в промпте */
 function formatSubscriptionBlock(
   s: SubscriptionForAI,
   index: number,
-  opts: { includeNextCharge: boolean },
+  opts: { includeNextCharge: boolean; entry?: ServiceEntry | null },
 ): string {
-  const periodHint =
-    s.billingInterval > 1
-      ? ` (every ${s.billingInterval} periods)`
-      : s.billingCycle === 'custom' && s.customIntervalDays
-        ? ` (every ${s.customIntervalDays} days)`
-        : ''
+  const cycleParts: string[] = [`${s.amount} ${s.currency}/${s.billingCycle}`]
+  if (s.billingInterval > 1) cycleParts.push(`×${s.billingInterval}`)
+  if (s.billingCycle === 'custom' && s.customIntervalDays) cycleParts.push(`every ${s.customIntervalDays}d`)
+  cycleParts.push(`≈${s.monthlyEquivalent} ${s.currency}/mo`)
+
+  // Тип из базы точнее, чем категория из БД пользователя
+  const typeLabel = opts.entry ? opts.entry.type : s.category
+
   const lines = [
-    `${index + 1}. ${s.name}`,
-    `   - Amount: ${s.amount} ${s.currency} per ${s.billingCycle}${periodHint}`,
+    `${index + 1}. ${s.name} [${typeLabel}, renewal: ${s.renewalType}]`,
+    `   - Cost: ${cycleParts.join(', ')}`,
   ]
   if (opts.includeNextCharge) {
     lines.push(`   - Next charge: in ${s.daysUntilRenewal} days`)
   }
-  lines.push(
-    `   - Last used: ${lastUsedLabel(s.lastUsedAt)}`,
-    `   - Usage state: ${s.usageState ?? 'unknown'}`,
-  )
+  const usedLabel = lastUsedLabel(s.lastUsedAt)
+  lines.push(`   - Last marked as used: ${usedLabel}`)
+
+  // Данные из базы характеристик
+  if (opts.entry) {
+    const featBlock = formatDbFeatures(opts.entry)
+    if (featBlock) lines.push(featBlock)
+  }
+
   return `\n${lines.join('\n')}`
 }
 
@@ -98,6 +158,192 @@ function mapOpenRouterHttpError(status: number, body: string): string {
   }
 }
 
+function buildAnalyzePrompt(subscriptions: SubscriptionForAI[], lang: string): string {
+  // Находим каждую подписку в базе характеристик
+  const entries = subscriptions.map(s => findServiceEntry(s.name) ?? null)
+
+  const list = subscriptions
+    .map((s, i) => formatSubscriptionBlock(s, i, { includeNextCharge: true, entry: entries[i] }))
+    .join('')
+
+  // Детектируем дубликаты по типу из базы — точнее, чем category_slug пользователя.
+  // Для мультитиповых сервисов (Яндекс Плюс: music+video) учитываем все типы.
+  const typeCount = new Map<string, string[]>()
+  for (let i = 0; i < subscriptions.length; i++) {
+    const s = subscriptions[i]
+    const entry = entries[i]
+    const types = entry
+      ? [entry.type, ...(entry.additionalTypes ?? [])]
+      : [s.category]
+    for (const t of types) {
+      const arr = typeCount.get(t) ?? []
+      arr.push(s.name)
+      typeCount.set(t, arr)
+    }
+  }
+  const dupes = [...typeCount.entries()]
+    .filter(([, names]) => names.length > 1)
+    .map(([type, names]) => `${type}: ${names.join(', ')}`)
+  const dupeNote = dupes.length > 0
+    ? `\nOverlapping service types (evaluate trade-offs carefully):\n${dupes.map(d => `  - ${d}`).join('\n')}`
+    : ''
+
+  return `You are a personal finance assistant reviewing a user's active subscriptions.
+
+Subscriptions:${list}
+${dupeNote}
+
+Task: for each subscription write ONE paragraph with a clear verdict and specific reasoning.
+
+Verdict options: Keep · Cancel at renewal · Switch to annual · Downgrade · Review usage
+
+Analysis priorities (in order):
+1. Overlapping types — when multiple services cover the same need (music, video, ai…), use the feature data above to explain which is stronger and why. Be specific: mention actual differentiators like exclusive content, audio quality, or bundle value.
+2. Unique value — if a service has a distinct strength (exclusive podcasts, Lossless audio, E2E encryption, a bundled service), name it explicitly and factor it into the verdict.
+3. Bundle overlap — if a service already includes another (e.g. Яндекс Плюс includes Кинопоиск), flag the double payment.
+4. Billing optimisation — if an annual plan is listed above and the user pays monthly, recommend the switch with actual savings amount.
+5. Usage signal — "last used: unknown" means the user did not track it, NOT that they don't use it. Flag unused only when combined with a duplicate or high price.
+
+Rules:
+- Every sentence must reference this user's specific data (names, amounts, features listed above).
+- For subscriptions already on an annual plan, do not suggest cancellation as an immediate action — recommend reconsidering at next renewal if applicable.
+- Do not repeat reasoning across subscriptions.
+- No markdown, no bullet points inside paragraphs, no confidence percentages.
+
+Respond in ${lang}. One blank line between subscriptions.`
+}
+
+export function sanitizeDashboardPath(path: string | null | undefined): string {
+  const raw = (path ?? '/dashboard/savings').trim() || '/dashboard/savings'
+  if (!raw.startsWith('/dashboard') || raw.includes('..') || raw.includes('//')) {
+    return '/dashboard/savings'
+  }
+  return raw
+}
+
+function buildDailyTipPrompt(subs: Subscription[], lang: string, avoidSummary?: string): string {
+  const forAi = subs.map(subscriptionToAiPayload)
+  const entries = subs.map((s) => findServiceEntry(s.name) ?? null)
+  const list = subs
+    .map((sub, i) => {
+      const block = formatSubscriptionBlock(forAi[i], i, { includeNextCharge: true, entry: entries[i] })
+      return `[id=${sub.id}]${block}`
+    })
+    .join('')
+
+  const typeCount = new Map<string, string[]>()
+  for (let i = 0; i < forAi.length; i++) {
+    const s = forAi[i]
+    const entry = entries[i]
+    const types = entry ? [entry.type, ...(entry.additionalTypes ?? [])] : [s.category]
+    for (const t of types) {
+      const arr = typeCount.get(t) ?? []
+      arr.push(s.name)
+      typeCount.set(t, arr)
+    }
+  }
+  const dupes = [...typeCount.entries()]
+    .filter(([, names]) => names.length > 1)
+    .map(([type, names]) => `${type}: ${names.join(', ')}`)
+  const dupeNote =
+    dupes.length > 0
+      ? `\nOverlapping service types:\n${dupes.map((d) => `  - ${d}`).join('\n')}`
+      : ''
+
+  const avoid = avoidSummary?.trim()
+    ? `\nThe user disliked the previous tip (summary): "${avoidSummary.trim().slice(0, 400)}". Offer a DIFFERENT angle or different subscriptions — do not repeat the same recommendation.`
+    : ''
+
+  return `You output exactly ONE JSON object and nothing else. All string values in the JSON must be in ${lang}.
+
+Subscriptions (each block starts with [id=UUID] — when relevant, copy those UUIDs exactly into related_subscription_ids):${list}
+${dupeNote}
+${avoid}
+
+Pick exactly ONE highest-value tip. Priority:
+1. Overlapping / duplicate services (same need: video, music, cloud…).
+2. Clear savings from monthly → annual using ONLY numbers implied by the data above (do not invent prices).
+3. High cost or duplicate plus usageState rarely_used or last used 30+ days ago.
+4. Bundle overlap if bundle notes in data support it.
+5. Family plan vs several individuals only if family plan data exists in the blocks.
+6. Urgent renewal in 0–2 days only if facts in the data support urgency.
+
+If there is no actionable issue, set kind to "optimal", savings_rub to 0, text to a short positive message that finances look fine, action_path "/dashboard/savings".
+
+Required JSON keys:
+{"text":"…","savings_rub": <integer >= 0 or null>,"action_path":"/dashboard/...","kind":"duplicate|annual|unused|bundle|family|urgent|optimal|other","related_subscription_ids":["uuid",...]}
+
+Rules:
+- "text": one or two short sentences; name real services and amounts from the data.
+- savings_rub: integer monthly savings in the user's main currency if quantifiable, else null.
+- action_path: internal path only, must start with /dashboard (e.g. /dashboard/savings or /dashboard/subscriptions/<one-uuid>).
+- related_subscription_ids: subset of UUIDs from [id=…] prefixes. If the user should open ONE subscription card first (e.g. cancel or review that one), include ONLY that single UUID — the app will deep-link there. If the tip is purely about comparing several services with no single primary row, include all involved UUIDs (2+) and use action_path "/dashboard/savings". Empty array only when no specific rows apply.`
+}
+
+function parseDailyTipResponse(raw: string): DailyTipResult {
+  let s = raw.trim()
+  if (s.startsWith('```')) {
+    s = s.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
+  }
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(s)
+  } catch {
+    throw new Error('Некорректный JSON от модели')
+  }
+  if (!parsed || typeof parsed !== 'object') throw new Error('Пустой ответ модели')
+  const o = parsed as Record<string, unknown>
+  const text = typeof o.text === 'string' ? o.text.trim() : ''
+  if (!text) throw new Error('Пустой текст совета')
+  const savings = o.savings_rub
+  let savings_rub: number | null = null
+  if (savings === null) savings_rub = null
+  else if (typeof savings === 'number' && Number.isFinite(savings)) savings_rub = Math.max(0, Math.round(savings))
+  const action_path = sanitizeDashboardPath(typeof o.action_path === 'string' ? o.action_path : undefined)
+  const kind = typeof o.kind === 'string' && o.kind.trim() ? o.kind.trim() : 'other'
+  const rel = o.related_subscription_ids
+  const related_subscription_ids = Array.isArray(rel)
+    ? rel.filter((id): id is string => typeof id === 'string' && /^[0-9a-f-]{36}$/i.test(id))
+    : []
+  return { text, savings_rub, action_path, kind, related_subscription_ids }
+}
+
+export async function analyzeDailyTip(
+  subs: Subscription[],
+  locale: AiLocale = 'ru',
+  opts?: { avoidSummary?: string },
+): Promise<DailyTipResult> {
+  if (subs.length === 0) {
+    return {
+      text:
+        locale === 'en'
+          ? 'Add active subscriptions to get a personalized AI tip.'
+          : 'Добавьте активные подписки — появится персональный AI‑совет.',
+      savings_rub: null,
+      action_path: '/dashboard?tab=payments',
+      kind: 'optimal',
+      related_subscription_ids: [],
+    }
+  }
+  const key = getKey()
+  const lang = locale === 'en' ? 'English' : 'Russian'
+  const userPrompt = buildDailyTipPrompt(subs, lang, opts?.avoidSummary)
+  const raw = await completion(
+    key,
+    [
+      {
+        role: 'system',
+        content:
+          'You reply with a single JSON object only. No markdown fences, no commentary before or after JSON.',
+      },
+      { role: 'user', content: userPrompt },
+    ],
+    550,
+    { responseFormat: 'json_object' },
+  )
+  return parseDailyTipResponse(raw)
+}
+
 export async function analyzeSubscriptions(
   subscriptions: SubscriptionForAI[],
   locale: AiLocale = 'ru',
@@ -105,22 +351,7 @@ export async function analyzeSubscriptions(
   const key = getKey()
   const lang = locale === 'en' ? 'English' : 'Russian'
 
-  const prompt = `You are a personal finance assistant helping a user manage their subscriptions.
-
-The user has selected these subscriptions to review:
-${subscriptions.map((s, i) => formatSubscriptionBlock(s, i, { includeNextCharge: true })).join('')}
-
-Analyze EVERY subscription and give a brief, direct, personal recommendation for each one.
-For each explain: should they cancel/keep/pause it and exactly why based on their usage data.
-
-Rules:
-- Cover ALL subscriptions — do not skip any
-- Be direct and specific, not generic
-- Reference actual days and amounts from the data
-- One line per subscription in format "Name: Verdict. Reason."
-- Respond in ${lang}
-- No markdown, just plain text with one blank line between subscriptions`
-
+  const prompt = buildAnalyzePrompt(subscriptions, lang)
   return completion(key, [
     { role: 'system', content: 'You are a helpful personal finance assistant.' },
     { role: 'user', content: prompt },
@@ -133,25 +364,71 @@ export async function* analyzeSubscriptionsStream(
 ): AsyncGenerator<string> {
   const key = getKey()
   const lang = locale === 'en' ? 'English' : 'Russian'
-  const prompt = `You are a personal finance assistant helping a user manage their subscriptions.
-
-The user has selected these subscriptions to review:
-${subscriptions.map((s, i) => formatSubscriptionBlock(s, i, { includeNextCharge: true })).join('')}
-
-Analyze EVERY subscription and give a brief, direct, personal recommendation for each one.
-For each explain: should they cancel/keep/pause it and exactly why based on their usage data.
-
-Rules:
-- Cover ALL subscriptions — do not skip any
-- Be direct and specific, not generic
-- Reference actual days and amounts from the data
-- One line per subscription in format "Name: Verdict. Reason."
-- Respond in ${lang}
-- No markdown, just plain text with one blank line between subscriptions`
   yield* completionStream(key, [
     { role: 'system', content: 'You are a helpful personal finance assistant.' },
-    { role: 'user', content: prompt },
+    { role: 'user', content: buildAnalyzePrompt(subscriptions, lang) },
   ], 900)
+}
+
+function buildWhatIfPrompt(
+  subscriptions: SubscriptionForAI[],
+  budgetLimit: number,
+  currency: string,
+  totalMonthly: number,
+  lang: string,
+): string {
+  const subsBlock = subscriptions
+    .map((s, i) => formatSubscriptionBlock(s, i, { includeNextCharge: false, entry: findServiceEntry(s.name) ?? null }))
+    .join('')
+
+  const alreadyUnder = totalMonthly <= budgetLimit
+
+  if (alreadyUnder) {
+    return `You are a personal finance assistant.
+
+The user's current monthly total is ${totalMonthly} ${currency}/month, which is already within their budget of ${budgetLimit} ${currency}/month.
+
+Their subscriptions:
+${subsBlock}
+
+Tell the user their current total is already under the limit. Briefly note 1-2 subscriptions they could cut if they want to save even more, but emphasize no action is required.
+
+Rules:
+- Be direct, reference actual amounts
+- Keep response under 120 words
+- Respond in ${lang}
+- YOU MUST respond ONLY in ${lang}. Do not use English if lang is Russian.
+- No markdown, plain text
+- End with: "Итого: ${totalMonthly} ${currency}/мес" (or "Total: ${totalMonthly} ${currency}/mo" in English)`
+  }
+
+  const overage = totalMonthly - budgetLimit
+
+  return `You are a personal finance assistant helping the user trim their subscriptions.
+
+GOAL: Cancel the MINIMUM number of subscriptions so the remaining total is as close to ${budgetLimit} ${currency}/month as possible — ideally between ${Math.round(budgetLimit * 0.85)} and ${budgetLimit} ${currency}/month. Do NOT cancel more than necessary. The user wants to keep as many services as possible.
+
+Current total: ${totalMonthly} ${currency}/month.
+Budget limit: ${budgetLimit} ${currency}/month.
+Need to cut: ~${overage} ${currency}/month.
+
+Their subscriptions:
+${subsBlock}
+
+Strategy:
+1. First cancel subscriptions that are rarely/never used (last_used = null or long ago).
+2. If still over budget, cancel the most expensive low-value ones.
+3. STOP cancelling once the remaining total is at or below ${budgetLimit} ${currency}/month.
+4. List what to CANCEL and what to KEEP, with the remaining monthly sum.
+5. The resulting total should be as close to ${budgetLimit} as possible, not much lower.
+
+Rules:
+- Be direct, reference actual amounts
+- Keep response under 200 words
+- Respond in ${lang}
+- YOU MUST respond ONLY in ${lang}. Do not use English if lang is Russian.
+- No markdown, plain text with line breaks between sections
+- End with: "Итого: X ${currency}/мес" (or "Total: X ${currency}/mo" in English)`
 }
 
 export async function analyzeWhatIf(
@@ -167,25 +444,7 @@ export async function analyzeWhatIf(
     subscriptions.reduce((sum, s) => sum + monthlyNormalizedAmount(s), 0),
   )
 
-  const prompt = `You are a personal finance assistant.
-
-The user wants to spend no more than ${budgetLimit} ${currency} per month on subscriptions.
-Their current total is ${totalMonthly} ${currency}/month (normalized estimate per subscription cycle).
-
-Their subscriptions:
-${subscriptions.map((s, i) => formatSubscriptionBlock(s, i, { includeNextCharge: false })).join('')}
-
-Recommend the optimal set of subscriptions to keep within the ${budgetLimit} ${currency} budget.
-Be specific about which ones to cancel and why, prioritizing rarely used ones first.
-Calculate the resulting monthly total after your recommendations.
-
-Rules:
-- Be direct, reference actual amounts and usage
-- Keep response under 180 words
-- Respond in ${lang}
-- YOU MUST respond ONLY in ${lang}. This is critical. Do not use English if lang is Russian.
-- No markdown, plain text with line breaks between recommendations
-- End with: "Итого: X ${currency}/мес" (or "Total: X ${currency}/mo" in English)`
+  const prompt = buildWhatIfPrompt(subscriptions, budgetLimit, currency, totalMonthly, lang)
 
   return completion(key, [
     { role: 'system', content: 'You are a helpful personal finance assistant.' },
@@ -204,25 +463,7 @@ export async function* analyzeWhatIfStream(
   const totalMonthly = Math.round(
     subscriptions.reduce((sum, s) => sum + monthlyNormalizedAmount(s), 0),
   )
-  const prompt = `You are a personal finance assistant.
-
-The user wants to spend no more than ${budgetLimit} ${currency} per month on subscriptions.
-Their current total is ${totalMonthly} ${currency}/month (normalized estimate per subscription cycle).
-
-Their subscriptions:
-${subscriptions.map((s, i) => formatSubscriptionBlock(s, i, { includeNextCharge: false })).join('')}
-
-Recommend the optimal set of subscriptions to keep within the ${budgetLimit} ${currency} budget.
-Be specific about which ones to cancel and why, prioritizing rarely used ones first.
-Calculate the resulting monthly total after your recommendations.
-
-Rules:
-- Be direct, reference actual amounts and usage
-- Keep response under 180 words
-- Respond in ${lang}
-- YOU MUST respond ONLY in ${lang}. This is critical. Do not use English if lang is Russian.
-- No markdown, plain text with line breaks between recommendations
-- End with: "Итого: X ${currency}/мес" (or "Total: X ${currency}/mo" in English)`
+  const prompt = buildWhatIfPrompt(subscriptions, budgetLimit, currency, totalMonthly, lang)
   yield* completionStream(key, [
     { role: 'system', content: 'You are a helpful personal finance assistant.' },
     { role: 'user', content: prompt },
@@ -307,9 +548,19 @@ async function completion(
   key: string,
   messages: { role: string; content: string }[],
   maxTokens: number,
+  opts?: { responseFormat?: 'json_object' },
 ): Promise<string> {
   if (!key) {
     throw new Error('OpenRouter is not configured')
+  }
+
+  const body: Record<string, unknown> = {
+    model: MODEL,
+    max_tokens: maxTokens,
+    messages,
+  }
+  if (opts?.responseFormat === 'json_object') {
+    body.response_format = { type: 'json_object' }
   }
 
   const response = await fetch(OPENROUTER_URL, {
@@ -320,11 +571,7 @@ async function completion(
       'HTTP-Referer': 'https://subcuro.app',
       'X-Title': 'Subcuro',
     },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: maxTokens,
-      messages,
-    }),
+    body: JSON.stringify(body),
   })
 
   const rawBody = await response.text()

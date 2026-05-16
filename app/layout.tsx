@@ -27,7 +27,16 @@ export default function RootLayout({
     <html
       lang="ru"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
+      {/* Anti-flash: apply dark class before first paint */}
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var r=localStorage.getItem('subcuro-profile-prefs-v1');var t=r?JSON.parse(r).theme:'system';if(t==='dark'||(t!=='light'&&window.matchMedia('(prefers-color-scheme:dark)').matches)){document.documentElement.classList.add('dark')}}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body
         suppressHydrationWarning
         className="min-h-full flex flex-col font-sans"

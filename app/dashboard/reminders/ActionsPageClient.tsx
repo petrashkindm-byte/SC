@@ -3,13 +3,15 @@
 import Link from 'next/link'
 import { useMemo, useState, useTransition } from 'react'
 import { coerceNumber } from '@/lib/coerce-number'
-import { categoryLabelRu, formatBillingCycleRu } from '@/lib/subscription-labels'
+import { categoryLabel, formatBillingCycle } from '@/lib/subscription-labels'
+import { useLang } from '@/lib/LangContext'
 import type { Subscription } from '@/lib/supabase/types'
 import { resolveSubscriptionIconDisplay } from '@/lib/subscription-icon-background'
 import PaymentServiceIcon from '../PaymentServiceIcon'
 import DashboardScreenHeader from '../DashboardScreenHeader'
 import { updateSubscriptionStatus } from '../subscriptions/actions'
 import { getMonthlyAmount } from '@/lib/currency'
+import { useDarkMode } from '@/lib/hooks/use-dark-mode'
 
 function daysUntil(dateStr: string): number {
   const today = new Date()
@@ -103,14 +105,17 @@ export default function ActionsPageClient({
   subs: Subscription[]
   remindersSection: React.ReactNode
 }) {
+  const isDark = useDarkMode()
+  const { lang } = useLang()
   const [search, setSearch] = useState('')
   const [simCut, setSimCut] = useState<Set<string>>(() => new Set())
   const [pending, startTransition] = useTransition()
 
   const active = useMemo(() => subs.filter((s) => s.status === 'active'), [subs])
   const currency = active[0]?.currency ?? subs[0]?.currency ?? 'RUB'
+  const locale = lang === 'en' ? 'en-US' : 'ru-RU'
   const fmt = (n: number) =>
-    new Intl.NumberFormat('ru-RU', { style: 'currency', currency, maximumFractionDigits: 0 }).format(n)
+    new Intl.NumberFormat(locale, { style: 'currency', currency, maximumFractionDigits: 0 }).format(n)
 
   const monthlyTotal = useMemo(() => active.reduce((sum, s) => sum + getMonthlyAmount(s), 0), [active])
   const potentialOpt = useMemo(() => Math.max(duplicatePotential(active), monthlyTotal * 0.15), [active, monthlyTotal])
@@ -121,7 +126,7 @@ export default function ActionsPageClient({
     if (q) {
       list = list.filter(
         (s) =>
-          s.name.toLowerCase().includes(q) || categoryLabelRu(s.category_slug).toLowerCase().includes(q),
+          s.name.toLowerCase().includes(q) || categoryLabel(s.category_slug, lang).toLowerCase().includes(q),
       )
     }
     return list
@@ -187,8 +192,10 @@ export default function ActionsPageClient({
       <section
         className="flex flex-col sm:flex-row sm:items-center gap-4 p-5 sm:px-[22px] rounded-2xl mb-1"
         style={{
-          background: 'linear-gradient(135deg, #f0ebff 0%, #ede9fc 100%)',
-          border: '1px solid rgba(91, 67, 212, 0.12)',
+          background: isDark
+            ? 'linear-gradient(135deg, #1e1a3a 0%, #1a1730 100%)'
+            : 'linear-gradient(135deg, #f0ebff 0%, #ede9fc 100%)',
+          border: `1px solid ${isDark ? 'rgba(91,67,212,0.3)' : 'rgba(91,67,212,0.12)'}`,
         }}
       >
         <div className="w-[52px] h-[52px] rounded-xl bg-white flex items-center justify-center flex-shrink-0 shadow-[0_1px_3px_rgba(26,26,61,0.06),0_8px_24px_rgba(26,26,61,0.06)]" aria-hidden>
@@ -304,7 +311,7 @@ export default function ActionsPageClient({
                           «Платежей»
                         </Link>
                         {' · '}
-                        {formatBillingCycleRu(sub)} · {fmt(coerceNumber(sub.amount))}
+                        {formatBillingCycle(sub, lang)} · {fmt(coerceNumber(sub.amount))}
                       </p>
                     </div>
                   </div>

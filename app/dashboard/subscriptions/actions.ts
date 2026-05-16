@@ -1,8 +1,20 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+
+// Разрешаем только http/https — защита от javascript: XSS и file:// схем
+function sanitizeUrl(raw: string): string | null {
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+  try {
+    const u = new URL(trimmed)
+    if (!['http:', 'https:'].includes(u.protocol)) return null
+    return trimmed
+  } catch { return null }
+}
 import { loadCategoryIdBySlug } from '@/lib/category-id'
-import { mergeUserNotesWithViz, type SubcuroEditViz } from '@/lib/subscription-viz-notes'
+import { mergeUserNotesWithViz, vizFillToColorPreset, type SubcuroEditViz } from '@/lib/subscription-viz-notes'
+import { advanceBillingDate } from '@/lib/billing-engine'
 import type {
   BillingCycle,
   CategorySlug,
@@ -12,6 +24,7 @@ import type {
 } from '@/lib/supabase/types'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { logSavingsAction, toMonthlyAmount } from '@/lib/savings-history'
 
 const CATEGORY_SLUGS: CategorySlug[] = [
   'entertainment',
@@ -26,6 +39,67 @@ const CATEGORY_SLUGS: CategorySlug[] = [
 
 function nowIso() {
   return new Date().toISOString()
+}
+
+/**
+ * Автоматически создаёт/обновляет push-напоминание за 3 дня до списания.
+ * Удаляет старые renewal-напоминания для подписки и вставляет новое,
+ * только если у пользователя включён push и есть активная подписка на пуши.
+ */
+async function upsertAutoRenewalReminder(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  userId: string,
+  subscriptionId: string,
+  nextChargeDate: string,
+) {
+  try {
+    // 1. Check push is enabled in user settings
+    const { data: settings } = await supabase
+      .from('user_settings')
+      .select('push_enabled')
+      .eq('user_id', userId)
+      .maybeSingle()
+    if (!settings?.push_enabled) return
+
+    // 2. Check there's an actual push subscription registered
+    const { data: pushSubs } = await supabase
+      .from('push_subscriptions')
+      .select('id')
+      .eq('user_id', userId)
+      .limit(1)
+    if (!pushSubs || pushSubs.length === 0) return
+
+    // 3. Delete existing auto renewal reminders for this subscription
+    await supabase
+      .from('reminders')
+      .delete()
+      .eq('user_id', userId)
+      .eq('subscription_id', subscriptionId)
+      .eq('channel', 'local_push')
+      .eq('type', 'renewal')
+      .is('delivered_at', null)
+
+    // 4. Calculate remind_at: 3 days before next_charge_date
+    const chargeDate = new Date(nextChargeDate)
+    chargeDate.setDate(chargeDate.getDate() - 3)
+    chargeDate.setHours(9, 0, 0, 0) // 09:00 local server time
+    // Only create if the reminder date is in the future
+    if (chargeDate <= new Date()) return
+
+    await supabase.from('reminders').insert({
+      id: crypto.randomUUID(),
+      user_id: userId,
+      subscription_id: subscriptionId,
+      remind_at: chargeDate.toISOString(),
+      channel: 'local_push',
+      type: 'renewal',
+      enabled: true,
+    })
+  } catch (e) {
+    // Non-critical — don't break the main flow
+    console.warn('[upsertAutoRenewalReminder] failed:', e)
+  }
 }
 
 type SubscriptionUpdate = Database['public']['Tables']['subscriptions']['Update']
@@ -60,6 +134,7 @@ type ParsedForm =
       renewal_type: RenewalType
       cancellation_url: string | null
       management_url: string | null
+      pricing_url: string | null
       notes: string | null
       icon: string | null
     }
@@ -91,10 +166,9 @@ function parseSubscriptionForm(formData: FormData, billingInterval: number): Par
   const trialRaw = String(formData.get('free_trial_end_date') ?? '').slice(0, 10)
   const free_trial_end_date = trialRaw || null
 
-  const cancelRaw = String(formData.get('cancellation_url') ?? '').trim()
-  const cancellation_url = cancelRaw || null
-  const manageRaw = String(formData.get('management_url') ?? '').trim()
-  const management_url = manageRaw || null
+  const cancellation_url = sanitizeUrl(String(formData.get('cancellation_url') ?? ''))
+  const management_url = sanitizeUrl(String(formData.get('management_url') ?? ''))
+  const pricing_url = sanitizeUrl(String(formData.get('pricing_url') ?? ''))
 
   const renewRaw = String(formData.get('renewal_type') ?? 'auto_renew')
   const renewal_type: RenewalType = renewRaw === 'manual' ? 'manual' : 'auto_renew'
@@ -121,6 +195,7 @@ function parseSubscriptionForm(formData: FormData, billingInterval: number): Par
     renewal_type,
     cancellation_url,
     management_url,
+    pricing_url,
     notes,
     icon,
   }
@@ -133,6 +208,33 @@ export async function updateSubscriptionStatus(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Требуется авторизация')
+
+  // Если отменяем — записываем в историю сохранений
+  if (nextStatus === 'cancelled') {
+    const { data: sub } = await supabase
+      .from('subscriptions')
+      .select('name, amount, currency, billing_cycle, billing_interval')
+      .eq('id', subscriptionId)
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (sub) {
+      const amountMonthly = toMonthlyAmount(
+        Number(sub.amount) || 0,
+        sub.billing_cycle ?? 'monthly',
+        Number(sub.billing_interval) || 1,
+      )
+      await logSavingsAction({
+        supabase,
+        userId: user.id,
+        subscriptionId,
+        subscriptionName: sub.name,
+        amountMonthly,
+        currency: sub.currency ?? 'RUB',
+        actionType: 'cancelled',
+      })
+    }
+  }
 
   const patch = subscriptionStatusPatch(nextStatus)
 
@@ -208,7 +310,9 @@ export async function updateSubscriptionFields(formData: FormData) {
     renewal_type: parsed.renewal_type,
     cancellation_url: parsed.cancellation_url,
     management_url: parsed.management_url,
+    pricing_url: parsed.pricing_url,
     notes: mergedNotes,
+    card_color_preset: viz ? vizFillToColorPreset(viz.cardFill) : null,
     icon: parsed.icon,
     ...(nextStatus ? subscriptionStatusPatch(nextStatus) : {}),
   }
@@ -218,6 +322,8 @@ export async function updateSubscriptionFields(formData: FormData) {
   if (error) {
     redirect(`/dashboard/subscriptions/${id}/edit?error=save`)
   }
+
+  await upsertAutoRenewalReminder(supabase, user.id, id, parsed.next_charge_date)
 
   revalidatePath('/dashboard')
   revalidatePath('/dashboard/reminders')
@@ -266,6 +372,7 @@ export async function createSubscription(formData: FormData) {
     renewal_type: parsed.renewal_type,
     cancellation_url: parsed.cancellation_url,
     management_url: parsed.management_url,
+    pricing_url: parsed.pricing_url,
     notes: parsed.notes,
     icon: parsed.icon,
     status: 'active',
@@ -278,41 +385,14 @@ export async function createSubscription(formData: FormData) {
     redirect('/dashboard/subscriptions/new?error=save')
   }
 
+  await upsertAutoRenewalReminder(supabase, user.id, newId, parsed.next_charge_date)
+
   revalidatePath('/dashboard')
   revalidatePath('/dashboard/collections')
   if (back === 'payments') {
     redirect('/dashboard?tab=payments&subscriptionCreated=1')
   }
   redirect(`/dashboard/subscriptions/${newId}`)
-}
-
-/** Вычисляет следующую дату оплаты, сдвигая от baseDate на один платёжный цикл */
-function advanceDate(
-  baseDate: string,
-  cycle: BillingCycle,
-  interval: number,
-  customDays: number | null,
-): string {
-  const d = new Date(baseDate)
-  const n = Math.max(1, interval)
-  switch (cycle) {
-    case 'weekly':
-      d.setDate(d.getDate() + 7 * n)
-      break
-    case 'monthly':
-      d.setMonth(d.getMonth() + n)
-      break
-    case 'quarterly':
-      d.setMonth(d.getMonth() + 3 * n)
-      break
-    case 'yearly':
-      d.setFullYear(d.getFullYear() + n)
-      break
-    case 'custom':
-      d.setDate(d.getDate() + (customDays ?? 30) * n)
-      break
-  }
-  return d.toISOString().slice(0, 10)
 }
 
 export async function markAsPaid(subscriptionId: string) {
@@ -322,7 +402,7 @@ export async function markAsPaid(subscriptionId: string) {
 
   const { data: sub, error: fetchErr } = await supabase
     .from('subscriptions')
-    .select('next_charge_date, billing_cycle, billing_interval, custom_interval_days')
+    .select('next_charge_date, billing_cycle, billing_interval, custom_interval_days, amount, currency')
     .eq('id', subscriptionId)
     .eq('user_id', user.id)
     .single()
@@ -330,12 +410,20 @@ export async function markAsPaid(subscriptionId: string) {
   if (fetchErr || !sub) throw new Error('Подписка не найдена')
 
   const base = sub.next_charge_date ?? new Date().toISOString().slice(0, 10)
-  const nextDate = advanceDate(
+  const nextDate = advanceBillingDate(
     base,
     sub.billing_cycle as BillingCycle,
     Number(sub.billing_interval) || 1,
     sub.custom_interval_days,
   )
+  await supabase.from('subscription_payments').insert({
+    id: crypto.randomUUID(),
+    user_id: user.id,
+    subscription_id: subscriptionId,
+    charged_for_date: base,
+    amount: Number(sub.amount) || 0,
+    currency: sub.currency ?? 'RUB',
+  })
 
   const { error } = await supabase
     .from('subscriptions')

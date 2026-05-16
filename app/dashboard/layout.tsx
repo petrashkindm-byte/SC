@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import DashboardSidebar from './DashboardSidebar'
 import MobileBottomNav from './MobileBottomNav'
+import { LangProvider } from '@/lib/LangContext'
 
 export default async function DashboardLayout({
   children,
@@ -24,12 +25,6 @@ export default async function DashboardLayout({
     .eq('user_id', user.id)
     .neq('status', 'archived')
 
-  const { count: actionsCount } = await supabase
-    .from('reminders')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', user.id)
-    .eq('enabled', true)
-
   const profileRow = profile as { full_name?: string | null } | null
   const metadata = (user.user_metadata ?? {}) as Record<string, unknown>
   const metadataNameParts = [metadata.first_name, metadata.last_name]
@@ -51,16 +46,17 @@ export default async function DashboardLayout({
     'Пользователь'
 
   return (
-    <div className="min-h-screen flex bg-[#f5f0e8] text-[#1a1a2e]">
-      <div className="hidden md:block">
-        <DashboardSidebar
-          displayName={displayName}
-          paymentsCount={paymentsCount ?? 0}
-          actionsCount={actionsCount ?? 0}
-        />
+    <LangProvider>
+      <div className="h-screen flex overflow-hidden bg-background text-foreground">
+        <div className="relative z-0 hidden md:flex md:shrink-0">
+          <DashboardSidebar
+            displayName={displayName}
+            paymentsCount={paymentsCount ?? 0}
+          />
+        </div>
+        <div className="relative z-10 flex-1 min-w-0 overflow-y-auto pb-20 md:pb-0">{children}</div>
+        <MobileBottomNav />
       </div>
-      <div className="flex-1 min-w-0 pb-20 md:pb-0">{children}</div>
-      <MobileBottomNav />
-    </div>
+    </LangProvider>
   )
 }

@@ -20,6 +20,9 @@ export const metadata: Metadata = {
   title: 'SubCuro — Контролируй регулярные платежи на любом устройстве',
   description:
     'SubCuro синхронизирует подписки, связь, интернет и другие регулярные платежи между веб-версией и приложением.',
+  other: {
+    'mailru-domain': 'nSFgYIsTMveCkqCv',
+  },
 }
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {

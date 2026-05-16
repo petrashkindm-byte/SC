@@ -9,6 +9,7 @@ import {
   type DetectedSubscription,
 } from '@/lib/parse-bank-statement'
 import { searchCatalog } from '@/lib/service-catalog'
+import { actionButtonClass } from '@/app/dashboard/ui/action-button'
 
 const CYCLE_LABEL: Record<string, string> = {
   weekly: 'каждую неделю',
@@ -144,7 +145,7 @@ export default function BankImportClient() {
         <button
           type="button"
           onClick={() => router.push('/dashboard')}
-          className="rounded-xl bg-[#5b43d4] px-8 py-3 text-sm font-semibold text-white shadow-[0_4px_14px_rgba(91,67,212,0.35)] hover:brightness-105"
+          className={`${actionButtonClass('primary')} px-8 py-3`}
         >
           Перейти к обзору →
         </button>
@@ -165,9 +166,9 @@ export default function BankImportClient() {
           <button
             type="button"
             onClick={() => { setStep('upload'); setDetected([]); setError(null) }}
-            className="text-xs text-[#6b6b80] hover:text-[#1a1a2e]"
+            className="inline-flex h-9 items-center gap-1.5 rounded-[10px] bg-white px-3.5 text-[13px] font-semibold text-[#1a1a2e] shadow-[0_1px_3px_rgba(26,26,61,0.08)] hover:bg-[#f8f6f2] transition-colors"
           >
-            ← Загрузить другой файл
+            <span aria-hidden>←</span> Загрузить другой файл
           </button>
         </div>
 
@@ -242,7 +243,7 @@ export default function BankImportClient() {
           type="button"
           onClick={handleImport}
           disabled={selected.size === 0 || step === 'importing'}
-          className="w-full rounded-xl bg-[#5b43d4] py-3.5 text-sm font-semibold text-white shadow-[0_4px_14px_rgba(91,67,212,0.35)] hover:brightness-105 disabled:opacity-40 disabled:cursor-not-allowed"
+          className={`w-full ${actionButtonClass('primary')} py-3.5 disabled:opacity-40 disabled:cursor-not-allowed`}
         >
           {step === 'importing'
             ? 'Импортирую…'
@@ -265,9 +266,14 @@ export default function BankImportClient() {
         }`}
       >
         <input ref={inputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={handleFile} />
-        <div className="text-4xl mb-4">🏦</div>
+        <div className="w-12 h-12 rounded-xl bg-[#f0ece6] flex items-center justify-center mb-4">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6b6b80" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="2" y="5" width="20" height="14" rx="2" />
+            <path d="M2 10h20" />
+          </svg>
+        </div>
         <p className="text-[#1a1a2e] font-semibold mb-1">Перетащи CSV-выписку или нажми</p>
-        <p className="text-sm text-[#6b6b80]">Поддерживается Тинькофф и Сбербанк</p>
+        <p className="text-sm text-[#6b6b80]">Формат CSV из интернет-банка</p>
       </div>
 
       {error && (
@@ -275,21 +281,21 @@ export default function BankImportClient() {
       )}
 
       <div className="rounded-2xl border border-[#e7e3dc] bg-white p-5">
-        <h3 className="text-sm font-semibold text-[#1a1a2e] mb-3">Как скачать выписку</h3>
+        <h3 className="text-sm font-semibold text-[#1a1a2e] mb-3">Как получить выписку в CSV</h3>
         <div className="grid sm:grid-cols-2 gap-4 text-sm text-[#6b6b80]">
           <div>
-            <p className="font-medium text-[#1a1a2e] mb-1">🟡 Тинькофф</p>
+            <p className="font-medium text-[#1a1a2e] mb-1">Мобильное приложение</p>
             <ol className="list-decimal pl-4 space-y-1 text-xs">
-              <li>Приложение → История → раздел «…»</li>
-              <li>«Выгрузить выписку» → CSV</li>
+              <li>Открой историю операций по карте</li>
+              <li>Найди «Выгрузить» или «Экспорт» → CSV</li>
               <li>Выбери период от 3+ месяцев</li>
             </ol>
           </div>
           <div>
-            <p className="font-medium text-[#1a1a2e] mb-1">🟢 Сбербанк</p>
+            <p className="font-medium text-[#1a1a2e] mb-1">Интернет-банк</p>
             <ol className="list-decimal pl-4 space-y-1 text-xs">
-              <li>СберБанк Онлайн → Карта</li>
-              <li>«Выписка» → Скачать CSV</li>
+              <li>Открой раздел «Выписка» по счёту</li>
+              <li>Скачай в формате CSV</li>
               <li>Период: минимум 3 месяца</li>
             </ol>
           </div>

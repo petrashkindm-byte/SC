@@ -29,60 +29,70 @@ export default function SubscriptionStatusActions({ subscriptionId, status }: Pr
 
   if (status === 'archived') {
     return (
-      <div className="space-y-3 rounded-2xl border border-[#e7e3dc] bg-white p-4 shadow-[0_1px_3px_rgba(26,26,61,0.06),0_8px_24px_rgba(26,26,61,0.06)]">
-        <p className="text-sm text-[#6b6b80]">
-          Подписка в архиве — не участвует в активных тратах. Ниже можно вернуть в активные или удалить.
+      <div className="rounded-2xl border border-[rgba(26,26,61,0.08)] bg-white p-5 shadow-[0_1px_3px_rgba(26,26,61,0.06)]">
+        <p className="text-sm text-[#6b6b80] mb-3">
+          Подписка в архиве — не участвует в расчётах трат. Можно вернуть в активные.
         </p>
         <button
           type="button"
           disabled={pending}
           onClick={() => run('active')}
-          className="rounded-lg bg-[#0d9f6e] hover:bg-[#0a875d] disabled:opacity-50 px-4 py-2 text-sm font-medium text-white"
+          className="inline-flex items-center gap-2 rounded-xl bg-[#0d9f6e] hover:bg-[#0a875d] disabled:opacity-50 px-4 py-2.5 text-sm font-medium text-white transition-colors"
         >
-          Вернуть в активные
+          {pending ? 'Обновляю…' : 'Вернуть в активные'}
         </button>
-        {error && <p className="text-sm text-[#e5484d]">{error}</p>}
+        {error && <p className="mt-2 text-sm text-[#e5484d]">{error}</p>}
       </div>
     )
   }
 
+  const actions: { label: string; desc: string; next: 'active' | 'paused' | 'cancelled'; style: string; show: boolean; confirm?: string }[] = [
+    {
+      label: 'Снова активна',
+      desc: 'Вернуть в отслеживание',
+      next: 'active',
+      style: 'border-[#bfe7d1] bg-[#e8faf0] text-[#0d9f6e] hover:bg-[#d4f0e3]',
+      show: status !== 'active',
+    },
+    {
+      label: 'Поставить на паузу',
+      desc: 'Временно приостановить',
+      next: 'paused',
+      style: 'border-[#fdd] bg-[#fff4eb] text-[#b35a00] hover:bg-[#ffe8d1]',
+      show: status === 'active',
+    },
+    {
+      label: 'Отметить как отменённую',
+      desc: 'Подписка больше не списывается',
+      next: 'cancelled',
+      style: 'border-[rgba(26,26,61,0.12)] bg-[#f4f5f8] text-[#6b6b80] hover:bg-[#ececf0]',
+      show: status !== 'cancelled',
+      confirm: 'Пометить подписку как отменённую?',
+    },
+  ]
+
+  const visible = actions.filter((a) => a.show)
+
   return (
-    <div className="space-y-3 rounded-2xl border border-[#e7e3dc] bg-white p-4 shadow-[0_1px_3px_rgba(26,26,61,0.06),0_8px_24px_rgba(26,26,61,0.06)]">
+    <div className="rounded-2xl border border-[rgba(26,26,61,0.08)] bg-white p-5 shadow-[0_1px_3px_rgba(26,26,61,0.06)]">
       <div className="flex flex-wrap gap-2">
-        {status !== 'active' && (
+        {visible.map((a) => (
           <button
-            type="button"
-            disabled={pending}
-            onClick={() => run('active')}
-            className="rounded-lg bg-[#0d9f6e] hover:bg-[#0a875d] disabled:opacity-50 px-4 py-2 text-sm font-medium text-white"
-          >
-            Снова активна
-          </button>
-        )}
-        {status !== 'paused' && status !== 'cancelled' && (
-          <button
-            type="button"
-            disabled={pending}
-            onClick={() => run('paused')}
-            className="rounded-lg bg-[#b35a00] hover:bg-[#9d4f00] disabled:opacity-50 px-4 py-2 text-sm font-medium text-white"
-          >
-            Пауза
-          </button>
-        )}
-        {status !== 'cancelled' && (
-          <button
+            key={a.next}
             type="button"
             disabled={pending}
             onClick={() => {
-              if (confirm('Пометить подписку как отменённую?')) run('cancelled')
+              if (a.confirm && !confirm(a.confirm)) return
+              run(a.next)
             }}
-            className="rounded-lg bg-[#1a1a2e] hover:bg-[#10101f] disabled:opacity-50 px-4 py-2 text-sm font-medium text-white"
+            className={`inline-flex flex-col items-start rounded-xl border px-4 py-3 text-left transition-colors disabled:opacity-50 ${a.style}`}
           >
-            Как отменённая
+            <span className="text-sm font-semibold leading-tight">{pending ? 'Обновляю…' : a.label}</span>
+            <span className="text-xs opacity-70 mt-0.5">{a.desc}</span>
           </button>
-        )}
+        ))}
       </div>
-      {error && <p className="text-sm text-[#e5484d]">{error}</p>}
+      {error && <p className="mt-3 text-sm text-[#e5484d]">{error}</p>}
     </div>
   )
 }

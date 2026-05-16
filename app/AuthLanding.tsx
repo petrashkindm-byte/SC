@@ -158,17 +158,26 @@ export default function AuthLanding() {
     setOauthLoading(provider)
     setError(null)
     const supabase = createClient()
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
         redirectTo: `${location.origin}/auth/callback`,
       },
     })
     if (error) {
+      console.error('[OAuth] signInWithOAuth error:', error)
       setError(mapAuthError(error.message))
       setOauthLoading(null)
+      return
     }
-    // При успехе Supabase сам делает redirect — spinner остаётся до ухода со страницы
+    // При успехе Supabase строит URL и redirect происходит на стороне браузера.
+    // Если URL не вернулся — что-то пошло не так.
+    if (!data?.url) {
+      console.error('[OAuth] No redirect URL returned from Supabase')
+      setError('Не удалось получить ссылку для входа. Попробуйте позже.')
+      setOauthLoading(null)
+    }
+    // При успешном redirect — spinner остаётся до ухода со страницы
   }
 
   async function handleSetNewPassword(e: React.FormEvent) {
@@ -205,7 +214,7 @@ export default function AuthLanding() {
           <aside className="auth-aside" aria-label="О продукте">
             <div className="auth-aside-inner">
               <Link href="/" className="auth-brand">
-                <Image src="/subcuro_ribbon_s_transparent.png?v=20260505b" width={36} height={36} alt="Subcuro logo" />
+                <Image src="/subcuro_ribbon_s_transparent.png" width={36} height={36} alt="Subcuro logo" />
                 <span className="auth-brand-text">Subcuro</span>
               </Link>
               <p className="auth-eyebrow">Умный трекер подписок</p>
@@ -403,7 +412,7 @@ export default function AuthLanding() {
                     </div>
                     {authError && (
                       <p style={{ color: '#dc2626', fontSize: 13, marginBottom: 10 }}>
-                        Ссылка из письма устарела или недействительна.
+                        Вход не выполнен. Попробуйте снова или обратитесь в поддержку.
                       </p>
                     )}
                     {resetDone && (

@@ -28,15 +28,19 @@ export default function CurrencyAmount({
     return <span className={className}>—</span>
   }
 
-  if (groups.length === 1) {
+  // Round each group's total before multiplying so that
+  // displayed monthly (rounded) × factor = displayed annual (no phantom cents).
+  const rounded = groups.map((g) => ({ ...g, total: Math.round(g.total) }))
+
+  if (rounded.length === 1) {
     return (
       <span className={className}>
-        {fmtCurrency(groups[0].total * multiply, groups[0].currency)}
+        {fmtCurrency(rounded[0].total * multiply, rounded[0].currency)}
       </span>
     )
   }
 
-  const [primary, ...rest] = groups
+  const [primary, ...rest] = rounded
   return (
     <span>
       <span className={className}>

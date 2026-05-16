@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { actionButtonClass } from '@/app/dashboard/ui/action-button'
 
 type Status = 'idle' | 'loading' | 'subscribed' | 'denied' | 'unsupported' | 'error'
 
@@ -96,7 +97,7 @@ export default function PushPermissionButton() {
       <button
         type="button"
         onClick={() => void unsubscribe()}
-        className="inline-flex items-center gap-2 rounded-xl border border-[#e7e3dc] bg-white px-4 py-2.5 text-sm font-medium text-[#6b6b80] hover:bg-[#f8f6f2] transition-colors"
+        className={`${actionButtonClass('secondary')} gap-2 text-[#6b6b80]`}
       >
         <span className="h-2 w-2 rounded-full bg-[#12b76a]" />
         Push включён · отключить
@@ -117,7 +118,7 @@ export default function PushPermissionButton() {
       type="button"
       onClick={() => void subscribe()}
       disabled={status === 'loading'}
-      className="inline-flex items-center gap-2 rounded-xl bg-[#5b43d4] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_4px_14px_rgba(91,67,212,0.3)] hover:brightness-105 disabled:opacity-50 transition-all"
+      className={`${actionButtonClass('primary')} gap-2 disabled:opacity-50 transition-all`}
     >
       {status === 'loading' ? (
         <>

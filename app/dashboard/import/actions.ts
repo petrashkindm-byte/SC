@@ -17,6 +17,22 @@ export async function importSubscriptionsCsv(formData: FormData) {
     redirect('/dashboard/import?error=no_file')
   }
 
+  // Лимит 10MB — защита от DoS
+  const MAX_SIZE = 10 * 1024 * 1024
+  if ((file as File).size > MAX_SIZE) {
+    redirect('/dashboard/import?error=too_large')
+  }
+
+  // Только CSV/text файлы
+  const fileType = (file as File).type
+  const fileName = (file as File).name ?? ''
+  if (fileType && !['text/csv', 'text/plain', 'application/csv', 'application/octet-stream'].includes(fileType)) {
+    redirect('/dashboard/import?error=wrong_type')
+  }
+  if (!fileName.toLowerCase().endsWith('.csv') && !fileName.toLowerCase().endsWith('.txt') && fileName !== '') {
+    redirect('/dashboard/import?error=wrong_type')
+  }
+
   const text = await (file as File).text()
   const records = parseCsvToRecords(text)
   if (records.length === 0) {

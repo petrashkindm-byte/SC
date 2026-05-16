@@ -13,6 +13,7 @@ export type RenewalType = 'auto_renew' | 'manual'
 export type SubscriptionStatus = 'active' | 'paused' | 'cancelled' | 'archived'
 export type ReminderChannel = 'local_push' | 'email' | 'in_app'
 export type ReminderType = 'trial_end' | 'renewal' | 'price_check'
+export type PriceAlertDigest = 'instant' | 'daily' | 'weekly'
 
 type EmptyProps = Record<string, never>
 
@@ -75,6 +76,9 @@ export interface Database {
           push_permission: string
           onboarding_completed: boolean
           seed_loaded: boolean
+          price_alerts_enabled: boolean
+          price_alert_min_change_pct: number
+          price_alert_digest: PriceAlertDigest
           created_at: string
           updated_at: string
         }
@@ -88,6 +92,9 @@ export interface Database {
           push_permission?: string
           onboarding_completed?: boolean
           seed_loaded?: boolean
+          price_alerts_enabled?: boolean
+          price_alert_min_change_pct?: number
+          price_alert_digest?: PriceAlertDigest
         }
         Update: Partial<Database['public']['Tables']['user_settings']['Insert']>
         Relationships: []
@@ -110,7 +117,10 @@ export interface Database {
           free_trial_end_date: string | null
           renewal_type: RenewalType
           cancellation_url: string | null
+          management_url: string | null
+          pricing_url: string | null
           notes: string | null
+          card_color_preset: 'lavender' | 'blush' | 'peach' | 'butter' | 'mint' | 'sky' | 'sage' | 'sand' | null
           status: SubscriptionStatus
           icon: string | null
           price_increase_flag: boolean
@@ -119,7 +129,6 @@ export interface Database {
           cancelled_at: string | null
           paused_at: string | null
           archived_at: string | null
-          management_url: string | null
           created_at: string
           updated_at: string
         }
@@ -139,12 +148,14 @@ export interface Database {
           free_trial_end_date?: string | null
           renewal_type?: RenewalType
           cancellation_url?: string | null
+          management_url?: string | null
+          pricing_url?: string | null
           notes?: string | null
+          card_color_preset?: 'lavender' | 'blush' | 'peach' | 'butter' | 'mint' | 'sky' | 'sage' | 'sand' | null
           status?: SubscriptionStatus
           icon?: string | null
           price_increase_flag?: boolean
           annual_renewal_at_risk?: boolean
-          management_url?: string | null
           last_used_at?: string | null
           cancelled_at?: string | null
           paused_at?: string | null
@@ -200,6 +211,126 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['push_subscriptions']['Insert']>
         Relationships: []
       }
+      price_sources: {
+        Row: {
+          id: string
+          service_key: string
+          service_name: string
+          source_url: string
+          parser_type: 'jsonld_offer' | 'meta_price' | 'regex'
+          regex_pattern: string | null
+          currency: string
+          enabled: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          service_key: string
+          service_name: string
+          source_url: string
+          parser_type: 'jsonld_offer' | 'meta_price' | 'regex'
+          regex_pattern?: string | null
+          currency?: string
+          enabled?: boolean
+        }
+        Update: Partial<Database['public']['Tables']['price_sources']['Insert']>
+        Relationships: []
+      }
+      price_snapshots: {
+        Row: {
+          id: string
+          subscription_id: string
+          amount: number | string
+          currency: string
+          observed_at: string
+        }
+        Insert: {
+          id?: string
+          subscription_id: string
+          amount: number
+          currency: string
+          observed_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['price_snapshots']['Insert']>
+        Relationships: []
+      }
+      price_alerts: {
+        Row: {
+          id: string
+          user_id: string
+          subscription_id: string
+          old_amount: number | string
+          new_amount: number | string
+          currency: string
+          change_pct: number | string
+          source_url: string | null
+          created_at: string
+          dismissed_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          subscription_id: string
+          old_amount: number
+          new_amount: number
+          currency: string
+          change_pct: number
+          source_url?: string | null
+          created_at?: string
+          dismissed_at?: string | null
+        }
+        Update: Partial<Database['public']['Tables']['price_alerts']['Insert']>
+        Relationships: []
+      }
+      subscription_payments: {
+        Row: {
+          id: string
+          user_id: string
+          subscription_id: string
+          charged_for_date: string
+          amount: number | string
+          currency: string
+          paid_at: string
+          source: 'manual_mark_paid' | 'import' | 'bank_sync'
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          subscription_id: string
+          charged_for_date: string
+          amount: number
+          currency: string
+          paid_at?: string
+          source?: 'manual_mark_paid' | 'import' | 'bank_sync'
+        }
+        Update: Partial<Database['public']['Tables']['subscription_payments']['Insert']>
+        Relationships: []
+      }
+      gmail_connections: {
+        Row: {
+          id: string
+          user_id: string
+          access_token: string
+          refresh_token: string | null
+          expires_at: string
+          email: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          access_token: string
+          refresh_token?: string | null
+          expires_at: string
+          email?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['gmail_connections']['Insert']>
+        Relationships: []
+      }
     }
     Views: EmptyProps
     Functions: {
@@ -218,3 +349,7 @@ export type Profile = Database['public']['Tables']['profiles']['Row']
 export type Category = Database['public']['Tables']['categories']['Row']
 export type Reminder = Database['public']['Tables']['reminders']['Row']
 export type PushSubscription = Database['public']['Tables']['push_subscriptions']['Row']
+export type PriceSource = Database['public']['Tables']['price_sources']['Row']
+export type PriceSnapshot = Database['public']['Tables']['price_snapshots']['Row']
+export type PriceAlert = Database['public']['Tables']['price_alerts']['Row']
+export type SubscriptionPayment = Database['public']['Tables']['subscription_payments']['Row']

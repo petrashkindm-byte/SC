@@ -4,7 +4,6 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState, useTransition } from 'react'
-import DashboardScreenHeader from '@/app/dashboard/DashboardScreenHeader'
 import {
   buildSubscriptionsCsv,
   buildSubscriptionsHtmlReport,
@@ -18,10 +17,13 @@ import {
   updateFullName,
 } from './actions'
 import PasswordChangeForm from '@/app/dashboard/profile/PasswordChangeForm'
+import { useLang } from '@/lib/LangContext'
+import type { Lang } from '@/lib/translations'
 
 const PREF_KEY = 'subcuro-profile-prefs-v1'
 
 type ThemePref = 'system' | 'light' | 'dark'
+type LangPref = Lang
 
 function loadTheme(): ThemePref {
   if (typeof window === 'undefined') return 'system'
@@ -36,7 +38,8 @@ function loadTheme(): ThemePref {
   return 'system'
 }
 
-function saveThemePref(theme: ThemePref) {
+
+function savePref(key: string, value: unknown) {
   try {
     const raw = localStorage.getItem(PREF_KEY)
     let o: Record<string, unknown> = {}
@@ -47,11 +50,15 @@ function saveThemePref(theme: ThemePref) {
         o = {}
       }
     }
-    o.theme = theme
+    o[key] = value
     localStorage.setItem(PREF_KEY, JSON.stringify(o))
   } catch {
     /* ignore */
   }
+}
+
+function saveThemePref(theme: ThemePref) {
+  savePref('theme', theme)
 }
 
 function applyTheme(t: ThemePref) {
@@ -69,11 +76,7 @@ function applyTheme(t: ThemePref) {
   }
 }
 
-function themeToastLabel(t: ThemePref): string {
-  if (t === 'light') return 'Светлая'
-  if (t === 'dark') return 'Тёмная'
-  return 'Системная'
-}
+// themeToastLabel is now resolved per-language in the component
 
 function IconUser() {
   return (
@@ -107,15 +110,6 @@ function IconReport() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="h-[22px] w-[22px]" aria-hidden>
       <path d="M3 3v18h18" />
       <path d="m18 9-5 5-4-4-3 3" />
-    </svg>
-  )
-}
-
-function IconShield() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="h-[22px] w-[22px]" aria-hidden>
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-      <path d="m9 12 2 2 4-4" />
     </svg>
   )
 }
@@ -163,18 +157,23 @@ export default function ProfilePageClient({
   pwdError,
 }: Props) {
   const router = useRouter()
-  const [toast, setToast] = useState<string | null>(saved ? 'Имя и данные аккаунта сохранены' : null)
+  const { lang, setLang, strings } = useLang()
+  const p = strings.profile
+  const [toast, setToast] = useState<string | null>(saved ? p.savedToast : null)
   const [toastWarn, setToastWarn] = useState(false)
   const [accountOpen, setAccountOpen] = useState(Boolean(pwdOk))
-  const [theme, setTheme] = useState<ThemePref>(() => loadTheme())
+  const [theme, setTheme] = useState<ThemePref>('system')
   const [pending, startTransition] = useTransition()
   const [cur, setCur] = useState(() =>
     ['RUB', 'USD', 'EUR'].includes(baseCurrency.toUpperCase()) ? baseCurrency.toUpperCase() : 'RUB',
   )
 
+  // Hydrate theme from localStorage after mount (avoids SSR/client mismatch)
   useEffect(() => {
-    applyTheme(theme)
-  }, [theme])
+    const stored = loadTheme()
+    setTheme(stored)
+    applyTheme(stored)
+  }, [])
 
   useEffect(() => {
     if (!toast) return
@@ -187,11 +186,17 @@ export default function ProfilePageClient({
     setToastWarn(isWarn)
   }
 
+  const themeToastLabel = (t: ThemePref): string => {
+    if (t === 'light') return p.themeLight
+    if (t === 'dark') return p.themeDark
+    return p.themeSystem
+  }
+
   const onTheme = (t: ThemePref) => {
     setTheme(t)
     saveThemePref(t)
     applyTheme(t)
-    showToast(`Тема: ${themeToastLabel(t)}`)
+    showToast(p.toastTheme(themeToastLabel(t)))
   }
 
   const onCurrency = (c: string) => {
@@ -199,71 +204,76 @@ export default function ProfilePageClient({
     startTransition(async () => {
       await setBaseCurrency(c)
       router.refresh()
-      showToast(`Базовая валюта: ${c}`)
+      showToast(p.toastCurrency(c))
     })
   }
 
+  const onLang = (l: LangPref) => {
+    setLang(l)
+    showToast(l === 'ru' ? p.toastLangRu : p.toastLangEn)
+  }
+
   const exportCsv = () => {
-    const csv = buildSubscriptionsCsv(subs)
+    const csv = buildSubscriptionsCsv(subs, lang)
     downloadTextFile(`subcuro-payments-${new Date().toISOString().slice(0, 10)}.csv`, csv, 'text/csv;charset=utf-8')
-    showToast('CSV сохранён')
+    showToast(p.csvSaved)
   }
 
-  const exportReport = () => {
-    const html = buildSubscriptionsHtmlReport(subs)
+  const exportReport = async () => {
+    let logoDataUrl: string | undefined
+    try {
+      const res = await fetch('/subcuro_ribbon_s_transparent.png')
+      const blob = await res.blob()
+      logoDataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result as string)
+        reader.onerror = reject
+        reader.readAsDataURL(blob)
+      })
+    } catch {
+      // logo fetch failed — report will render without it
+    }
+    const html = buildSubscriptionsHtmlReport(subs, lang, logoDataUrl)
     downloadTextFile(`subcuro-report-${new Date().toISOString().slice(0, 10)}.html`, html, 'text/html;charset=utf-8')
-    showToast('Отчёт сохранён')
-  }
-
-  const openPrivacy = () => {
-    window.alert(
-      'Политика приватности данных (кратко):\n\n' +
-        '1) Данные подписок хранятся в вашем аккаунте Supabase и доступны только вам (RLS).\n' +
-        '2) Экспорт CSV/HTML выполняется локально в браузере по вашему действию.\n' +
-        '3) «Удалить данные» вызывает очистку данных в базе и выход из аккаунта — действие необратимо.',
-    )
+    showToast(p.reportSaved)
   }
 
   const onDeleteData = () => {
-    if (
-      !window.confirm(
-        'Удалить все данные и настройки в облаке? Подписки, напоминания и профиль будут удалены. Выйдем из аккаунта. Действие необратимо.',
-      )
-    )
-      return
+    if (!window.confirm(p.deleteConfirm)) return
     startTransition(async () => {
       await deleteMyDataAction()
     })
   }
 
   const onLogout = () => {
-    if (!window.confirm('Выйти из аккаунта?')) return
+    if (!window.confirm(p.logoutConfirm)) return
     startTransition(async () => {
       await signOutAction()
     })
   }
 
   const emailLine = email ?? '—'
-  const activeLabel = '● Активный'
 
   return (
     <>
-      <DashboardScreenHeader title="Профиль" subs={subs} className="mb-3.5" />
+      <header className="mb-3.5">
+        <h1 className="text-[1.75rem] font-bold tracking-[-0.03em] text-[#1a1a2e]">{p.title}</h1>
+      </header>
 
       {error === 'delete' ? (
         <p className="mb-3.5 rounded-xl border border-[#f3c5c7] bg-[#fdecec] px-4 py-3 text-sm text-[#e5484d]">
-          Не удалось удалить данные. Попробуйте позже или обратитесь в поддержку.
+          {p.errorDelete}
         </p>
       ) : null}
       {error === 'save' || error === 'profile' ? (
         <p className="mb-3.5 rounded-xl border border-[#f3c5c7] bg-[#fdecec] px-4 py-3 text-sm text-[#e5484d]">
-          {error === 'profile' ? 'Не удалось обновить профиль.' : 'Не удалось сохранить настройки.'}
+          {error === 'profile' ? p.errorProfile : p.errorSave}
         </p>
       ) : null}
 
-      {/* Аккаунт */}
+      {/* Account */}
       <section className="mb-3.5">
-        <p className="mb-2 ml-1 text-[11px] font-semibold tracking-[0.06em] text-[#6b6b80]">АККАУНТ</p>
+        <p className="mb-2 ml-1 text-[11px] font-semibold tracking-[0.06em] text-[#6b6b80]">{p.account}</p>
         <div className={cardClass}>
           <button
             type="button"
@@ -276,7 +286,7 @@ export default function ProfilePageClient({
             <div className="min-w-0 flex-1">
               <strong className="block text-sm text-[#1a1a2e]">{displayName}</strong>
               <span className="text-xs text-[#6b6b80]">
-                {emailLine} · <span className="text-[#12b76a]">{activeLabel}</span>
+                {emailLine} · <span className="text-[#12b76a]">{p.active}</span>
               </span>
             </div>
             <span className="text-lg opacity-35">›</span>
@@ -284,42 +294,82 @@ export default function ProfilePageClient({
         </div>
       </section>
 
-      {/* Внешний вид + валюта */}
+      {/* Внешний вид + валюта + источники данных */}
       <div className="mb-3.5 grid grid-cols-1 gap-3.5 lg:grid-cols-2 lg:items-stretch">
-        <section className="flex flex-col">
-          <p className="mb-2 ml-1 text-[11px] font-semibold tracking-[0.06em] text-[#6b6b80]">ВНЕШНИЙ ВИД</p>
-          <div className={`${cardClass} flex-1`}>
-            <div className={`${rowClass} flex-wrap`}>
-              <div className="min-w-0 flex-[1_1_100%]">
-                <strong className="block text-sm text-[#1a1a2e]">Тема приложения</strong>
-                <div className="mt-2.5 flex gap-1.5 rounded-xl bg-[#f0f0f3] p-1">
-                  {(['system', 'light', 'dark'] as const).map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      className={`flex-1 rounded-[10px] py-2.5 text-[13px] font-medium transition-all ${
-                        theme === t
-                          ? 'bg-white text-[#1a1a2e] shadow-[0_1px_3px_rgba(0,0,0,0.08)]'
-                          : 'text-[#6b6b80] hover:text-[#1a1a2e]'
-                      }`}
-                      onClick={() => onTheme(t)}
-                    >
-                      {t === 'system' ? 'Системная' : t === 'light' ? 'Светлая' : 'Тёмная'}
-                    </button>
-                  ))}
+        {/* Left column: theme + data sources */}
+        <div className="flex flex-col gap-3.5">
+          <section>
+            <p className="mb-2 ml-1 text-[11px] font-semibold tracking-[0.06em] text-[#6b6b80]">{p.appearance}</p>
+            <div className={cardClass}>
+              <div className={`${rowClass} flex-wrap`}>
+                <div className="min-w-0 flex-[1_1_100%]">
+                  <strong className="block text-sm text-[#1a1a2e]">{p.theme}</strong>
+                  <div className="mt-2.5 flex gap-1.5 rounded-xl bg-[#f0f0f3] p-1">
+                    {(['system', 'light', 'dark'] as const).map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        className={`flex-1 rounded-[10px] py-2.5 text-[13px] font-medium transition-all ${
+                          theme === t
+                            ? 'bg-white text-[#1a1a2e] shadow-[0_1px_3px_rgba(0,0,0,0.08)]'
+                            : 'text-[#6b6b80] hover:text-[#1a1a2e]'
+                        }`}
+                        onClick={() => onTheme(t)}
+                      >
+                        {t === 'system' ? p.themeSystem : t === 'light' ? p.themeLight : p.themeDark}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
 
+          <section>
+            <p className="mb-2 ml-1 text-[11px] font-semibold tracking-[0.06em] text-[#6b6b80]">{p.dataSources}</p>
+            <div className={cardClass}>
+              <Link
+                href="/dashboard/import"
+                className={`${rowClass} text-inherit no-underline hover:bg-[rgba(91,67,212,0.04)]`}
+              >
+                <div className={`${rowIconBase} bg-[#f0f0f3] text-[#5c5c6e]`} aria-hidden>
+                  <IconFileCsv />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <strong className="block text-sm text-[#1a1a2e]">{p.importCsv}</strong>
+                  <span className="text-xs text-[#6b6b80]">{p.importCsvSub}</span>
+                </div>
+                <span className="text-lg opacity-35">›</span>
+              </Link>
+              <button
+                type="button"
+                className={`${rowClass} w-full cursor-pointer border-0 bg-transparent text-left hover:bg-[rgba(91,67,212,0.04)]`}
+                onClick={() => showToast(p.comingSoonToast, true)}
+              >
+                <div className={`${rowIconBase} bg-[#ede9fc] text-[#5b43d4]`} aria-hidden>
+                  <Image src="/profile-bank.svg" width={22} height={22} alt="" className="h-[22px] w-[22px]" />
+                </div>
+                <div className="min-w-0 flex-1 text-left">
+                  <strong className="block text-sm text-[#1a1a2e]">{p.connectBank}</strong>
+                  <span className="text-xs text-[#6b6b80]">{p.connectBankSub}</span>
+                </div>
+                <span className="mr-2 shrink-0 rounded-full bg-[#e6f7f1] px-2 py-0.5 text-[11px] font-semibold text-[#0d9f6e]">
+                  {p.comingSoon}
+                </span>
+                <span className="text-lg opacity-35">›</span>
+              </button>
+            </div>
+          </section>
+        </div>
+
+        {/* Right column: currency + language */}
         <section className="flex flex-col">
-          <p className="mb-2 ml-1 text-[11px] font-semibold tracking-[0.06em] text-[#6b6b80]">ВАЛЮТА И ЯЗЫК</p>
+          <p className="mb-2 ml-1 text-[11px] font-semibold tracking-[0.06em] text-[#6b6b80]">{p.currencyAndLang}</p>
           <div className={`${cardClass} flex-1`}>
             <div className={`${rowClass} flex-wrap`}>
               <div className="min-w-0 flex-[1_1_100%]">
-                <strong className="block text-sm text-[#1a1a2e]">Базовая валюта</strong>
-                <span className="text-xs text-[#6b6b80]">Все итоги пересчитываются сразу</span>
+                <strong className="block text-sm text-[#1a1a2e]">{p.baseCurrency}</strong>
+                <span className="text-xs text-[#6b6b80]">{p.baseCurrencySub}</span>
                 <div className="mt-2.5 flex gap-1.5 rounded-xl bg-[#f0f0f3] p-1">
                   {(['RUB', 'USD', 'EUR'] as const).map((c) => (
                     <button
@@ -339,50 +389,35 @@ export default function ProfilePageClient({
                 </div>
               </div>
             </div>
+            <div className={`${rowClass} flex-wrap`}>
+              <div className="min-w-0 flex-[1_1_100%]">
+                <strong className="block text-sm text-[#1a1a2e]">{p.interfaceLang}</strong>
+                <span className="text-xs text-[#6b6b80]">{p.interfaceLangSub}</span>
+                <div className="mt-2.5 flex gap-1.5 rounded-xl bg-[#f0f0f3] p-1">
+                  {(['ru', 'en'] as const).map((l) => (
+                    <button
+                      key={l}
+                      type="button"
+                      className={`flex-1 rounded-[10px] py-2.5 text-[13px] font-medium transition-all ${
+                        lang === l
+                          ? 'bg-white text-[#1a1a2e] shadow-[0_1px_3px_rgba(0,0,0,0.08)]'
+                          : 'text-[#6b6b80] hover:text-[#1a1a2e]'
+                      }`}
+                      onClick={() => onLang(l)}
+                    >
+                      {l === 'ru' ? p.langRu : p.langEn}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         </section>
       </div>
 
-      {/* Источники данных */}
+      {/* Data & Privacy */}
       <section className="mb-3.5">
-        <p className="mb-2 ml-1 text-[11px] font-semibold tracking-[0.06em] text-[#6b6b80]">ИСТОЧНИКИ ДАННЫХ</p>
-        <div className={cardClass}>
-          <Link
-            href="/dashboard/import"
-            className={`${rowClass} text-inherit no-underline hover:bg-[rgba(91,67,212,0.04)]`}
-          >
-            <div className={`${rowIconBase} bg-[#f0f0f3] text-[#5c5c6e]`} aria-hidden>
-              <IconFileCsv />
-            </div>
-            <div className="min-w-0 flex-1">
-              <strong className="block text-sm text-[#1a1a2e]">Импорт CSV</strong>
-              <span className="text-xs text-[#6b6b80]">Загрузить выписку из банка</span>
-            </div>
-            <span className="text-lg opacity-35">›</span>
-          </Link>
-          <button
-            type="button"
-            className={`${rowClass} w-full cursor-pointer border-0 bg-transparent text-left hover:bg-[rgba(91,67,212,0.04)]`}
-            onClick={() => showToast('Скоро: подключение банка через Open Banking', true)}
-          >
-            <div className={`${rowIconBase} bg-[#ede9fc] text-[#5b43d4]`} aria-hidden>
-              <Image src="/profile-bank.svg" width={22} height={22} alt="" className="h-[22px] w-[22px]" />
-            </div>
-            <div className="min-w-0 flex-1 text-left">
-              <strong className="block text-sm text-[#1a1a2e]">Подключить банк</strong>
-              <span className="text-xs text-[#6b6b80]">Скоро · Open Banking</span>
-            </div>
-            <span className="mr-2 shrink-0 rounded-full bg-[#e6f7f1] px-2 py-0.5 text-[11px] font-semibold text-[#0d9f6e]">
-              Скоро
-            </span>
-            <span className="text-lg opacity-35">›</span>
-          </button>
-        </div>
-      </section>
-
-      {/* Данные и приватность */}
-      <section className="mb-3.5">
-        <p className="mb-2 ml-1 text-[11px] font-semibold tracking-[0.06em] text-[#6b6b80]">ДАННЫЕ И ПРИВАТНОСТЬ</p>
+        <p className="mb-2 ml-1 text-[11px] font-semibold tracking-[0.06em] text-[#6b6b80]">{p.dataAndPrivacy}</p>
         <div className={cardClass}>
           <button
             type="button"
@@ -393,36 +428,22 @@ export default function ProfilePageClient({
               <IconChartExport />
             </div>
             <div className="min-w-0 flex-1">
-              <strong className="block text-sm text-[#1a1a2e]">Экспорт CSV</strong>
-              <span className="text-xs text-[#6b6b80]">Таблица платежей для Excel</span>
+              <strong className="block text-sm text-[#1a1a2e]">{p.exportCsv}</strong>
+              <span className="text-xs text-[#6b6b80]">{p.exportCsvSub}</span>
             </div>
             <span className="text-lg opacity-35">›</span>
           </button>
           <button
             type="button"
             className={`${rowClass} w-full cursor-pointer border-0 bg-transparent text-left hover:bg-[rgba(91,67,212,0.04)]`}
-            onClick={exportReport}
+            onClick={() => void exportReport()}
           >
             <div className={`${rowIconBase} bg-[#e8f4ff] text-[#2563eb]`} aria-hidden>
               <IconReport />
             </div>
             <div className="min-w-0 flex-1">
-              <strong className="block text-sm text-[#1a1a2e]">Экспорт отчёта</strong>
-              <span className="text-xs text-[#6b6b80]">HTML-отчёт с аналитикой</span>
-            </div>
-            <span className="text-lg opacity-35">›</span>
-          </button>
-          <button
-            type="button"
-            className={`${rowClass} w-full cursor-pointer border-0 bg-transparent text-left hover:bg-[rgba(91,67,212,0.04)]`}
-            onClick={openPrivacy}
-          >
-            <div className={`${rowIconBase} bg-[#ede9fc] text-[#5b43d4]`} aria-hidden>
-              <IconShield />
-            </div>
-            <div className="min-w-0 flex-1">
-              <strong className="block text-sm text-[#1a1a2e]">Политика приватности данных</strong>
-              <span className="text-xs text-[#6b6b80]">Как мы защищаем ваши данные</span>
+              <strong className="block text-sm text-[#1a1a2e]">{p.exportReport}</strong>
+              <span className="text-xs text-[#6b6b80]">{p.exportReportSub}</span>
             </div>
             <span className="text-lg opacity-35">›</span>
           </button>
@@ -436,8 +457,8 @@ export default function ProfilePageClient({
               <IconTrash />
             </div>
             <div className="min-w-0 flex-1">
-              <strong className="block text-sm text-[#1a1a2e]">Удалить данные</strong>
-              <span className="text-xs text-[#6b6b80]">Удаление всех данных и настроек</span>
+              <strong className="block text-sm text-[#1a1a2e]">{p.deleteData}</strong>
+              <span className="text-xs text-[#6b6b80]">{p.deleteDataSub}</span>
             </div>
             <span className="text-lg opacity-35">›</span>
           </button>
@@ -450,7 +471,7 @@ export default function ProfilePageClient({
         onClick={onLogout}
         disabled={pending}
       >
-        Выйти из аккаунта
+        {p.logout}
       </button>
 
       {/* Аккаунт: модальное окно */}
@@ -464,7 +485,7 @@ export default function ProfilePageClient({
           <button
             type="button"
             className="absolute inset-0 cursor-default border-0 bg-transparent"
-            aria-label="Закрыть"
+            aria-label={p.modalClose}
             onClick={() => setAccountOpen(false)}
           />
           <div className="relative z-[1] w-[min(480px,100%)] max-h-[min(88vh,640px)] overflow-y-auto rounded-2xl border border-[rgba(26,26,61,0.08)] bg-white p-5 shadow-[0_20px_50px_rgba(20,20,50,0.2)]">
@@ -472,34 +493,34 @@ export default function ProfilePageClient({
               type="button"
               className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full border-0 bg-[#f3f3fa] text-[22px] leading-none text-[#8b8ba2] hover:bg-[#e8e8f0]"
               onClick={() => setAccountOpen(false)}
-              aria-label="Закрыть"
+              aria-label={p.modalClose}
             >
               ×
             </button>
             <h2 id="profile-account-title" className="m-0 mb-4 pr-10 text-xl font-bold text-[#1a1a2e]">
-              Аккаунт
+              {p.accountTitle}
             </h2>
             {email ? (
               <p className="mb-4 text-sm text-[#6b6b80]">
-                Email: <span className="text-[#1a1a2e]">{email}</span>
+                {p.emailLabel} <span className="text-[#1a1a2e]">{email}</span>
               </p>
             ) : null}
             <form action={updateFullName} className="mb-6 space-y-3">
               <div>
-                <label className="mb-1 block text-sm text-[#6b6b80]">Имя в профиле</label>
+                <label className="mb-1 block text-sm text-[#6b6b80]">{p.nameLabel}</label>
                 <input
                   name="full_name"
                   type="text"
                   defaultValue={fullName ?? ''}
                   className="w-full rounded-[10px] border border-[rgba(26,26,61,0.08)] px-3 py-2.5 text-sm text-[#1a1a2e]"
-                  placeholder="Как к вам обращаться"
+                  placeholder={p.namePlaceholder}
                 />
               </div>
               <button
                 type="submit"
                 className="rounded-xl bg-[#0d9f6e] px-5 py-2.5 text-sm font-semibold text-white hover:brightness-105"
               >
-                Сохранить имя
+                {p.saveName}
               </button>
             </form>
             <div className="border-t border-[#ececee] pt-5">

@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
 
 export default function SignupPage() {
-  redirect('/?tab=register')
+  redirect('/auth?tab=register')
 }

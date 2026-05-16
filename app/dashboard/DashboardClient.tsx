@@ -2,23 +2,30 @@
 
 import Link from 'next/link'
 import { useMemo } from 'react'
-import type { Subscription } from '@/lib/supabase/types'
+import type { PriceAlert, Subscription, SubscriptionPayment } from '@/lib/supabase/types'
 import AnalyticsView from './AnalyticsView'
 import PaymentsTable, { type PaymentsFilter } from './PaymentsTable'
 import TodayView from './TodayView'
+import { actionButtonClass } from './ui/action-button'
 
 type DashboardTab = 'today' | 'payments' | 'analytics'
 
 type Props = {
   subs: Subscription[]
+  priceAlerts?: PriceAlert[]
+  paymentEvents?: SubscriptionPayment[]
   tab?: DashboardTab
   paymentsFilter?: PaymentsFilter
+  userName?: string
 }
 
 export default function DashboardClient({
   subs: allSubs,
+  priceAlerts = [],
+  paymentEvents = [],
   tab: dashTab = 'today',
   paymentsFilter = 'all',
+  userName = '',
 }: Props) {
   const currency = useMemo(
     () => allSubs.find(s => s.status === 'active')?.currency ?? allSubs[0]?.currency ?? 'RUB',
@@ -40,14 +47,14 @@ export default function DashboardClient({
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
           <Link
             href="/dashboard/subscriptions/new"
-            className="inline-flex items-center gap-2 rounded-xl bg-[#5b43d4] px-6 py-3 text-sm font-semibold text-white shadow-[0_4px_14px_rgba(91,67,212,0.35)] hover:brightness-105 transition-all"
+            className={`inline-flex items-center gap-2 px-6 py-3 ${actionButtonClass('primary')} transition-all`}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
             Добавить вручную
           </Link>
           <Link
             href="/dashboard/import"
-            className="inline-flex items-center gap-2 rounded-xl border border-[#e7e3dc] bg-white px-6 py-3 text-sm font-semibold text-[#1a1a2e] hover:bg-[#f8f6f2] transition-colors shadow-[0_1px_3px_rgba(26,26,61,0.06)]"
+            className={`inline-flex items-center gap-2 px-6 py-3 ${actionButtonClass('secondary')} transition-colors`}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
             Загрузить CSV
@@ -60,5 +67,5 @@ export default function DashboardClient({
     )
   }
 
-  return <TodayView subs={allSubs} />
+  return <TodayView subs={allSubs} priceAlerts={priceAlerts} paymentEvents={paymentEvents} userName={userName} />
 }

@@ -424,11 +424,7 @@ export default function LandingInteractions() {
       setText('.footer-legal a:nth-child(1)', 'footer.privacy')
       setText('.footer-legal a:nth-child(2)', 'footer.terms')
 
-      document.querySelectorAll<HTMLButtonElement>('.lang-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.textContent?.trim().toLowerCase() === lang)
-        btn.setAttribute('aria-pressed', btn.classList.contains('active') ? 'true' : 'false')
-      })
-      localStorage.setItem('landingLang', lang)
+      // active-state is managed by LangSwitcherWidget (React state)
     }
 
     // FAQ accordion
@@ -479,14 +475,19 @@ export default function LandingInteractions() {
     })
 
     // Lang switcher + i18n
-    const savedLang = (localStorage.getItem('landingLang') as 'ru' | 'en' | null) ?? 'ru'
-    applyLanguage(savedLang)
-    document.querySelectorAll<HTMLButtonElement>('.lang-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const lang = btn.textContent?.trim().toLowerCase() === 'en' ? 'en' : 'ru'
-        applyLanguage(lang)
-      })
-    })
+    const applyFromStorage = () => {
+      try {
+        const saved = (localStorage.getItem('landingLang') as 'ru' | 'en' | null) ?? 'ru'
+        applyLanguage(saved)
+      } catch { /* ignore */ }
+    }
+    applyFromStorage()
+
+    const onLangChange = (e: Event) => {
+      applyLanguage((e as CustomEvent<'ru' | 'en'>).detail)
+    }
+    window.addEventListener('subcuro:lang', onLangChange)
+    return () => window.removeEventListener('subcuro:lang', onLangChange)
   }, [])
 
   return null

@@ -45,7 +45,7 @@ export function monthlyNormalizedAmount(s: SubscriptionForAI): number {
 }
 
 export function subscriptionToAiPayload(sub: Subscription): SubscriptionForAI {
-  return {
+  const s: SubscriptionForAI = {
     name: sub.name,
     amount: coerceNumber(sub.amount),
     currency: sub.currency,
@@ -56,5 +56,10 @@ export function subscriptionToAiPayload(sub: Subscription): SubscriptionForAI {
     lastUsedAt: sub.last_used_at,
     usageState: inferUsageStateForAi(sub.last_used_at),
     daysUntilRenewal: daysUntilCharge(sub.next_charge_date),
+    category: sub.category_slug,
+    renewalType: sub.renewal_type,
+    monthlyEquivalent: 0,
   }
+  s.monthlyEquivalent = Math.round(monthlyNormalizedAmount(s))
+  return s
 }
