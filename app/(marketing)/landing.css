@@ -2723,6 +2723,16 @@ p.ws-proof-copy {
 
 .app-store-btn:hover { background: rgba(255,255,255,0.13); }
 
+.app-store-btn--soon {
+  opacity: 0.5;
+  cursor: default;
+  pointer-events: none;
+}
+
+.app-store-btn--soon .app-store-text small::after {
+  content: ' · скоро';
+}
+
 .app-store-icon {
   display: flex;
   align-items: center;
