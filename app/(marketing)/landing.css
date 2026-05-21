@@ -245,10 +245,10 @@ body {
   pointer-events: none;
   background: linear-gradient(to right,
     #F5F0E8 0%,
-    #F5F0E8 30%,
-    rgba(245,240,232,0.85) 50%,
-    rgba(245,240,232,0.2) 65%,
-    transparent 78%);
+    #F5F0E8 22%,
+    rgba(245,240,232,0.9) 36%,
+    rgba(245,240,232,0.3) 50%,
+    transparent 62%);
 }
 
 .hero-content {
