@@ -224,15 +224,19 @@ body {
   border-radius: 24px;
   overflow: hidden;
   height: calc(100vh - 88px);
+  min-height: 560px;
+  max-height: 860px;
+  background: #F5F0E8;
 }
 
 .hero-img {
   position: absolute;
-  inset: 0;
-  width: 100%;
+  right: 0;
+  top: 0;
   height: 100%;
-  object-fit: cover;
-  object-position: right center;
+  width: auto;
+  max-width: none;
+  display: block;
 }
 
 .hero-overlay {
@@ -240,10 +244,11 @@ body {
   inset: 0;
   pointer-events: none;
   background: linear-gradient(to right,
-    rgba(245,240,232,0.95) 0%,
-    rgba(245,240,232,0.95) 30%,
-    rgba(245,240,232,0.4) 50%,
-    transparent 65%);
+    #F5F0E8 0%,
+    #F5F0E8 30%,
+    rgba(245,240,232,0.85) 50%,
+    rgba(245,240,232,0.2) 65%,
+    transparent 78%);
 }
 
 .hero-content {
@@ -1294,14 +1299,21 @@ body {
   }
 
   .hero-img {
-    object-position: right top;
+    right: auto;
+    left: 50%;
+    transform: translateX(-20%);
+    height: 55%;
+    top: auto;
+    bottom: 0;
+    opacity: 0.45;
   }
 
   .hero-overlay {
     background: linear-gradient(to bottom,
-      rgba(245,240,232,0.97) 0%,
-      rgba(245,240,232,0.95) 60%,
-      rgba(245,240,232,0.7) 100%);
+      #F5F0E8 0%,
+      #F5F0E8 45%,
+      rgba(245,240,232,0.8) 70%,
+      rgba(245,240,232,0.4) 100%);
   }
 
   /* Stats — 2x2 */

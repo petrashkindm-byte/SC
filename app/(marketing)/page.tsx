@@ -250,7 +250,7 @@ export default function LandingPage() {
 
             {/* Background image */}
             <img
-              src="/web-concept/assets/hero/hero-composition-2400.png"
+              src="/web-concept/assets/hero/hero-devices.png"
               alt="SubCuro devices"
               loading="eager"
               className="hero-img"
