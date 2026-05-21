@@ -844,6 +844,12 @@ body {
 }
 
 /* Dark cards */
+/* Wrapper — actual grid item, stretches to row height */
+.price-cell {
+  display: flex;
+  flex-direction: column;
+}
+
 .price-card-dark {
   background: #1a1a2e;
   border-radius: 20px;
@@ -851,6 +857,7 @@ body {
   display: flex;
   flex-direction: column;
   position: relative;
+  flex: 1;
 }
 
 /* Pro card (white) */
@@ -862,6 +869,7 @@ body {
   flex-direction: column;
   box-shadow: 0 8px 40px rgba(108,92,231,0.15);
   position: relative;
+  flex: 1;
 }
 
 .price-card-icon {

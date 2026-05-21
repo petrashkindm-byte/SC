@@ -572,7 +572,8 @@ export default function LandingPage() {
 
         <div className="price-grid" role="list">
           {/* Card 1 — Старт */}
-          <div className="price-card-dark" role="listitem">
+          <div className="price-cell" role="listitem">
+          <div className="price-card-dark">
             <IconRocket />
             <div className="price-card-name price-card-name--light" data-i18n="pricing.startName">Старт</div>
             <div className="price-card-price price-card-price--light">
@@ -591,9 +592,11 @@ export default function LandingPage() {
               Начать бесплатно
             </a>
           </div>
+          </div>
 
           {/* Card 2 — Pro */}
-          <div className="price-card-pro" role="listitem">
+          <div className="price-cell" role="listitem">
+          <div className="price-card-pro">
             <span className="price-badge-early" data-i18n="pricing.proBadge">РАННИЙ ДОСТУП</span>
             <div className="price-card-name price-card-name--dark" data-i18n="pricing.proName">Pro</div>
             <div className="price-card-price price-card-price--dark" data-i18n="pricing.proPrice">Бесплатно сейчас</div>
@@ -613,9 +616,11 @@ export default function LandingPage() {
               Получить Pro бесплатно
             </a>
           </div>
+          </div>
 
           {/* Card 3 — Команда */}
-          <div className="price-card-dark" role="listitem">
+          <div className="price-cell" role="listitem">
+          <div className="price-card-dark">
             <IconUsers2 />
             <span className="price-badge-soon" data-i18n="pricing.teamBadge">СКОРО</span>
             <div className="price-card-name price-card-name--light" data-i18n="pricing.teamName">Команда</div>
@@ -632,6 +637,7 @@ export default function LandingPage() {
             <a href="/team-request" className="price-btn-ghost" data-i18n="pricing.teamCta">
               Оставить заявку
             </a>
+          </div>
           </div>
         </div>
 
