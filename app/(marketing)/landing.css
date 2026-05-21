@@ -1217,21 +1217,13 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.12);
   border-radius: 12px;
-  padding: 10px 16px;
-  max-width: 200px;
+  padding: 12px 18px;
   text-decoration: none;
   cursor: default;
   pointer-events: none;
-  opacity: 0.5;
-}
-
-.footer-app-btn svg {
-  color: rgba(255,255,255,0.5);
-  width: 20px;
-  height: 20px;
 }
 
 .footer-app-label {
@@ -1242,13 +1234,14 @@ body {
 
 .footer-app-sub {
   font-size: 9px;
-  color: rgba(255,255,255,0.35);
+  color: rgba(255,255,255,0.4);
   letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .footer-app-name {
-  font-size: 14px;
-  color: rgba(255,255,255,0.5);
+  font-size: 15px;
+  color: rgba(255,255,255,0.85);
   font-weight: 600;
 }
 
