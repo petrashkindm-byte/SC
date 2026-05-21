@@ -824,7 +824,6 @@ body {
   padding: 28px;
   display: flex;
   flex-direction: column;
-  height: 100%;
   position: relative;
 }
 
@@ -837,7 +836,6 @@ body {
   flex-direction: column;
   box-shadow: 0 8px 40px rgba(108,92,231,0.15);
   position: relative;
-  height: 100%;
 }
 
 .price-card-icon {
