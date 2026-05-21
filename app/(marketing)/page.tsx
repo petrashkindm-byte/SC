@@ -186,8 +186,8 @@ const IconHelpCircleFaq = () => (
 )
 
 const IconApple = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 814 1000" style={{width:18,height:22,flexShrink:0}} fill="white">
-    <path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-37.5-147.8-93.5c-49.2-65.4-93.7-166-93.7-261.4 0-176 113.9-269.1 225.5-269.1 59.2 0 108.5 38.9 145.8 38.9 35.6 0 91.2-41.7 158.2-41.7 25.5 0 108.2 2.6 168.1 91.6zm-98.5-217.9c28.7-34.9 48.7-83.5 48.7-132 0-6.9-.6-13.9-1.9-19.5-45.9 1.9-102.3 31.5-135.9 71.7-27.4 31.5-51.3 80.8-51.3 130.5 0 7.5 1.3 15 1.9 17.5 3.2.6 8.4 1.3 13.6 1.3 40.9 0 92.2-27.7 124.9-69.5z"/>
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4300 5300" style={{width:18,height:22,flexShrink:0}} fill="white">
+    <path d="M4162 1813c-236,-318 -526,-466 -848,-512 -389,-56 -650,83 -880,166 -134,48 -258,78 -391,39 -218,-64 -481,-210 -745,-206 -211,4 -480,52 -703,242 -183,155 -320,319 -418,496 -338,616 -140,1651 171,2239 263,497 577,938 911,1002 223,43 380,-29 575,-113 204,-87 460,-124 674,-53 386,128 679,349 1122,-86 316,-311 555,-821 670,-1141 -885,-354 -952,-1598 -138,-2074zm-2021 -587c-51,-670 523,-1172 1061,-1217 49,737 -568,1240 -1061,1217z"/>
   </svg>
 )
 
@@ -761,8 +761,6 @@ export default function LandingPage() {
           <div>
             <div className="footer-col-title" data-i18n="footer.company">КОМПАНИЯ</div>
             <ul className="footer-links">
-              <li><a href="#" className="footer-link" data-i18n="footer.l7">О нас</a></li>
-              <li><a href="#" className="footer-link" data-i18n="footer.l8">Блог</a></li>
               <li><a href="mailto:hello@subcuro.app" className="footer-link" data-i18n="footer.l9">Контакты</a></li>
               <li><a href="/privacy" className="footer-link" data-i18n="footer.l10">Политика конфиденциальности</a></li>
               <li><a href="/terms" className="footer-link" data-i18n="footer.l11">Условия использования</a></li>

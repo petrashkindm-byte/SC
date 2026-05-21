@@ -1229,13 +1229,15 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
   border-radius: 12px;
   padding: 12px 18px;
   text-decoration: none;
   cursor: default;
   pointer-events: none;
+  opacity: 0.45;
+  filter: grayscale(30%);
 }
 
 .footer-app-label {
@@ -1246,14 +1248,14 @@ body {
 
 .footer-app-sub {
   font-size: 9px;
-  color: rgba(255,255,255,0.4);
+  color: rgba(255,255,255,0.5);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .footer-app-name {
   font-size: 15px;
-  color: rgba(255,255,255,0.85);
+  color: rgba(255,255,255,0.7);
   font-weight: 600;
 }
 
