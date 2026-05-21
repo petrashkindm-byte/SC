@@ -4,82 +4,46 @@ import { useEffect } from 'react'
 
 export default function LandingInteractions() {
   useEffect(() => {
+    // ── i18n translations ──
     const translations: Record<'ru' | 'en', Record<string, string>> = {
       ru: {
         'nav.how': 'Как работает',
-        'nav.platforms': 'Платформы',
+        'nav.platforms': 'Сценарии',
         'nav.pricing': 'Тарифы',
         'nav.faq': 'FAQ',
         'nav.login': 'Войти',
         'nav.start': 'Начать бесплатно',
-        'hero.badge': '<span class="slide1__badge-dot" aria-hidden="true"></span>Веб-версия и мобильное приложение',
-        'hero.title': '<span style="display:block">Контролируй</span><span style="display:block">регулярные платежи</span><span style="display:block">на любом устройстве</span>',
+        'hero.badge': 'Веб-версия и мобильное приложение',
+        'hero.title': 'Контролируй<br />регулярные платежи<br />на любом устройстве',
         'hero.subtitle': 'SubCuro синхронизирует подписки, связь, интернет и другие регулярные платежи между веб-версией и приложением. Все списания, напоминания и решения — в одном месте.',
         'hero.ctaStart': 'Начать бесплатно',
-        'hero.ctaLogin': 'Войти в аккаунт',
-        'hero.safeTitle': 'Безопасно',
-        'hero.safeText': 'Данные под защитой и не передаются третьим лицам',
-        'hero.syncTitle': 'Синхронно',
-        'hero.syncText': 'Все устройства всегда в актуальном состоянии',
-        'hero.remindTitle': 'Напоминания',
-        'hero.remindText': 'Ничего не забудете — мы напомним вовремя',
-        'stats.copy1': 'в среднем уходит в месяц<br>на регулярные платежи',
-        'stats.copy2': 'регулярных списаний<br>используются реже, чем кажется',
-        'stats.copy3': 'активных регулярных платежей<br>у среднего пользователя',
-        'stats.copy4': 'можно сэкономить в год<br>за счёт пересмотра лишних платежей',
-        'platforms.badge': 'Платформы',
-        'platforms.title': 'Работай в браузере и в телефоне без разрыва',
-        'platforms.desc': 'SubCuro синхронизирует данные между всеми устройствами. Регулярные платежи, напоминания и очередь действий — всегда под рукой, где бы вы ни были.',
-        'platforms.safeTitle': 'Безопасно',
-        'platforms.safeText': 'Данные под защитой и не передаются третьим лицам',
-        'platforms.syncTitle': 'Синхронно',
-        'platforms.syncText': 'Все устройства в актуальном состоянии',
-        'platforms.remindTitle': 'Напоминания',
-        'platforms.remindText': 'Ничего не забудете — напомним вовремя',
-        'platforms.proofText': 'пользователей уже доверяют<br>управлению платежами в SubCuro',
-        'how.badge': 'Как это работает',
+        'stats.copy1': 'в среднем уходит в месяц на регулярные платежи',
+        'stats.copy2': 'регулярных списаний используются реже, чем кажется',
+        'stats.copy3': 'активных регулярных платежей у среднего пользователя',
+        'stats.copy4': 'можно сэкономить в год за счёт пересмотра лишних платежей',
         'how.title': 'Три шага до полного контроля',
-        'how.desc': 'Начни прямо сейчас — настройка занимает меньше минуты.',
-        'features.badge': 'Возможности',
-        'features.title': 'Всё необходимое под одной крышей',
-        'features.lead': 'SubCuro объединяет аналитику, календарь и умные инструменты, чтобы вы контролировали регулярные платежи и расходы без лишней рутины.',
-        'features.item1.title': 'Аналитика регулярных трат',
-        'features.item1.text': 'Наглядно видно, куда уходят деньги. Тренды и сравнение периодов. Экспорт в CSV.',
-        'features.item2.title': 'Календарь платежей',
-        'features.item2.text': 'Все списания и продления — на одной шкале времени.',
-        'features.item3.title': 'Очередь действий',
-        'features.item3.text': 'Подсказки: что отключить, пересмотреть или оставить — с оценкой экономии.',
-        'features.item4.title': 'Приватность',
-        'features.item4.text': 'Данные под защитой; доступ к банкам не храним. Данные только те, что вы ввели сами.',
-        'features.item5.title': 'Мультивалюта',
-        'features.item5.text': '₽, $, € — в одном окне с актуальными курсами.',
-        'features.item6.title': 'Тёмная тема',
-        'features.item6.text': 'Светлая, системная или тёмная — как вам удобно.',
-        'features.cta': 'Начать бесплатно',
-        'features.note': 'Без карты. Без риска.',
+        'how.desc': 'Начни прямо сейчас — регистрация занимает меньше минуты.',
+        'forwhom.title': 'Для кого SubCuro',
         'forwhom.t1': 'Для тех, у кого много регулярных платежей',
         'forwhom.d1': 'Все сервисы и списания в одном месте — легко управлять и ничего не забывать.',
         'forwhom.t2': 'Для семейного бюджета',
-        'forwhom.d2': 'Контролируйте общие расходы и планируйте вместе с близкими.',
+        'forwhom.d2': 'Контролируйте общие расходы и планируйте вместе с близкими без лишних споров.',
         'forwhom.t3': 'Для фрилансеров и small business',
-        'forwhom.d3': 'Отслеживайте рабочие сервисы и оптимизируйте бизнес-расходы.',
+        'forwhom.d3': 'Отслеживайте рабочие сервисы и оптимизируйте бизнес-расходы без бухгалтера.',
         'forwhom.t4': 'Для тех, кто не хочет сюрпризов',
-        'forwhom.d4': 'Получайте уведомления о списаниях и продлениях заранее.',
-        'forwhom.badge': 'Для каждого сценария',
-        'forwhom.title': 'Для кого SubCuro',
-        'forwhom.desc': 'SubCuro помогает навести порядок в регулярных платежах, экономить и контролировать расходы без лишних усилий.',
-        'pricing.eyebrow': 'Тарифы',
+        'forwhom.d4': 'Получайте уведомления о списаниях и продлениях заранее — никаких неожиданных трат.',
         'pricing.title': 'Честные цены. Без сюрпризов.',
         'pricing.lead': 'Сейчас SubCuro в стадии раннего доступа. Платные тарифы появятся позже, а текущих пользователей мы предупредим заранее.',
         'pricing.startName': 'Старт',
         'pricing.startTag': 'Для знакомства с сервисом',
         'pricing.startCta': 'Начать бесплатно',
-        'pricing.proBadge': 'Ранний доступ',
+        'pricing.proBadge': 'РАННИЙ ДОСТУП',
+        'pricing.proName': 'Pro',
         'pricing.proPrice': 'Бесплатно сейчас',
         'pricing.proLater': 'позже — 299 ₽/мес',
         'pricing.proTag': 'Для активного контроля и экономии',
         'pricing.proCta': 'Получить Pro бесплатно',
-        'pricing.teamBadge': 'Скоро',
+        'pricing.teamBadge': 'СКОРО',
         'pricing.teamName': 'Команда',
         'pricing.teamPrice': 'Индивидуально',
         'pricing.teamTag': 'Для семей, команд и малого бизнеса',
@@ -105,26 +69,12 @@ export default function LandingInteractions() {
         'pricing.trust2': 'Можно отменить в любой момент',
         'pricing.trust3': 'Ваши данные под защитой',
         'faq.title': 'FAQ',
-        'faq.q1': 'Что такое SubCuro?',
-        'faq.a1': 'SubCuro помогает видеть все регулярные платежи и подписки в одном месте: веб и приложение синхронизированы, есть напоминания, аналитика и подсказки по экономии — без хаоса в таблицах и заметках.',
-        'faq.q2': 'Нужно ли подключать банк?',
-        'faq.a2': 'Нет. Достаточно ввести или импортировать данные вручную или из выписки (CSV). Мы не храним доступ к вашим банкам и не списываем деньги — только то, что вы сами добавили для учёта.',
-        'faq.q3': 'Данные синхронизируются между устройствами?',
-        'faq.a3': 'Да. Подписки, напоминания и очередь действий доступны в веб-версии и в мобильном приложении: изменения на одном устройстве отображаются на остальных после синхронизации.',
-        'faq.q4': 'Сколько стоит и когда появится платный тариф?',
-        'faq.a4': 'Сейчас действует ранний доступ: Pro доступен бесплатно. Платные тарифы появятся позже — мы заранее предупредим и ничего не спишем без вашего согласия.',
-        'faq.q5': 'Есть ли тариф для команд и компаний?',
-        'faq.a5': 'Тариф «Команда» в разработке. Можно оставить заявку — опишите компанию и задачи, мы свяжемся, когда появится корпоративное предложение.',
-        'faq.q6': 'Как удалить аккаунт или экспортировать данные?',
-        'faq.a6': 'Экспорт доступен в продукте (в том числе CSV). Удаление аккаунта и вопросы по данным можно оформить через настройки профиля или обратившись в поддержку — ссылки появятся в приложении и в веб-версии.',
         'footer.tagline': 'Контролируй регулярные платежи на любом устройстве',
-        'footer.appStore': 'Скачать в',
-        'footer.googlePlay': 'Доступно в',
-        'footer.product': 'Продукт',
-        'footer.pricing': 'Тарифы',
-        'footer.company': 'Компания',
+        'footer.product': 'ПРОДУКТ',
+        'footer.pricing': 'ТАРИФЫ',
+        'footer.company': 'КОМПАНИЯ',
         'footer.l1': 'Как работает',
-        'footer.l2': 'Платформы',
+        'footer.l2': 'Сценарии',
         'footer.l3': 'Тарифы',
         'footer.l4': 'FAQ',
         'footer.l5': 'Бесплатный',
@@ -141,79 +91,42 @@ export default function LandingInteractions() {
       },
       en: {
         'nav.how': 'How it works',
-        'nav.platforms': 'Platforms',
+        'nav.platforms': 'Scenarios',
         'nav.pricing': 'Pricing',
         'nav.faq': 'FAQ',
         'nav.login': 'Sign in',
         'nav.start': 'Get started free',
-        'hero.badge': '<span class="slide1__badge-dot" aria-hidden="true"></span>Web version and mobile app',
-        'hero.title': '<span style="display:block">Take control of</span><span style="display:block">recurring payments</span><span style="display:block">on any device</span>',
+        'hero.badge': 'Web version and mobile app',
+        'hero.title': 'Take control of<br />recurring payments<br />on any device',
         'hero.subtitle': 'SubCuro syncs subscriptions, mobile plans, internet, and other recurring payments across web and mobile. Charges, reminders, and smart decisions — all in one place.',
         'hero.ctaStart': 'Get started free',
-        'hero.ctaLogin': 'Sign in',
-        'hero.safeTitle': 'Secure',
-        'hero.safeText': 'Your data is protected and never shared with third parties',
-        'hero.syncTitle': 'Synced',
-        'hero.syncText': 'Everything stays up to date across all your devices',
-        'hero.remindTitle': 'Reminders',
-        'hero.remindText': "Never miss a charge — we'll remind you right on time",
-        'stats.copy1': 'average monthly spend<br>on recurring payments',
-        'stats.copy2': 'of recurring charges<br>are underused',
-        'stats.copy3': 'active recurring payments<br>for an average user',
-        'stats.copy4': 'can be saved each year<br>by reviewing unnecessary payments',
-        'platforms.badge': 'Platforms',
-        'platforms.title': 'Stay in sync across web and mobile',
-        'platforms.desc': 'SubCuro syncs your data across every device. Recurring payments, reminders, and your action queue are always right where you need them.',
-        'platforms.safeTitle': 'Secure',
-        'platforms.safeText': 'Your data is protected and never shared with third parties',
-        'platforms.syncTitle': 'Synced',
-        'platforms.syncText': 'All your devices stay perfectly in sync',
-        'platforms.remindTitle': 'Reminders',
-        'platforms.remindText': "Never miss a payment — we'll remind you in advance",
-        'platforms.proofText': 'users already trust<br>SubCuro to manage their payments',
-        'how.badge': 'How it works',
+        'stats.copy1': 'average monthly spend on recurring payments',
+        'stats.copy2': 'of recurring charges are underused',
+        'stats.copy3': 'active recurring payments for an average user',
+        'stats.copy4': 'can be saved each year by reviewing unnecessary payments',
         'how.title': 'Three steps to full control',
         'how.desc': 'Start now — setup takes under a minute.',
-        'features.badge': 'Features',
-        'features.title': 'Everything you need in one place',
-        'features.lead': 'SubCuro combines analytics, calendar tools, and smart recommendations so you can manage recurring payments with less effort.',
-        'features.item1.title': 'Recurring spend analytics',
-        'features.item1.text': 'See exactly where your money goes, track trends, compare periods, and export to CSV.',
-        'features.item2.title': 'Payment calendar',
-        'features.item2.text': 'All charges and renewals on a single clear timeline.',
-        'features.item3.title': 'Action queue',
-        'features.item3.text': 'Get suggestions on what to cancel, review, or keep — with projected savings.',
-        'features.item4.title': 'Privacy',
-        'features.item4.text': 'Your data stays protected. No stored bank access — only what you add yourself.',
-        'features.item5.title': 'Multi-currency',
-        'features.item5.text': '₽, $, and € in one place with up-to-date exchange rates.',
-        'features.item6.title': 'Dark theme',
-        'features.item6.text': 'Choose light, dark, or system mode — whatever suits you best.',
-        'features.cta': 'Get started free',
-        'features.note': 'No card. No risk.',
+        'forwhom.title': 'Who SubCuro is for',
         'forwhom.t1': 'For people with many recurring payments',
         'forwhom.d1': 'All services and charges in one place — easy to manage and never forget.',
         'forwhom.t2': 'For family budgeting',
-        'forwhom.d2': 'Track shared expenses and plan together with your family.',
+        'forwhom.d2': 'Track shared expenses and plan together with your family without disputes.',
         'forwhom.t3': 'For freelancers and small business',
-        'forwhom.d3': 'Track work services and optimize business expenses.',
+        'forwhom.d3': 'Track work services and optimize business expenses without an accountant.',
         'forwhom.t4': "For those who don't want surprises",
-        'forwhom.d4': 'Get notified about charges and renewals in advance.',
-        'forwhom.badge': 'For every scenario',
-        'forwhom.title': 'Who SubCuro is for',
-        'forwhom.desc': 'SubCuro helps you organize recurring payments, save money, and stay in control of spending with less effort.',
-        'pricing.eyebrow': 'Pricing',
+        'forwhom.d4': 'Get notified about charges and renewals in advance — no unexpected spending.',
         'pricing.title': 'Simple pricing. No surprises.',
         'pricing.lead': 'SubCuro is currently in early access. Paid plans will launch later, and current users will be notified in advance.',
         'pricing.startName': 'Start',
         'pricing.startTag': 'Perfect for getting started',
         'pricing.startCta': 'Start free',
-        'pricing.proBadge': 'Early access',
+        'pricing.proBadge': 'EARLY ACCESS',
+        'pricing.proName': 'Pro',
         'pricing.proPrice': 'Free for now',
         'pricing.proLater': 'later — 299 ₽/mo',
         'pricing.proTag': 'For deeper control and bigger savings',
         'pricing.proCta': 'Claim Pro for free',
-        'pricing.teamBadge': 'Soon',
+        'pricing.teamBadge': 'SOON',
         'pricing.teamName': 'Team',
         'pricing.teamPrice': 'Custom',
         'pricing.teamTag': 'For families, teams, and small businesses',
@@ -239,26 +152,12 @@ export default function LandingInteractions() {
         'pricing.trust2': 'Cancel anytime',
         'pricing.trust3': 'Your data is protected',
         'faq.title': 'FAQ',
-        'faq.q1': 'What is SubCuro?',
-        'faq.a1': 'SubCuro brings all recurring payments and subscriptions into one place: web and mobile stay synced, with reminders, analytics, and savings suggestions — no more spreadsheet chaos.',
-        'faq.q2': 'Do I need to connect a bank?',
-        'faq.a2': 'No. You can add data manually or import statements (CSV). We do not store bank access and never make charges — only what you choose to track.',
-        'faq.q3': 'Is data synced across devices?',
-        'faq.a3': 'Yes. Subscriptions, reminders, and your action queue are available on web and mobile: changes on one device appear everywhere after sync.',
-        'faq.q4': 'How much does it cost and when will paid plans be available?',
-        'faq.a4': 'Early access is live now: Pro is free at the moment. Paid plans will come later — we will notify you in advance and never charge without your consent.',
-        'faq.q5': 'Is there a plan for teams and companies?',
-        'faq.a5': 'The Team plan is in development. You can submit a request with your company details and use case, and we will contact you when it becomes available.',
-        'faq.q6': 'How can I delete account or export data?',
-        'faq.a6': 'Data export is available in the product (including CSV). Account deletion and data-related requests are handled in profile settings or through support.',
         'footer.tagline': 'Control recurring payments on any device',
-        'footer.appStore': 'Download on the',
-        'footer.googlePlay': 'Get it on',
-        'footer.product': 'Product',
-        'footer.pricing': 'Pricing',
-        'footer.company': 'Company',
+        'footer.product': 'PRODUCT',
+        'footer.pricing': 'PRICING',
+        'footer.company': 'COMPANY',
         'footer.l1': 'How it works',
-        'footer.l2': 'Platforms',
+        'footer.l2': 'Scenarios',
         'footer.l3': 'Pricing',
         'footer.l4': 'FAQ',
         'footer.l5': 'Free',
@@ -277,6 +176,7 @@ export default function LandingInteractions() {
 
     const applyLanguage = (lang: 'ru' | 'en') => {
       const dict = translations[lang]
+
       document.querySelectorAll<HTMLElement>('[data-i18n]').forEach(el => {
         const key = el.dataset.i18n
         if (key && dict[key]) el.textContent = dict[key]
@@ -285,196 +185,9 @@ export default function LandingInteractions() {
         const key = el.dataset.i18nHtml
         if (key && dict[key]) el.innerHTML = dict[key]
       })
-
-      const setText = (selector: string, key: string) => {
-        const el = document.querySelector<HTMLElement>(selector)
-        if (el && dict[key]) el.textContent = dict[key]
-      }
-      const setHtml = (selector: string, key: string) => {
-        const el = document.querySelector<HTMLElement>(selector)
-        if (el && dict[key]) el.innerHTML = dict[key]
-      }
-      const setList = (selector: string, keys: string[]) => {
-        const items = Array.from(document.querySelectorAll<HTMLElement>(selector))
-        items.forEach((el, idx) => {
-          const key = keys[idx]
-          if (key && dict[key]) el.textContent = dict[key]
-        })
-      }
-      const setTextKeepIcons = (selector: string, key: string) => {
-        const el = document.querySelector<HTMLElement>(selector)
-        if (!el || !dict[key]) return
-        const textNode = Array.from(el.childNodes).find(n => n.nodeType === Node.TEXT_NODE)
-        if (textNode) {
-          textNode.textContent = ` ${dict[key]}`
-        } else {
-          el.append(` ${dict[key]}`)
-        }
-      }
-      const setListKeepIcons = (selector: string, keys: string[]) => {
-        const items = Array.from(document.querySelectorAll<HTMLElement>(selector))
-        items.forEach((el, idx) => {
-          const key = keys[idx]
-          if (!key || !dict[key]) return
-          const textNode = Array.from(el.childNodes).find(n => n.nodeType === Node.TEXT_NODE)
-          if (textNode) textNode.textContent = ` ${dict[key]}`
-          else el.append(` ${dict[key]}`)
-        })
-      }
-
-      // Stats
-      setHtml('.stats-stage-item:nth-child(1) .stats-stage-copy', 'stats.copy1')
-      setHtml('.stats-stage-item:nth-child(2) .stats-stage-copy', 'stats.copy2')
-      setHtml('.stats-stage-item:nth-child(3) .stats-stage-copy', 'stats.copy3')
-      setHtml('.stats-stage-item:nth-child(4) .stats-stage-copy', 'stats.copy4')
-
-      // Platforms slide
-      setTextKeepIcons('.workstage-badge', 'platforms.badge')
-      setText('.workstage-title', 'platforms.title')
-      setText('.workstage-desc', 'platforms.desc')
-      setText('.ws-cards .ws-card:nth-child(1) .ws-card-title', 'platforms.safeTitle')
-      setText('.ws-cards .ws-card:nth-child(1) .ws-card-text', 'platforms.safeText')
-      setText('.ws-cards .ws-card:nth-child(2) .ws-card-title', 'platforms.syncTitle')
-      setText('.ws-cards .ws-card:nth-child(2) .ws-card-text', 'platforms.syncText')
-      setText('.ws-cards .ws-card:nth-child(3) .ws-card-title', 'platforms.remindTitle')
-      setText('.ws-cards .ws-card:nth-child(3) .ws-card-text', 'platforms.remindText')
-      setHtml('.ws-proof-copy', 'platforms.proofText')
-
-      // How slide
-      setTextKeepIcons('.how-slide-badge', 'how.badge')
-      setText('.how-slide-title', 'how.title')
-      setText('.how-slide-desc', 'how.desc')
-
-      // Features slide
-      setTextKeepIcons('.features-slide-badge', 'features.badge')
-      setText('.features-slide-title', 'features.title')
-      setText('.features-slide-lead', 'features.lead')
-      setText('.features-slide-grid li:nth-child(1) .features-slide-item-title', 'features.item1.title')
-      setText('.features-slide-grid li:nth-child(1) .features-slide-item-text', 'features.item1.text')
-      setText('.features-slide-grid li:nth-child(2) .features-slide-item-title', 'features.item2.title')
-      setText('.features-slide-grid li:nth-child(2) .features-slide-item-text', 'features.item2.text')
-      setText('.features-slide-grid li:nth-child(3) .features-slide-item-title', 'features.item3.title')
-      setText('.features-slide-grid li:nth-child(3) .features-slide-item-text', 'features.item3.text')
-      setText('.features-slide-grid li:nth-child(4) .features-slide-item-title', 'features.item4.title')
-      setText('.features-slide-grid li:nth-child(4) .features-slide-item-text', 'features.item4.text')
-      setText('.features-slide-grid li:nth-child(5) .features-slide-item-title', 'features.item5.title')
-      setText('.features-slide-grid li:nth-child(5) .features-slide-item-text', 'features.item5.text')
-      setText('.features-slide-grid li:nth-child(6) .features-slide-item-title', 'features.item6.title')
-      setText('.features-slide-grid li:nth-child(6) .features-slide-item-text', 'features.item6.text')
-      setTextKeepIcons('.features-slide-btn', 'features.cta')
-      setTextKeepIcons('.features-slide-note', 'features.note')
-
-      // For whom
-      setText('.forwhom-hz--1 .forwhom-card-title', 'forwhom.t1')
-      setText('.forwhom-hz--1 .forwhom-card-desc', 'forwhom.d1')
-      setText('.forwhom-hz--2 .forwhom-card-title', 'forwhom.t2')
-      setText('.forwhom-hz--2 .forwhom-card-desc', 'forwhom.d2')
-      setText('.forwhom-hz--3 .forwhom-card-title', 'forwhom.t3')
-      setText('.forwhom-hz--3 .forwhom-card-desc', 'forwhom.d3')
-      setText('.forwhom-hz--4 .forwhom-card-title', 'forwhom.t4')
-      setText('.forwhom-hz--4 .forwhom-card-desc', 'forwhom.d4')
-
-      // Pricing
-      setText('.pricing-eyebrow', 'pricing.eyebrow')
-      setText('.pricing-title', 'pricing.title')
-      setText('.pricing-lead', 'pricing.lead')
-      setText('.pricing-grid .pricing-card:nth-child(1) .pricing-card-name', 'pricing.startName')
-      setText('.pricing-grid .pricing-card:nth-child(1) .pricing-card-tagline', 'pricing.startTag')
-      setText('.pricing-grid .pricing-card:nth-child(1) .pricing-btn', 'pricing.startCta')
-      setText('.pricing-grid .pricing-card:nth-child(2) .pricing-badge--early', 'pricing.proBadge')
-      setText('.pricing-grid .pricing-card:nth-child(2) .pricing-card-price', 'pricing.proPrice')
-      setText('.pricing-grid .pricing-card:nth-child(2) .pricing-card-later', 'pricing.proLater')
-      setText('.pricing-grid .pricing-card:nth-child(2) .pricing-card-tagline', 'pricing.proTag')
-      setText('.pricing-grid .pricing-card:nth-child(2) .pricing-btn', 'pricing.proCta')
-      setText('.pricing-grid .pricing-card:nth-child(3) .pricing-badge--soon', 'pricing.teamBadge')
-      setText('.pricing-grid .pricing-card:nth-child(3) .pricing-card-name', 'pricing.teamName')
-      setText('.pricing-grid .pricing-card:nth-child(3) .pricing-card-price', 'pricing.teamPrice')
-      setText('.pricing-grid .pricing-card:nth-child(3) .pricing-card-tagline', 'pricing.teamTag')
-      setText('.pricing-grid .pricing-card:nth-child(3) .pricing-btn', 'pricing.teamCta')
-      setListKeepIcons('.pricing-grid .pricing-card:nth-child(1) .pricing-features li', ['pricing.f1', 'pricing.f2', 'pricing.f3', 'pricing.f4', 'pricing.f5'])
-      setListKeepIcons('.pricing-grid .pricing-card:nth-child(2) .pricing-features li', ['pricing.p1', 'pricing.p2', 'pricing.p3', 'pricing.p4', 'pricing.p5', 'pricing.p6', 'pricing.p7'])
-      setListKeepIcons('.pricing-grid .pricing-card:nth-child(3) .pricing-features li', ['pricing.t1', 'pricing.t2', 'pricing.t3', 'pricing.t4', 'pricing.t5'])
-      setList('.pricing-trust .pricing-trust-item span:last-child', ['pricing.trust1', 'pricing.trust2', 'pricing.trust3'])
-
-      // FAQ
-      setText('#faq-heading', 'faq.title')
-      const faqQuestions = Array.from(document.querySelectorAll<HTMLElement>('.faq-question'))
-      const faqAnswers = Array.from(document.querySelectorAll<HTMLElement>('.faq-answer-inner'))
-      const qKeys = ['faq.q1', 'faq.q2', 'faq.q3', 'faq.q4', 'faq.q5', 'faq.q6']
-      const aKeys = ['faq.a1', 'faq.a2', 'faq.a3', 'faq.a4', 'faq.a5', 'faq.a6']
-      faqQuestions.forEach((el, i) => {
-        const textNode = el.childNodes[0]
-        if (textNode && qKeys[i] && dict[qKeys[i]]) textNode.textContent = dict[qKeys[i]]
-      })
-      faqAnswers.forEach((el, i) => {
-        if (aKeys[i] && dict[aKeys[i]]) el.textContent = dict[aKeys[i]]
-      })
-
-      // Footer
-      setText('.footer-tagline', 'footer.tagline')
-      setText('.footer-apps a:nth-child(1) .app-store-text small', 'footer.appStore')
-      setText('.footer-apps a:nth-child(2) .app-store-text small', 'footer.googlePlay')
-      setText('.footer-top > div:nth-child(2) .footer-col-title', 'footer.product')
-      setText('.footer-top > div:nth-child(3) .footer-col-title', 'footer.pricing')
-      setText('.footer-top > div:nth-child(4) .footer-col-title', 'footer.company')
-      setList('.footer-top > div:nth-child(2) .footer-links a', ['footer.l1', 'footer.l2', 'footer.l3', 'footer.l4'])
-      setList('.footer-top > div:nth-child(3) .footer-links a', ['footer.l5', 'footer.pro', 'footer.l6'])
-      setList('.footer-top > div:nth-child(4) .footer-links a', ['footer.l7', 'footer.l8', 'footer.l9', 'footer.l10', 'footer.l11'])
-      setText('.footer-copy', 'footer.copy')
-      setText('.footer-legal a:nth-child(1)', 'footer.privacy')
-      setText('.footer-legal a:nth-child(2)', 'footer.terms')
-
-      // active-state is managed by LangSwitcherWidget (React state)
     }
 
-    // FAQ accordion
-    document.querySelectorAll<HTMLButtonElement>('.faq-question').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const item = btn.closest('.faq-item')
-        if (!item) return
-        const answer = item.querySelector<HTMLElement>('.faq-answer')
-        const isOpen = item.classList.contains('open')
-
-        document.querySelectorAll('.faq-item').forEach(i => {
-          i.classList.remove('open')
-          const a = i.querySelector<HTMLElement>('.faq-answer')
-          const c = i.querySelector<HTMLElement>('.faq-chevron')
-          if (a) a.style.maxHeight = '0'
-          if (c) c.textContent = '▼'
-        })
-
-        if (!isOpen && answer) {
-          item.classList.add('open')
-          answer.style.maxHeight = answer.scrollHeight + 'px'
-          const chevron = item.querySelector<HTMLElement>('.faq-chevron')
-          if (chevron) chevron.textContent = '▲'
-        }
-      })
-    })
-
-    // Mobile nav toggle
-    const hamburger = document.getElementById('hamburger')
-    const mobileNav = document.getElementById('mobileNav')
-    if (hamburger && mobileNav) {
-      hamburger.addEventListener('click', () => mobileNav.classList.toggle('open'))
-      mobileNav.querySelectorAll('a').forEach(link =>
-        link.addEventListener('click', () => mobileNav.classList.remove('open'))
-      )
-    }
-
-    // Smooth scroll
-    document.querySelectorAll<HTMLAnchorElement>('a[href^="#"]').forEach(a => {
-      a.addEventListener('click', e => {
-        const href = a.getAttribute('href')
-        const target = href ? document.querySelector(href) : null
-        if (target) {
-          e.preventDefault()
-          target.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        }
-      })
-    })
-
-    // Lang switcher + i18n
+    // Lang switcher event listener (LangSwitcherWidget fires 'subcuro:lang')
     const applyFromStorage = () => {
       try {
         const saved = (localStorage.getItem('landingLang') as 'ru' | 'en' | null) ?? 'ru'
@@ -487,7 +200,166 @@ export default function LandingInteractions() {
       applyLanguage((e as CustomEvent<'ru' | 'en'>).detail)
     }
     window.addEventListener('subcuro:lang', onLangChange)
-    return () => window.removeEventListener('subcuro:lang', onLangChange)
+
+    // ── Count-up animation ──
+    function easeOutQuart(t: number) { return 1 - Math.pow(1 - t, 4) }
+    function formatNumber(n: number) {
+      return Math.round(n).toLocaleString('ru-RU').replace(/,/g, ' ')
+    }
+    function countUp(el: HTMLElement) {
+      const target = parseFloat(el.dataset.target ?? '0')
+      const suffix = el.dataset.suffix ?? ''
+      const prefix = el.dataset.prefix ?? ''
+      const duration = 1600
+      const start = performance.now()
+      function tick(now: number) {
+        const t = Math.min(1, (now - start) / duration)
+        const v = target * easeOutQuart(t)
+        el.textContent = prefix + formatNumber(v) + suffix
+        if (t < 1) requestAnimationFrame(tick)
+      }
+      requestAnimationFrame(tick)
+    }
+
+    const statsSection = document.getElementById('stats-grid')
+    if (statsSection) {
+      const statsObserver = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            document.querySelectorAll<HTMLElement>('.count-up').forEach(countUp)
+            statsObserver.disconnect()
+          }
+        })
+      }, { threshold: 0.3 })
+      statsObserver.observe(statsSection)
+    }
+
+    // ── How-it-works card reveal ──
+    const howSection = document.getElementById('how-it-works')
+    if (howSection) {
+      const cards = document.querySelectorAll('#how-it-works .sc-card-reveal')
+      const howObserver = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            cards.forEach((c, i) => setTimeout(() => c.classList.add('is-in'), i * 150))
+            howObserver.disconnect()
+          }
+        })
+      }, { threshold: 0.2 })
+      howObserver.observe(howSection)
+    }
+
+    // ── Who-for tabs ──
+    ;(function () {
+      const tabs   = document.querySelectorAll<HTMLElement>('.who2-tab')
+      const panels = document.querySelectorAll<HTMLElement>('.who2-panel')
+      if (!tabs.length || !panels.length) return
+
+      let current = 0
+      let timer: ReturnType<typeof setInterval> | null = null
+
+      function setActive(i: number) {
+        current = i
+        tabs.forEach((x, j) => x.classList.toggle('is-active', j === i))
+        panels.forEach((p, j) => p.classList.toggle('is-active', j === i))
+      }
+      function next() { setActive((current + 1) % tabs.length) }
+
+      function start() {
+        stop()
+        timer = setInterval(next, 5000)
+      }
+      function stop() {
+        if (timer) clearInterval(timer)
+        timer = null
+      }
+
+      tabs.forEach((t, i) => {
+        t.addEventListener('click', () => { setActive(i); start() })
+      })
+
+      const section = tabs[0].closest('section')
+      if (section && 'IntersectionObserver' in window) {
+        const io = new IntersectionObserver((entries) => {
+          entries.forEach(e => (e.isIntersecting ? start() : stop()))
+        }, { threshold: 0.15 })
+        io.observe(section)
+      } else {
+        start()
+      }
+    })()
+
+    // ── FAQ accordion ──
+    ;(function () {
+      const items = document.querySelectorAll<HTMLElement>('[data-faq]')
+      items.forEach(item => {
+        const btn = item.querySelector<HTMLButtonElement>('.faq-q')
+        if (!btn) return
+        btn.addEventListener('click', () => {
+          const wasOpen = item.classList.contains('is-open')
+          items.forEach(i => i.classList.remove('is-open'))
+          if (!wasOpen) item.classList.add('is-open')
+        })
+      })
+    })()
+
+    // ── Sticky navbar: scrolled state + smooth scroll + active link ──
+    ;(function () {
+      const nav   = document.getElementById('siteNavInner')
+      const links = document.querySelectorAll<HTMLAnchorElement>('.nav-link[data-nav]')
+      if (!nav) return
+
+      function onScroll() {
+        nav!.classList.toggle('is-scrolled', window.scrollY > 80)
+      }
+      window.addEventListener('scroll', onScroll, { passive: true })
+      onScroll()
+
+      // Smooth scroll with nav offset
+      links.forEach(a => {
+        a.addEventListener('click', (e) => {
+          const id = a.getAttribute('data-nav')
+          const target = id ? document.getElementById(id) : null
+          if (target) {
+            e.preventDefault()
+            const navH = nav!.getBoundingClientRect().height + 24
+            const y = target.getBoundingClientRect().top + window.scrollY - navH
+            window.scrollTo({ top: y, behavior: 'smooth' })
+          }
+        })
+      })
+
+      // Active-link tracking
+      const sections = Array.from(links)
+        .map(a => document.getElementById(a.dataset.nav ?? ''))
+        .filter(Boolean) as HTMLElement[]
+
+      if (!sections.length) return
+
+      function setActive(id: string) {
+        links.forEach(a => a.classList.toggle('is-active', a.dataset.nav === id))
+      }
+
+      const visible = new Map<HTMLElement, number>()
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          if (e.isIntersecting) visible.set(e.target as HTMLElement, e.intersectionRatio)
+          else visible.delete(e.target as HTMLElement)
+        })
+        let best: HTMLElement | null = null
+        let bestR = 0
+        for (const [el, r] of visible) {
+          if (r > bestR) { best = el; bestR = r }
+        }
+        if (best) setActive(best.id)
+      }, { rootMargin: '-30% 0px -55% 0px', threshold: [0, 0.1, 0.25, 0.5, 0.75, 1] })
+
+      sections.forEach(s => io.observe(s))
+    })()
+
+    return () => {
+      window.removeEventListener('subcuro:lang', onLangChange)
+    }
   }, [])
 
   return null
