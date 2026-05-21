@@ -658,7 +658,7 @@ export default function LandingPage() {
             <IconHelpCircleFaq />
             ЧАСТЫЕ ВОПРОСЫ
           </span>
-          <h2 id="faq-heading" className="faq-heading" data-i18n="faq.title">FAQ</h2>
+          <h2 id="faq-heading" className="sr-only">FAQ</h2>
         </div>
 
         <div className="faq-list">

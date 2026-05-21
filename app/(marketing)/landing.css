@@ -860,10 +860,11 @@ body {
 .price-card-pro {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
   background: #ffffff;
   border-radius: 20px;
   padding: 32px;
+  padding-top: 40px;
   display: flex;
   flex-direction: column;
   box-shadow: 0 8px 40px rgba(108,92,231,0.15);
