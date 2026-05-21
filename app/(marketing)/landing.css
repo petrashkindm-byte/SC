@@ -839,16 +839,17 @@ body {
   flex-direction: row;
   align-items: stretch;
   gap: 16px;
-  max-width: 960px;
+  max-width: 1140px;
   margin: 0 auto;
 }
 
 .price-card-dark {
   flex: 1;
   min-width: 0;
+  overflow: hidden;
   background: #1a1a2e;
   border-radius: 20px;
-  padding: 28px;
+  padding: 32px;
   display: flex;
   flex-direction: column;
   position: relative;
@@ -858,9 +859,10 @@ body {
 .price-card-pro {
   flex: 1;
   min-width: 0;
+  overflow: hidden;
   background: #ffffff;
   border-radius: 20px;
-  padding: 28px;
+  padding: 32px;
   display: flex;
   flex-direction: column;
   box-shadow: 0 8px 40px rgba(108,92,231,0.15);
@@ -912,11 +914,13 @@ body {
 .price-card-name--dark  { color: #1a1a2e; margin-top: 8px; }
 
 .price-card-price {
-  font-size: 2.2rem;
+  font-size: clamp(1.6rem, 2.5vw, 2.2rem);
   font-weight: 800;
   letter-spacing: -0.03em;
   margin-bottom: 4px;
   line-height: 1.1;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .price-card-price--light { color: white; }
