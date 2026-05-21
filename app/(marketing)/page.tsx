@@ -314,7 +314,7 @@ export default function LandingPage() {
       <div className="how-header">
         <div className="how-header-eyebrow">
           <span className="how-eyebrow-dot sc-pulse-fast" aria-hidden="true" />
-          <span className="how-eyebrow-text">КАК ЭТО РАБОТАЕТ</span>
+          <span className="how-eyebrow-text" data-i18n="how.eyebrow">КАК ЭТО РАБОТАЕТ</span>
         </div>
         <h2 className="how-title" data-i18n="how.title">Три шага до полного контроля</h2>
         <p className="how-desc" data-i18n="how.desc">Начни прямо сейчас — регистрация занимает меньше минуты.</p>
@@ -342,8 +342,8 @@ export default function LandingPage() {
           </div>
 
           <div className="how-card-body">
-            <h3 className="how-card-title">Зарегистрируйся</h3>
-            <p className="how-card-text">
+            <h3 className="how-card-title" data-i18n="how.step1.title">Зарегистрируйся</h3>
+            <p className="how-card-text" data-i18n="how.step1.text">
               Создай аккаунт за 30 секунд. Вводи подписки вручную или загружай CSV-выписку из банка.
             </p>
           </div>
@@ -358,8 +358,8 @@ export default function LandingPage() {
             <span className="how-card-step">02</span>
           </div>
           <div className="how-card-body-plain">
-            <h3 className="how-card-title">Получай уведомления</h3>
-            <p className="how-card-text">
+            <h3 className="how-card-title" data-i18n="how.step2.title">Получай уведомления</h3>
+            <p className="how-card-text" data-i18n="how.step2.text">
               SubCuro предупредит о списании заранее, напомнит об окончании триала и покажет, где можно сэкономить.
             </p>
           </div>
@@ -374,8 +374,8 @@ export default function LandingPage() {
             <span className="how-card-step">03</span>
           </div>
           <div className="how-card-body-plain">
-            <h3 className="how-card-title">Принимай решения</h3>
-            <p className="how-card-text">
+            <h3 className="how-card-title" data-i18n="how.step3.title">Принимай решения</h3>
+            <p className="how-card-text" data-i18n="how.step3.text">
               Очередь действий сама подскажет, что отменить, поставить на паузу или заменить — и посчитает экономию.
             </p>
           </div>
@@ -385,7 +385,7 @@ export default function LandingPage() {
       {/* ═══ WHO IS SUBCURO FOR ═══ */}
       <section id="for-whom" className="who-section" aria-labelledby="who-heading">
         <div className="who-header">
-          <div className="who-eyebrow">ДЛЯ КАЖДОГО СЦЕНАРИЯ</div>
+          <div className="who-eyebrow" data-i18n="forwhom.eyebrow">ДЛЯ КАЖДОГО СЦЕНАРИЯ</div>
           <h2 id="who-heading" className="who-title" data-i18n="forwhom.title">Для кого SubCuro</h2>
         </div>
 
@@ -398,7 +398,7 @@ export default function LandingPage() {
               </span>
               <span className="who2-tab-texts">
                 <span className="who2-tab-label" data-i18n="forwhom.t1short">Много платежей</span>
-                <span className="who2-tab-sublabel">10+ сервисов</span>
+                <span className="who2-tab-sublabel" data-i18n="forwhom.sub1">10+ сервисов</span>
               </span>
             </button>
 
@@ -408,7 +408,7 @@ export default function LandingPage() {
               </span>
               <span className="who2-tab-texts">
                 <span className="who2-tab-label" data-i18n="forwhom.t2short">Семейный бюджет</span>
-                <span className="who2-tab-sublabel">Совместный контроль</span>
+                <span className="who2-tab-sublabel" data-i18n="forwhom.sub2">Совместный контроль</span>
               </span>
             </button>
 
@@ -418,7 +418,7 @@ export default function LandingPage() {
               </span>
               <span className="who2-tab-texts">
                 <span className="who2-tab-label" data-i18n="forwhom.t3short">Фрилансер / бизнес</span>
-                <span className="who2-tab-sublabel">Рабочие расходы</span>
+                <span className="who2-tab-sublabel" data-i18n="forwhom.sub3">Рабочие расходы</span>
               </span>
             </button>
 
@@ -428,7 +428,7 @@ export default function LandingPage() {
               </span>
               <span className="who2-tab-texts">
                 <span className="who2-tab-label" data-i18n="forwhom.t4short">Без сюрпризов</span>
-                <span className="who2-tab-sublabel">Уведомления заранее</span>
+                <span className="who2-tab-sublabel" data-i18n="forwhom.sub4">Уведомления заранее</span>
               </span>
             </button>
           </div>
@@ -440,7 +440,7 @@ export default function LandingPage() {
               <img src="/web-concept/images/who-tab-1.jpg"
                 alt="" loading="lazy" className="who2-panel-img" />
               <div className="who2-panel-body">
-                <span className="who2-panel-badge who2-panel-badge--purple">Самый популярный</span>
+                <span className="who2-panel-badge who2-panel-badge--purple" data-i18n="forwhom.badge1">Самый популярный</span>
                 <h3 className="who2-panel-title who2-panel-title--purple" data-i18n="forwhom.t1">
                   Для тех, у кого много регулярных платежей
                 </h3>
@@ -450,15 +450,15 @@ export default function LandingPage() {
                 <ul className="who2-panel-list">
                   <li className="who2-panel-list-item who2-panel-list-item--purple">
                     <span className="who2-panel-list-dot who2-panel-list-dot--purple" />
-                    Все подписки на одном экране
+                    <span data-i18n="forwhom.l1a">Все подписки на одном экране</span>
                   </li>
                   <li className="who2-panel-list-item who2-panel-list-item--purple">
                     <span className="who2-panel-list-dot who2-panel-list-dot--purple" />
-                    Автоматическое обнаружение дубликатов
+                    <span data-i18n="forwhom.l1b">Автоматическое обнаружение дубликатов</span>
                   </li>
                   <li className="who2-panel-list-item who2-panel-list-item--purple">
                     <span className="who2-panel-list-dot who2-panel-list-dot--purple" />
-                    Экономия до 16 000 ₽ в год
+                    <span data-i18n="forwhom.l1c">Экономия до 16 000 ₽ в год</span>
                   </li>
                 </ul>
               </div>
@@ -469,7 +469,7 @@ export default function LandingPage() {
               <img src="/web-concept/images/who-tab-2.jpg"
                 alt="" loading="lazy" className="who2-panel-img" />
               <div className="who2-panel-body">
-                <span className="who2-panel-badge who2-panel-badge--green">Для семьи</span>
+                <span className="who2-panel-badge who2-panel-badge--green" data-i18n="forwhom.badge2">Для семьи</span>
                 <h3 className="who2-panel-title who2-panel-title--green" data-i18n="forwhom.t2">
                   Для семейного бюджета
                 </h3>
@@ -479,15 +479,15 @@ export default function LandingPage() {
                 <ul className="who2-panel-list">
                   <li className="who2-panel-list-item who2-panel-list-item--green">
                     <span className="who2-panel-list-dot who2-panel-list-dot--green" />
-                    Общий обзор всех подписок семьи
+                    <span data-i18n="forwhom.l2a">Общий обзор всех подписок семьи</span>
                   </li>
                   <li className="who2-panel-list-item who2-panel-list-item--green">
                     <span className="who2-panel-list-dot who2-panel-list-dot--green" />
-                    Напоминания до списания
+                    <span data-i18n="forwhom.l2b">Напоминания до списания</span>
                   </li>
                   <li className="who2-panel-list-item who2-panel-list-item--green">
                     <span className="who2-panel-list-dot who2-panel-list-dot--green" />
-                    Планирование бюджета на месяц
+                    <span data-i18n="forwhom.l2c">Планирование бюджета на месяц</span>
                   </li>
                 </ul>
               </div>
@@ -501,9 +501,9 @@ export default function LandingPage() {
                 <div className="who2-panel-img-fade" aria-hidden="true" />
               </div>
               <div className="who2-panel-body">
-                <span className="who2-panel-badge who2-panel-badge--dark">Для бизнеса</span>
+                <span className="who2-panel-badge who2-panel-badge--dark" data-i18n="forwhom.badge3">Для бизнеса</span>
                 <h3 className="who2-panel-title who2-panel-title--white" data-i18n="forwhom.t3">
-                  Для фрилансеров и small business
+                  Для фрилансеров и малого бизнеса
                 </h3>
                 <p className="who2-panel-desc who2-panel-desc--muted" data-i18n="forwhom.d3">
                   Отслеживайте рабочие сервисы и оптимизируйте бизнес-расходы без бухгалтера.
@@ -511,15 +511,15 @@ export default function LandingPage() {
                 <ul className="who2-panel-list">
                   <li className="who2-panel-list-item who2-panel-list-item--white">
                     <span className="who2-panel-list-dot who2-panel-list-dot--lavender" />
-                    Разделение личных и рабочих расходов
+                    <span data-i18n="forwhom.l3a">Разделение личных и рабочих расходов</span>
                   </li>
                   <li className="who2-panel-list-item who2-panel-list-item--white">
                     <span className="who2-panel-list-dot who2-panel-list-dot--lavender" />
-                    Аналитика по категориям
+                    <span data-i18n="forwhom.l3b">Аналитика по категориям</span>
                   </li>
                   <li className="who2-panel-list-item who2-panel-list-item--white">
                     <span className="who2-panel-list-dot who2-panel-list-dot--lavender" />
-                    Экспорт для отчётности
+                    <span data-i18n="forwhom.l3c">Экспорт для отчётности</span>
                   </li>
                 </ul>
               </div>
@@ -530,7 +530,7 @@ export default function LandingPage() {
               <img src="/web-concept/images/who-tab-4.jpg"
                 alt="" loading="lazy" className="who2-panel-img" />
               <div className="who2-panel-body">
-                <span className="who2-panel-badge who2-panel-badge--green">Спокойствие</span>
+                <span className="who2-panel-badge who2-panel-badge--green" data-i18n="forwhom.badge4">Спокойствие</span>
                 <h3 className="who2-panel-title who2-panel-title--green" data-i18n="forwhom.t4">
                   Для тех, кто не хочет сюрпризов
                 </h3>
@@ -540,15 +540,15 @@ export default function LandingPage() {
                 <ul className="who2-panel-list">
                   <li className="who2-panel-list-item who2-panel-list-item--green">
                     <span className="who2-panel-list-dot who2-panel-list-dot--green" />
-                    Уведомление за 3 дня до списания
+                    <span data-i18n="forwhom.l4a">Уведомление за 3 дня до списания</span>
                   </li>
                   <li className="who2-panel-list-item who2-panel-list-item--green">
                     <span className="who2-panel-list-dot who2-panel-list-dot--green" />
-                    Напоминание об окончании триала
+                    <span data-i18n="forwhom.l4b">Напоминание об окончании триала</span>
                   </li>
                   <li className="who2-panel-list-item who2-panel-list-item--green">
                     <span className="who2-panel-list-dot who2-panel-list-dot--green" />
-                    История всех платежей
+                    <span data-i18n="forwhom.l4c">История всех платежей</span>
                   </li>
                 </ul>
               </div>
@@ -560,7 +560,7 @@ export default function LandingPage() {
       {/* ═══ PRICING ═══ */}
       <section id="pricing" className="price-section" aria-labelledby="pricing-heading">
         <div className="price-header">
-          <div className="price-eyebrow">ТАРИФЫ</div>
+          <div className="price-eyebrow" data-i18n="pricing.eyebrow">ТАРИФЫ</div>
           <h2 id="pricing-heading" className="price-title" data-i18n="pricing.title">
             Честные цены. Без сюрпризов.
           </h2>
@@ -575,7 +575,7 @@ export default function LandingPage() {
             <IconRocket />
             <div className="price-card-name price-card-name--light" data-i18n="pricing.startName">Старт</div>
             <div className="price-card-price price-card-price--light">
-              0 ₽<span className="price-card-price-sub">/мес</span>
+              0 ₽<span className="price-card-price-sub" data-i18n="pricing.perMonth">/мес</span>
             </div>
             <div className="price-card-tag price-card-tag--light" data-i18n="pricing.startTag">Для знакомства с сервисом</div>
             <div className="price-divider price-divider--dark" />
@@ -656,7 +656,7 @@ export default function LandingPage() {
         <div className="faq-heading-row">
           <span className="faq-heading-icon" aria-hidden="true">
             <IconHelpCircleFaq />
-            ЧАСТЫЕ ВОПРОСЫ
+            <span data-i18n="faq.eyebrow">ЧАСТЫЕ ВОПРОСЫ</span>
           </span>
           <h2 id="faq-heading" className="sr-only">FAQ</h2>
         </div>
@@ -667,39 +667,45 @@ export default function LandingPage() {
               q: 'Что такое SubCuro?',
               a: 'SubCuro — это сервис для управления регулярными платежами: подписками, связью, интернетом и другими списаниями. Он помогает видеть все расходы в одном месте, получать напоминания и находить способы сэкономить.',
               open: true,
+              qKey: 'faq.q1', aKey: 'faq.a1',
             },
             {
               q: 'Нужно ли подключать банк?',
               a: 'Нет. SubCuro не требует доступа к банку или картам. Вы добавляете платежи вручную или загружаете CSV-выписку. Ваши банковские данные нам не нужны и мы их не запрашиваем.',
               open: false,
+              qKey: 'faq.q2', aKey: 'faq.a2',
             },
             {
               q: 'Данные синхронизируются между устройствами?',
               a: 'Да. Все данные хранятся в облаке и доступны на любом устройстве — в браузере и в мобильном приложении. Изменения синхронизируются в реальном времени.',
               open: false,
+              qKey: 'faq.q3', aKey: 'faq.a3',
             },
             {
               q: 'Сколько стоит и когда появится платный тариф?',
               a: 'Сейчас SubCuro полностью бесплатен. Платные тарифы появятся позже — мы заранее предупредим всех текущих пользователей. Те, кто зарегистрировался в период раннего доступа, получат специальные условия.',
               open: false,
+              qKey: 'faq.q4', aKey: 'faq.a4',
             },
             {
               q: 'Есть ли тариф для команд и компаний?',
               a: 'Да, тариф «Команда» находится в разработке. Он будет включать общее пространство, несколько участников, роли и корпоративные отчёты. Оставьте заявку — мы свяжемся когда он появится.',
               open: false,
+              qKey: 'faq.q5', aKey: 'faq.a5',
             },
             {
               q: 'Как удалить аккаунт или экспортировать данные?',
               a: 'Вы можете экспортировать все данные в CSV или HTML-отчёт в разделе Настройки. Там же можно полностью удалить аккаунт — все данные будут безвозвратно удалены в течение 30 дней.',
               open: false,
+              qKey: 'faq.q6', aKey: 'faq.a6',
             },
-          ].map(({ q, a, open }, idx) => (
+          ].map(({ q, a, open, qKey, aKey }, idx) => (
             <div className={`faq-item${open ? ' is-open' : ''}`} key={idx} data-faq>
               <button className="faq-q" type="button">
-                <span className="faq-q-text">{q}</span>
+                <span className="faq-q-text" data-i18n={qKey}>{q}</span>
                 <IconChevronDown />
               </button>
-              <div className="faq-a"><p>{a}</p></div>
+              <div className="faq-a"><p data-i18n={aKey}>{a}</p></div>
             </div>
           ))}
         </div>
@@ -722,14 +728,14 @@ export default function LandingPage() {
               <a href="#" className="footer-app-btn" aria-label="App Store — скоро">
                 <IconApple />
                 <span className="footer-app-label">
-                  <span className="footer-app-sub">СКОРО В</span>
+                  <span className="footer-app-sub" data-i18n="footer.comingSoon">СКОРО В</span>
                   <span className="footer-app-name">App Store</span>
                 </span>
               </a>
               <a href="#" className="footer-app-btn" aria-label="Google Play — скоро">
                 <IconGooglePlay />
                 <span className="footer-app-label">
-                  <span className="footer-app-sub">СКОРО В</span>
+                  <span className="footer-app-sub" data-i18n="footer.comingSoon">СКОРО В</span>
                   <span className="footer-app-name">Google Play</span>
                 </span>
               </a>
