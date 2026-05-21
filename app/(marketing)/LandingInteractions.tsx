@@ -333,7 +333,7 @@ export default function LandingInteractions() {
     // ── How-it-works card reveal ──
     const howSection = document.getElementById('how-it-works')
     if (howSection) {
-      const cards = document.querySelectorAll('#how-it-works .sc-card-reveal')
+      const cards = document.querySelectorAll<HTMLElement>('.sc-card-reveal')
       const howObserver = new IntersectionObserver((entries) => {
         entries.forEach(e => {
           if (e.isIntersecting) {

@@ -311,7 +311,7 @@ export default function LandingPage() {
       </section>
 
       {/* ═══ HOW IT WORKS HEADER ═══ */}
-      <div className="how-header">
+      <div id="how-it-works" className="how-header">
         <div className="how-header-eyebrow">
           <span className="how-eyebrow-dot sc-pulse-fast" aria-hidden="true" />
           <span className="how-eyebrow-text" data-i18n="how.eyebrow">КАК ЭТО РАБОТАЕТ</span>
@@ -321,7 +321,7 @@ export default function LandingPage() {
       </div>
 
       {/* ═══ HOW IT WORKS CARDS ═══ */}
-      <section id="how-it-works" className="how-grid" aria-labelledby="how-heading">
+      <section className="how-grid" aria-labelledby="how-heading">
         <h2 id="how-heading" className="sr-only">Как работает</h2>
 
         {/* Card 1 — wider, with bg image */}
