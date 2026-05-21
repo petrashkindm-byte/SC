@@ -554,12 +554,14 @@ export default function AuthLanding() {
                   <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, color: '#9ca3af', background: 'rgba(0,0,0,0.06)', borderRadius: 6, padding: '2px 7px' }}>Скоро</span>
                 </button>
               </div>
-              <p className="auth-footnote auth-footnote--legal">
-                Нажимая кнопку «Зарегистрироваться», вы соглашаетесь с{' '}
-                <a href="/terms" className="auth-footnote-link">Условиями использования</a>
-                {' '}и{' '}
-                <a href="/privacy" className="auth-footnote-link">Политикой конфиденциальности</a>
-              </p>
+              {tab === 'register' && (
+                <p className="auth-footnote auth-footnote--legal">
+                  Нажимая «Зарегистрироваться», вы соглашаетесь с{' '}
+                  <a href="/terms" className="auth-footnote-link">Условиями использования</a>
+                  {' '}и{' '}
+                  <a href="/privacy" className="auth-footnote-link">Политикой конфиденциальности</a>
+                </p>
+              )}
             </div>
           </main>
         </div>
@@ -628,6 +630,9 @@ export default function AuthLanding() {
         .auth-social-btn { height: 42px; border: 1px solid rgba(15,11,56,.1); border-radius: 12px; background: #fff; font: inherit; font-size: 14px; font-weight: 600; color: #374151; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; }
         .auth-footnote { margin-top: 12px; text-align: center; font-size: 12px; color: #6b7280; display: flex; align-items: center; justify-content: center; gap: 8px; }
         .auth-footnote svg { color: #9ca3af; flex-shrink: 0; }
+        .auth-footnote--legal { display: block; line-height: 1.55; }
+        .auth-footnote-link { color: #6c5ce7; text-decoration: underline; text-decoration-color: rgba(108,92,231,0.35); text-underline-offset: 2px; }
+        .auth-footnote-link:hover { color: #5a4bd1; text-decoration-color: rgba(90,75,209,0.7); }
         .auth-social-btn:disabled { opacity: .6; cursor: not-allowed; }
         .auth-social-btn--soon { opacity: .5; color: #9ca3af; }
         @keyframes auth-spin { to { transform: rotate(360deg); } }
