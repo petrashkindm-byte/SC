@@ -232,8 +232,9 @@ body {
 .hero-img {
   position: absolute;
   right: 0;
-  top: 0;
-  height: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 118%;
   width: auto;
   max-width: none;
   display: block;
