@@ -554,11 +554,11 @@ export default function AuthLanding() {
                   <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, color: '#9ca3af', background: 'rgba(0,0,0,0.06)', borderRadius: 6, padding: '2px 7px' }}>Скоро</span>
                 </button>
               </div>
-              <p className="auth-footnote">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path d="M12 3l8 4v5c0 4-2.5 7.5-7 9-4.5-1.5-7-5-7-9V7l8-4z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
-                </svg>
-                Мы не передаём ваши данные третьим лицам
+              <p className="auth-footnote auth-footnote--legal">
+                Нажимая кнопку «Зарегистрироваться», вы соглашаетесь с{' '}
+                <a href="/terms" className="auth-footnote-link">Условиями использования</a>
+                {' '}и{' '}
+                <a href="/privacy" className="auth-footnote-link">Политикой конфиденциальности</a>
               </p>
             </div>
           </main>

@@ -505,6 +505,24 @@ body.auth-page {
   color: #9ca3af;
 }
 
+.auth-footnote--legal {
+  display: block;
+  gap: 0;
+}
+
+.auth-footnote-link {
+  color: #6c5ce7;
+  text-decoration: underline;
+  text-decoration-color: rgba(108, 92, 231, 0.35);
+  text-underline-offset: 2px;
+  transition: color 0.15s, text-decoration-color 0.15s;
+}
+
+.auth-footnote-link:hover {
+  color: #5a4bd1;
+  text-decoration-color: rgba(90, 75, 209, 0.7);
+}
+
 @media (max-width: 900px) {
   .auth-shell {
     flex-direction: column;
