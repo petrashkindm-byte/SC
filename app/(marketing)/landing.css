@@ -835,33 +835,29 @@ body {
 }
 
 .price-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 16px;
+  display: flex;
+  flex-direction: row;
   align-items: stretch;
+  gap: 16px;
   max-width: 960px;
   margin: 0 auto;
 }
 
-/* Dark cards */
-/* Wrapper — actual grid item, stretches to row height */
-.price-cell {
-  display: flex;
-  flex-direction: column;
-}
-
 .price-card-dark {
+  flex: 1;
+  min-width: 0;
   background: #1a1a2e;
   border-radius: 20px;
   padding: 28px;
   display: flex;
   flex-direction: column;
   position: relative;
-  flex: 1;
 }
 
 /* Pro card (white) */
 .price-card-pro {
+  flex: 1;
+  min-width: 0;
   background: #ffffff;
   border-radius: 20px;
   padding: 28px;
@@ -869,7 +865,6 @@ body {
   flex-direction: column;
   box-shadow: 0 8px 40px rgba(108,92,231,0.15);
   position: relative;
-  flex: 1;
 }
 
 .price-card-icon {
@@ -1381,7 +1376,7 @@ body {
   /* Pricing */
   .price-header { text-align: left; }
   .price-header p { margin-left: 0; }
-  .price-grid { grid-template-columns: 1fr; }
+  .price-grid { flex-direction: column; }
 
   .price-trust {
     flex-direction: column;
