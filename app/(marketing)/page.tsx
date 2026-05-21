@@ -328,7 +328,7 @@ export default function LandingPage() {
         {/* Card 1 — wider, with bg image */}
         <div className="how-card sc-card-reveal">
           <img
-            src="/web-concept/images/how-slide-3-steps.png"
+            src="/web-concept/images/hiw-step1.png"
             alt=""
             loading="lazy"
             className="how-card-bg-img"
