@@ -19,16 +19,16 @@ export default function LangSwitcherWidget() {
   }
 
   return (
-    <div className="lang-switcher" role="group" aria-label="Язык">
+    <div className="nav-lang-toggle" role="group" aria-label="Язык">
       <button
-        className={`lang-btn${lang === 'ru' ? ' active' : ''}`}
+        className={lang === 'ru' ? 'nav-lang-btn-active' : 'nav-lang-btn-inactive'}
         aria-pressed={lang === 'ru'}
         onClick={() => toggle('ru')}
       >
         RU
       </button>
       <button
-        className={`lang-btn${lang === 'en' ? ' active' : ''}`}
+        className={lang === 'en' ? 'nav-lang-btn-active' : 'nav-lang-btn-inactive'}
         aria-pressed={lang === 'en'}
         onClick={() => toggle('en')}
       >

@@ -70,10 +70,10 @@ body {
   background: rgba(255,255,255,0.85);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border-radius: 16px;
+  border-radius: 18px;
   border: 0.5px solid rgba(0,0,0,0.06);
-  padding: 14px 28px;
-  min-height: 60px;
+  padding: 18px 32px;
+  min-height: 70px;
   transition: background 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -91,16 +91,17 @@ body {
 }
 
 .nav-logo-img {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   object-fit: contain;
 }
 
 .nav-logo-text {
   color: #1a1a2e;
-  font-size: 1.3rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-family: var(--font-geist-sans), 'Inter', system-ui, sans-serif;
 }
 
 .nav-center {
