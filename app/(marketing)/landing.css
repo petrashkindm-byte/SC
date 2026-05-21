@@ -418,26 +418,31 @@ body {
 }
 
 .how-header-eyebrow {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 12px;
-  justify-content: flex-start;
+  margin-bottom: 16px;
+  background: rgba(255,255,255,0.9);
+  border: 1px solid rgba(0,0,0,0.07);
+  border-radius: 100px;
+  padding: 6px 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
 
 .how-eyebrow-dot {
-  width: 8px;
-  height: 8px;
-  background: #00e5a0;
+  width: 7px;
+  height: 7px;
+  background: #00b894;
   border-radius: 50%;
   display: inline-block;
+  flex-shrink: 0;
 }
 
 .how-eyebrow-text {
-  color: #00e5a0;
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.15em;
+  color: rgba(26,26,46,0.55);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.13em;
 }
 
 .how-title {
@@ -583,11 +588,18 @@ body {
 }
 
 .who-eyebrow {
-  color: rgba(26,26,46,0.4);
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.15em;
-  margin-bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  background: rgba(255,255,255,0.9);
+  border: 1px solid rgba(0,0,0,0.07);
+  border-radius: 100px;
+  padding: 6px 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  color: rgba(26,26,46,0.55);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  margin-bottom: 14px;
 }
 
 .who-title {
@@ -790,11 +802,18 @@ body {
 }
 
 .price-eyebrow {
-  color: #00b894;
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.15em;
-  margin-bottom: 12px;
+  display: inline-flex;
+  align-items: center;
+  background: rgba(255,255,255,0.9);
+  border: 1px solid rgba(0,0,0,0.07);
+  border-radius: 100px;
+  padding: 6px 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  color: rgba(26,26,46,0.55);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  margin-bottom: 14px;
 }
 
 .price-title {
@@ -1028,27 +1047,32 @@ body {
 
 .faq-heading-row {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   margin: 0 auto 40px;
-  justify-content: center;
   max-width: 760px;
 }
 
 .faq-heading-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: rgba(26,26,46,0.1);
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: 8px;
+  background: rgba(255,255,255,0.9);
+  border: 1px solid rgba(0,0,0,0.07);
+  border-radius: 100px;
+  padding: 6px 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  color: rgba(26,26,46,0.55);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.13em;
 }
 
 .faq-heading-icon svg {
-  color: #1a1a2e;
-  width: 20px;
-  height: 20px;
+  color: rgba(26,26,46,0.4);
+  width: 14px;
+  height: 14px;
 }
 
 .faq-heading {

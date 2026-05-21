@@ -657,6 +657,7 @@ export default function LandingPage() {
         <div className="faq-heading-row">
           <span className="faq-heading-icon" aria-hidden="true">
             <IconHelpCircleFaq />
+            ЧАСТЫЕ ВОПРОСЫ
           </span>
           <h2 id="faq-heading" className="faq-heading" data-i18n="faq.title">FAQ</h2>
         </div>
