@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Inter, Outfit } from 'next/font/google'
+import { Inter, Outfit, Nunito } from 'next/font/google'
 import './landing.css'
 
 const inter = Inter({
@@ -16,6 +16,13 @@ const outfit = Outfit({
   display: 'swap',
 })
 
+const nunito = Nunito({
+  subsets: ['latin', 'cyrillic'],
+  weight: ['700', '800'],
+  variable: '--font-nunito',
+  display: 'swap',
+})
+
 export const metadata: Metadata = {
   title: 'SubCuro — Контролируй регулярные платежи на любом устройстве',
   description:
@@ -27,7 +34,7 @@ export const metadata: Metadata = {
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className={`${inter.variable} ${outfit.variable}`} style={{ fontFamily: 'var(--font-inter), -apple-system, BlinkMacSystemFont, sans-serif' }}>
+    <div className={`${inter.variable} ${outfit.variable} ${nunito.variable}`} style={{ fontFamily: 'var(--font-inter), -apple-system, BlinkMacSystemFont, sans-serif' }}>
       {children}
     </div>
   )
