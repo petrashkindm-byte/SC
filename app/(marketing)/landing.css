@@ -1126,7 +1126,7 @@ body {
   margin-left: 24px;
   margin-right: 24px;
   border-radius: 24px;
-  background: #1a1a2e;
+  background: #100e24;
   padding: 56px 48px 32px;
   margin-bottom: 24px;
 }
@@ -1178,19 +1178,19 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
   border-radius: 12px;
   padding: 10px 16px;
   max-width: 200px;
   text-decoration: none;
-  transition: background 0.2s;
+  cursor: default;
+  pointer-events: none;
+  opacity: 0.5;
 }
 
-.footer-app-btn:hover { background: rgba(255,255,255,0.1); }
-
 .footer-app-btn svg {
-  color: white;
+  color: rgba(255,255,255,0.5);
   width: 20px;
   height: 20px;
 }
@@ -1203,13 +1203,13 @@ body {
 
 .footer-app-sub {
   font-size: 9px;
-  color: rgba(255,255,255,0.4);
+  color: rgba(255,255,255,0.35);
   letter-spacing: 0.08em;
 }
 
 .footer-app-name {
   font-size: 14px;
-  color: white;
+  color: rgba(255,255,255,0.5);
   font-weight: 600;
 }
 
