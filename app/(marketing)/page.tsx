@@ -438,7 +438,7 @@ export default function LandingPage() {
           <div>
             {/* Panel 1 */}
             <div className="who2-panel is-active" data-panel="0" style={{background:'#eee9ff'}}>
-              <img src="/web-concept/images/79d643df-74bd-449c-ae0c-71cc4c36e6a1.png"
+              <img src="/web-concept/images/who-tab-1.jpg"
                 alt="" loading="lazy" className="who2-panel-img" />
               <div className="who2-panel-body">
                 <span className="who2-panel-badge who2-panel-badge--purple">Самый популярный</span>
@@ -467,7 +467,7 @@ export default function LandingPage() {
 
             {/* Panel 2 */}
             <div className="who2-panel" data-panel="1" style={{background:'#e1f5ee'}}>
-              <img src="/web-concept/images/79d643df-74bd-449c-ae0c-71cc4c36e6a1.png"
+              <img src="/web-concept/images/who-tab-2.jpg"
                 alt="" loading="lazy" className="who2-panel-img" />
               <div className="who2-panel-body">
                 <span className="who2-panel-badge who2-panel-badge--green">Для семьи</span>
@@ -497,7 +497,7 @@ export default function LandingPage() {
             {/* Panel 3 */}
             <div className="who2-panel" data-panel="2" style={{background:'#1a1a2e'}}>
               <div className="who2-panel-img-wrap">
-                <img src="/web-concept/images/79d643df-74bd-449c-ae0c-71cc4c36e6a1.png"
+                <img src="/web-concept/images/who-tab-3.jpg"
                   alt="" loading="lazy" className="who2-panel-img" />
                 <div className="who2-panel-img-fade" aria-hidden="true" />
               </div>
@@ -528,7 +528,7 @@ export default function LandingPage() {
 
             {/* Panel 4 */}
             <div className="who2-panel" data-panel="3" style={{background:'#e1f5ee'}}>
-              <img src="/web-concept/images/79d643df-74bd-449c-ae0c-71cc4c36e6a1.png"
+              <img src="/web-concept/images/who-tab-4.jpg"
                 alt="" loading="lazy" className="who2-panel-img" />
               <div className="who2-panel-body">
                 <span className="who2-panel-badge who2-panel-badge--green">Спокойствие</span>
