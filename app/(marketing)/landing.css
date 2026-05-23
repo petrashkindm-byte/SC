@@ -1451,29 +1451,26 @@ body {
 
   /* Navbar mobile */
   #siteNavInner {
-    padding: 12px 16px;
+    padding: 10px 16px;
     gap: 0;
-    min-height: 56px;
+    min-height: 52px;
     border-radius: 14px;
   }
   .nav-center { display: none; }
   .nav-lang-toggle { display: none; }
-  .nav-right { gap: 6px; }
-  /* Show Войти as compact text link */
+  /* Hide CTA — hero already has it */
+  .nav-cta { display: none; }
+  /* Show only Войти */
   .nav-login {
     display: inline-flex;
-    font-size: 13px;
-    padding: 6px 10px;
-    border: 1px solid rgba(26,26,46,0.15);
+    font-size: 14px;
+    font-weight: 600;
+    padding: 7px 18px;
+    border: 1.5px solid rgba(108,92,231,0.35);
     border-radius: 10px;
-    white-space: nowrap;
-  }
-  .nav-cta {
-    font-size: 13px;
-    padding: 7px 14px;
-    border-radius: 10px;
+    color: #6c5ce7;
     white-space: nowrap;
   }
   .nav-logo-text { font-size: 1.25rem; }
-  .nav-logo-img { width: 32px; height: 32px; }
+  .nav-logo-img { width: 30px; height: 30px; }
 }
