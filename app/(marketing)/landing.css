@@ -1449,9 +1449,31 @@ body {
     grid-column: 1 / -1;
   }
 
-  /* Navbar mobile — hide secondary items */
+  /* Navbar mobile */
+  #siteNavInner {
+    padding: 12px 16px;
+    gap: 0;
+    min-height: 56px;
+    border-radius: 14px;
+  }
   .nav-center { display: none; }
   .nav-lang-toggle { display: none; }
-  .nav-login { display: none; }
-  .nav-cta { font-size: 13px; padding: 6px 14px; }
+  .nav-right { gap: 6px; }
+  /* Show Войти as compact text link */
+  .nav-login {
+    display: inline-flex;
+    font-size: 13px;
+    padding: 6px 10px;
+    border: 1px solid rgba(26,26,46,0.15);
+    border-radius: 10px;
+    white-space: nowrap;
+  }
+  .nav-cta {
+    font-size: 13px;
+    padding: 7px 14px;
+    border-radius: 10px;
+    white-space: nowrap;
+  }
+  .nav-logo-text { font-size: 1.25rem; }
+  .nav-logo-img { width: 32px; height: 32px; }
 }
