@@ -214,8 +214,8 @@ export default function AuthLanding() {
           <aside className="auth-aside" aria-label="О продукте">
             <div className="auth-aside-inner">
               <Link href="/" className="auth-brand">
-                <Image src="/subcuro_ribbon_s_transparent.png" width={36} height={36} alt="Subcuro logo" />
-                <span className="auth-brand-text">Subcuro</span>
+                <Image src="/subcuro_ribbon_s_transparent.png" width={36} height={36} alt="SubCuro logo" />
+                <span className="auth-brand-text">SubCuro</span>
               </Link>
               <p className="auth-eyebrow">Умный трекер подписок</p>
               <h1 className="auth-aside-title">
@@ -303,7 +303,7 @@ export default function AuthLanding() {
               {(resetMode || hashRecoveryMode) ? (
                 <div className="auth-panel auth-panel-fixed">
                   <h2 className="auth-panel-title">Создать новый пароль</h2>
-                  <p className="auth-panel-sub">Введите новый пароль для аккаунта Subcuro</p>
+                  <p className="auth-panel-sub">Введите новый пароль для аккаунта SubCuro</p>
                   <form onSubmit={handleSetNewPassword}>
                     <div className="auth-field">
                       <label className="auth-label">Новый пароль</label>
@@ -357,7 +357,7 @@ export default function AuthLanding() {
               ) : tab === 'login' ? (
                 <div className="auth-panel auth-panel-fixed">
                   <h2 className="auth-panel-title">С возвращением!</h2>
-                  <p className="auth-panel-sub">Войдите в свой аккаунт Subcuro</p>
+                  <p className="auth-panel-sub">Войдите в свой аккаунт SubCuro</p>
                   <form onSubmit={handleLoginSubmit}>
                     <div className="auth-field">
                       <label className="auth-label">Email</label>
