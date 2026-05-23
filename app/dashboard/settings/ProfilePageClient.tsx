@@ -242,6 +242,7 @@ export default function ProfilePageClient({
     if (!window.confirm(p.deleteConfirm)) return
     startTransition(async () => {
       await deleteMyDataAction()
+      window.location.href = '/auth'
     })
   }
 
@@ -249,6 +250,7 @@ export default function ProfilePageClient({
     if (!window.confirm(p.logoutConfirm)) return
     startTransition(async () => {
       await signOutAction()
+      window.location.href = '/auth'
     })
   }
 

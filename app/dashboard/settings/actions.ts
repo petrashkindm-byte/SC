@@ -47,7 +47,9 @@ export async function updateFullName(formData: FormData) {
 export async function signOutAction() {
   const supabase = await createClient()
   await supabase.auth.signOut()
-  redirect('/login')
+  // Don't call redirect() here — it throws NEXT_REDIRECT which the
+  // dashboard error boundary catches. Client handles navigation instead.
+  return { ok: true }
 }
 
 export async function deleteMyDataAction() {
@@ -60,7 +62,8 @@ export async function deleteMyDataAction() {
   if (error) redirect('/dashboard/profile?error=delete')
 
   await supabase.auth.signOut()
-  redirect('/login')
+  // Don't call redirect() — client handles navigation after data deletion.
+  return { ok: true }
 }
 
 export async function setPushEnabled(enabled: boolean): Promise<{ ok: boolean; error?: string }> {
