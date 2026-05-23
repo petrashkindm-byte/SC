@@ -638,12 +638,23 @@ export default function AuthLanding() {
         @keyframes auth-spin { to { transform: rotate(360deg); } }
         .auth-spinner { animation: auth-spin .8s linear infinite; }
         @media (max-width: 760px) {
-          .auth-shell { flex-direction: column; }
-          .auth-aside { flex: none; min-height: auto; width: 100%; }
+          .auth-shell { flex-direction: column; height: auto; min-height: 100vh; }
+          /* Form first on mobile */
+          .auth-main { order: -1; min-height: auto; padding: 24px 20px 32px; }
+          /* Compact aside below the form */
+          .auth-aside {
+            flex: none; min-height: auto; width: 100%;
+            padding: 28px 24px 32px;
+          }
+          .auth-aside-title { font-size: 26px; }
+          .auth-aside-lead { font-size: 14px; margin-bottom: 16px; }
+          .auth-stats { grid-template-columns: repeat(3, 1fr); gap: 8px; }
         }
         @media (max-width: 520px) {
           .auth-field-row { grid-template-columns: 1fr; }
           .auth-stats { grid-template-columns: 1fr; gap: 8px; }
+          .auth-main { padding: 20px 16px 28px; }
+          .auth-aside { padding: 24px 16px 28px; }
         }
       `}</style>
     </>
