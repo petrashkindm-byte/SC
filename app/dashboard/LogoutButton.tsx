@@ -9,8 +9,9 @@ export default function LogoutButton() {
   async function handleLogout() {
     const supabase = createClient()
     await supabase.auth.signOut()
-    router.push('/login')
-    router.refresh()
+    // Full page navigation avoids the React error boundary catching
+    // Next.js's internal redirect() thrown by the protected layout.
+    window.location.href = '/auth'
   }
 
   return (
