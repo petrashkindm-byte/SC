@@ -1,52 +1,18 @@
 'use client'
 
+import {
+  consumeStoredAuthError,
+  flushHashAuthErrorToStorage,
+  mapAuthError,
+  readHashAuthError,
+} from '@/lib/auth/hash-errors'
 import { createClient } from '@/lib/supabase/client'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
 
 type AuthTab = 'login' | 'register'
-
-function mapAuthError(message: string): string {
-  const m = message.toLowerCase()
-  if (m.includes('invalid login credentials')) {
-    return 'Неверный email или пароль. Если забыли пароль — нажмите "Забыли пароль?".'
-  }
-  if (m.includes('email not confirmed')) {
-    return 'Почта не подтверждена. Подтвердите email по ссылке из письма.'
-  }
-  if (m.includes('too many requests')) {
-    return 'Слишком много попыток. Подождите минуту и попробуйте снова.'
-  }
-  if (m.includes('otp_expired') || m.includes('invalid or has expired')) {
-    return 'Ссылка из письма устарела или уже использована. Запросите сброс пароля ещё раз.'
-  }
-  if (m.includes('pkce') && m.includes('code verifier')) {
-    return 'Сессия входа истекла. Закройте вкладку и нажмите «Продолжить с Google» снова.'
-  }
-  return message
-}
-
-/** Supabase иногда возвращает ошибки в #hash (истёкшая ссылка сброса пароля и т.д.) */
-function readHashAuthError(): string | null {
-  if (typeof window === 'undefined') return null
-  const raw = window.location.hash.replace(/^#/, '')
-  if (!raw) return null
-  const params = new URLSearchParams(raw)
-  const code = params.get('error_code') ?? ''
-  const desc = params.get('error_description') ?? ''
-  if (code === 'otp_expired' || desc.toLowerCase().includes('expired')) {
-    return mapAuthError('otp_expired')
-  }
-  if (desc) {
-    return mapAuthError(decodeURIComponent(desc.replace(/\+/g, ' ')))
-  }
-  if (params.get('error') === 'access_denied') {
-    return 'Ссылка недействительна. Запросите новое письмо для сброса пароля.'
-  }
-  return null
-}
 
 function normalizeEmail(value: string): string {
   return value.trim().toLowerCase()
@@ -68,7 +34,7 @@ export default function AuthLanding() {
   const [lastName, setLastName] = useState('')
 
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(() => consumeStoredAuthError())
   const [done, setDone] = useState(false)
   const [resetDone, setResetDone] = useState<string | null>(null)
   const [newPassword, setNewPassword] = useState('')
@@ -79,11 +45,13 @@ export default function AuthLanding() {
   // true когда Supabase обнаруживает PASSWORD_RECOVERY из хэш-токена в URL
   const [hashRecoveryMode, setHashRecoveryMode] = useState(false)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    const stored = consumeStoredAuthError()
     const hashMessage = readHashAuthError()
-    if (hashMessage) {
-      setError(hashMessage)
-      window.history.replaceState(null, '', '/auth')
+    const message = stored ?? hashMessage
+    if (message) {
+      setError(message)
+      flushHashAuthErrorToStorage()
     }
   }, [])
 
@@ -445,11 +413,12 @@ export default function AuthLanding() {
                         Забыли пароль?
                       </button>
                     </div>
-                    {authError && !error && (
+                    {(error || (authError && authErrorReason)) && (
                       <p style={{ color: '#dc2626', fontSize: 13, marginBottom: 10 }}>
-                        {authErrorReason
-                          ? mapAuthError(decodeURIComponent(authErrorReason))
-                          : 'Вход не выполнен. Попробуйте снова или обратитесь в поддержку.'}
+                        {error ??
+                          (authErrorReason
+                            ? mapAuthError(decodeURIComponent(authErrorReason))
+                            : 'Вход не выполнен. Попробуйте снова или обратитесь в поддержку.')}
                       </p>
                     )}
                     {resetDone && (
@@ -457,7 +426,6 @@ export default function AuthLanding() {
                         {resetDone}
                       </p>
                     )}
-                    {error && <p style={{ color: '#dc2626', fontSize: 13, marginBottom: 10 }}>{error}</p>}
                     <button type="submit" className="auth-submit" disabled={loading}>
                       {loading ? 'Вход…' : 'Войти'}
                     </button>

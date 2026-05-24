@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import SupabaseAuthHashRedirect from "./components/SupabaseAuthHashRedirect";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -54,6 +55,7 @@ export default function RootLayout({
         suppressHydrationWarning
         className="min-h-full flex flex-col font-sans"
       >
+        <SupabaseAuthHashRedirect />
         {children}
       </body>
     </html>

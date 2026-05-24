@@ -20,6 +20,16 @@
 
 Сохраните шаблон.
 
+## Site URL (важно для ошибок в письме)
+
+**Authentication → URL Configuration → Site URL:**
+
+```
+https://subcuro.app/auth
+```
+
+(не просто `https://subcuro.app` — иначе ошибки «ссылка устарела» попадают на главную)
+
 ## Redirect URLs
 
 **Authentication → URL Configuration → Redirect URLs** — добавьте:
