@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse, type NextRequest } from 'next/server'
+import { serverProxyFetch } from '@/lib/supabase/server'
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
@@ -14,6 +15,10 @@ export async function GET(request: NextRequest) {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
+        // Route the token-exchange POST through our /api/sb proxy so the VPS
+        // never needs a direct connection to supabase.co (fixes 502 on OAuth
+        // callback in regions where supabase.co is blocked or slow).
+        global: { fetch: serverProxyFetch },
         cookies: {
           getAll() { return cookieStore.getAll() },
           setAll(cookiesToSet) {
