@@ -30,6 +30,7 @@ export default function AuthLanding() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const authError = searchParams.get('error') === 'auth'
+  const authErrorReason = searchParams.get('reason')
   const resetMode = searchParams.get('reset') === '1'
   const requestedTab: AuthTab = searchParams.get('tab') === 'register' ? 'register' : 'login'
 
@@ -412,7 +413,9 @@ export default function AuthLanding() {
                     </div>
                     {authError && (
                       <p style={{ color: '#dc2626', fontSize: 13, marginBottom: 10 }}>
-                        Вход не выполнен. Попробуйте снова или обратитесь в поддержку.
+                        {authErrorReason
+                          ? mapAuthError(decodeURIComponent(authErrorReason))
+                          : 'Вход не выполнен. Попробуйте снова или обратитесь в поддержку.'}
                       </p>
                     )}
                     {resetDone && (

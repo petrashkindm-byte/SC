@@ -1,13 +1,20 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { serverProxyFetch } from '@/lib/supabase/server'
 
 export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl
+  if (pathname.startsWith('/auth/callback')) {
+    return NextResponse.next({ request })
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      global: { fetch: serverProxyFetch },
       cookies: {
         getAll() {
           return request.cookies.getAll()
@@ -25,7 +32,6 @@ export async function proxy(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  const { pathname } = request.nextUrl
   const isResetFlow = pathname === '/' && request.nextUrl.searchParams.get('reset') === '1'
 
   if (!user && pathname.startsWith('/dashboard')) {
