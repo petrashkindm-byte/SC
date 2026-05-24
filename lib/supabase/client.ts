@@ -28,10 +28,5 @@ function proxyFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Respo
 export function createClient() {
   return createBrowserClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
     global: { fetch: proxyFetch },
-    cookieOptions: {
-      secure: true,
-      sameSite: 'lax',
-      path: '/',
-    },
   })
 }
