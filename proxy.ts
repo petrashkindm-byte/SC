@@ -8,6 +8,19 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next({ request })
   }
 
+  // Fast-path: no Supabase session cookie → user is definitely not logged in.
+  // Skip the getUser() network call entirely to avoid an extra round-trip on
+  // every page load for unauthenticated visitors (e.g. the /auth page).
+  const hasSessionCookie = request.cookies.getAll().some(
+    (c) => c.name.endsWith('-auth-token') && !c.name.endsWith('-code-verifier'),
+  )
+  if (!hasSessionCookie) {
+    if (pathname.startsWith('/dashboard')) {
+      return NextResponse.redirect(new URL('/login', request.url))
+    }
+    return NextResponse.next({ request })
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
