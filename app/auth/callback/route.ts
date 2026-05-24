@@ -5,9 +5,8 @@ import { NextResponse, type NextRequest } from 'next/server'
 /**
  * OAuth token exchange fetcher.
  *
- * - Vercel (default): direct to Supabase (fast, no nginx loop).
- * - Self-hosted VPS: INTERNAL_APP_URL=http://127.0.0.1:3000 → /api/sb on loopback.
- * - Vercel + VPS Supabase proxy: SUPABASE_CALLBACK_PROXY_BASE_URL=https://sb.subcuro.app
+ * - Vercel: always direct to *.supabase.co (edge can reach it; sb VPS hop caused 502).
+ * - Self-hosted VPS: INTERNAL_APP_URL or sb proxy — Russia cannot reach supabase.co.
  */
 function createCallbackFetch(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -15,10 +14,9 @@ function createCallbackFetch(request: NextRequest) {
     process.env.SUPABASE_CALLBACK_PROXY_BASE_URL ??
     process.env.NEXT_PUBLIC_SUPABASE_PROXY_URL
 
-  const proxyBase =
-    process.env.INTERNAL_APP_URL ??
-    proxyTarget ??
-    (process.env.VERCEL ? undefined : request.nextUrl.origin)
+  const proxyBase = process.env.VERCEL
+    ? undefined
+    : process.env.INTERNAL_APP_URL ?? proxyTarget ?? request.nextUrl.origin
 
   if (!proxyBase) {
     return fetch
