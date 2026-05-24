@@ -13,7 +13,9 @@ const nextConfig: NextConfig = {
   // Fixes access for Russian users without VPN.
   // Only auth and REST paths are proxied; realtime and storage are not used.
   async rewrites() {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+    const supabaseUrl =
+      process.env.NEXT_PUBLIC_SUPABASE_PROXY_URL ??
+      process.env.NEXT_PUBLIC_SUPABASE_URL!
     return [
       {
         source: '/api/sb/auth/v1/:path*',

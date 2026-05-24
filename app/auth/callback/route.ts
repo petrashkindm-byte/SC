@@ -1,7 +1,48 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse, type NextRequest } from 'next/server'
-import { serverProxyFetch } from '@/lib/supabase/server'
+
+/**
+ * OAuth token exchange fetcher.
+ *
+ * - Vercel (default): direct to Supabase (fast, no nginx loop).
+ * - Self-hosted VPS: INTERNAL_APP_URL=http://127.0.0.1:3000 → /api/sb on loopback.
+ * - Vercel + VPS Supabase proxy: SUPABASE_CALLBACK_PROXY_BASE_URL=https://sb.subcuro.app
+ */
+function createCallbackFetch(request: NextRequest) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const proxyTarget =
+    process.env.SUPABASE_CALLBACK_PROXY_BASE_URL ??
+    process.env.NEXT_PUBLIC_SUPABASE_PROXY_URL
+
+  const proxyBase =
+    process.env.INTERNAL_APP_URL ??
+    proxyTarget ??
+    (process.env.VERCEL ? undefined : request.nextUrl.origin)
+
+  if (!proxyBase) {
+    return fetch
+  }
+
+  const base = proxyBase.replace(/\/$/, '')
+  const useAppRewrite = !proxyTarget && !base.includes('sb.')
+  const proxyRoot = useAppRewrite ? `${base}/api/sb` : base
+
+  return (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const url = input instanceof Request ? input.url : String(input)
+    if (url.startsWith(supabaseUrl) || (proxyTarget && url.startsWith(proxyTarget))) {
+      const from = url.startsWith(supabaseUrl) ? supabaseUrl : proxyTarget!
+      const proxied = url.replace(from, proxyRoot)
+      if (input instanceof Request) {
+        return fetch(new Request(proxied, input), init)
+      }
+      return fetch(proxied, init)
+    }
+    return fetch(input, init)
+  }
+}
+
+export const maxDuration = 30
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
@@ -15,10 +56,7 @@ export async function GET(request: NextRequest) {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
-        // Route the token-exchange POST through our /api/sb proxy so the VPS
-        // never needs a direct connection to supabase.co (fixes 502 on OAuth
-        // callback in regions where supabase.co is blocked or slow).
-        global: { fetch: serverProxyFetch },
+        global: { fetch: createCallbackFetch(request) },
         cookies: {
           getAll() { return cookieStore.getAll() },
           setAll(cookiesToSet) {
