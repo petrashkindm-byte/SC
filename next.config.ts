@@ -11,12 +11,17 @@ const nextConfig: NextConfig = {
   },
   // Proxy Supabase through subcuro.app — browser never touches supabase.co directly.
   // Fixes access for Russian users without VPN.
+  // Only auth and REST paths are proxied; realtime and storage are not used.
   async rewrites() {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
     return [
       {
-        source: '/api/sb/:path*',
-        destination: `${supabaseUrl}/:path*`,
+        source: '/api/sb/auth/v1/:path*',
+        destination: `${supabaseUrl}/auth/v1/:path*`,
+      },
+      {
+        source: '/api/sb/rest/v1/:path*',
+        destination: `${supabaseUrl}/rest/v1/:path*`,
       },
     ]
   },

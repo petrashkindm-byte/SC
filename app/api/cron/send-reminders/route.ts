@@ -4,7 +4,7 @@ import { sendReminderEmail } from '@/lib/reminders/email'
 import { sendPushNotification } from '@/lib/reminders/webpush'
 import type { ReminderChannel, ReminderType } from '@/lib/supabase/types'
 
-// Called by Vercel Cron (vercel.json) or any external scheduler every 15 min.
+// Called by Vercel Cron (vercel.json) daily at 09:00 UTC (schedule: "0 9 * * *").
 // Authenticate with Authorization: Bearer <CRON_SECRET>
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET
@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
         if (channel === 'email') {
           const email = emailByUser.get(r.user_id)
           if (!email || !email.includes('@')) throw new Error(`Invalid or missing email for user ${r.user_id}`)
-          await sendReminderEmail(email, subName, type, r.remind_at)
+          await sendReminderEmail(email, subName, type, r.remind_at, r.user_id)
 
         } else if (channel === 'local_push') {
           const endpoints = pushByUser.get(r.user_id) ?? []

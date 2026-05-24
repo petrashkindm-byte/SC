@@ -74,6 +74,7 @@ export interface Database {
           custom_reminder_lead_days: number | null
           push_enabled: boolean
           push_permission: string
+          email_reminders_enabled: boolean
           onboarding_completed: boolean
           seed_loaded: boolean
           price_alerts_enabled: boolean
@@ -90,6 +91,7 @@ export interface Database {
           custom_reminder_lead_days?: number | null
           push_enabled?: boolean
           push_permission?: string
+          email_reminders_enabled?: boolean
           onboarding_completed?: boolean
           seed_loaded?: boolean
           price_alerts_enabled?: boolean

@@ -141,6 +141,7 @@ create table if not exists public.subscription_payments (
 );
 
 alter table public.user_settings
+  add column if not exists email_reminders_enabled boolean not null default true,
   add column if not exists price_alerts_enabled boolean not null default true,
   add column if not exists price_alert_min_change_pct numeric(5,2) not null default 3,
   add column if not exists price_alert_digest text not null default 'instant'
