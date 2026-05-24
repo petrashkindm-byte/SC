@@ -38,7 +38,7 @@ function AuthCallbackInner() {
         }
         // Full navigation so dashboard SSR receives auth cookies
         if (type === 'recovery' || flow === 'recovery') {
-          window.location.replace('/?tab=login&reset=1')
+          window.location.replace('/auth?reset=1')
           return
         }
         window.location.replace('/dashboard')

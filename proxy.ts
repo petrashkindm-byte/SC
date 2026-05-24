@@ -38,7 +38,13 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
+  const isPasswordReset = pathname === '/auth' && request.nextUrl.searchParams.get('reset') === '1'
+
   if (user && (pathname === '/login' || pathname === '/signup')) {
+    return NextResponse.redirect(new URL('/dashboard', request.url))
+  }
+
+  if (user && pathname === '/auth' && !isPasswordReset) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
