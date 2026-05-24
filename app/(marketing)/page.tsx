@@ -249,7 +249,7 @@ export default function LandingPage() {
 
             {/* Background image */}
             <img
-              src="/web-concept/assets/hero/hero-devices.jpg"
+              src="/web-concept/assets/hero/hero-devices.png"
               alt="SubCuro devices"
               loading="eager"
               className="hero-img"
@@ -327,7 +327,7 @@ export default function LandingPage() {
         {/* Card 1 — wider, with bg image */}
         <div className="how-card sc-card-reveal">
           <img
-            src="/web-concept/images/hiw-step1.jpg"
+            src="/web-concept/images/hiw-step1.png"
             alt=""
             loading="lazy"
             className="how-card-bg-img"
