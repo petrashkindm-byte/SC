@@ -13,17 +13,24 @@ import type { Database } from '@/lib/supabase/types'
  * connection to supabase.co can be blocked or slow enough to cause an
  * nginx 502 before Next.js sends a response.
  *
- * `NEXT_PUBLIC_APP_URL` must be set to the canonical app origin
- * (e.g. `https://subcuro.app` in production, `http://localhost:3000` locally).
- * When absent the function falls back to a direct fetch so dev environments
- * without the variable continue to work.
+ * On a self-hosted VPS where supabase.co is blocked, set either:
+ * - `INTERNAL_APP_URL=http://127.0.0.1:3000` (preferred — avoids an nginx round-trip), or
+ * - `NEXT_PUBLIC_APP_URL=https://subcuro.app`
+ *
+ * On Vercel, leave both unset: the edge runtime can reach supabase.co directly.
+ * Routing through the public domain behind nginx often causes 502 on OAuth callback.
  */
+function resolveServerProxyBaseUrl(): string | undefined {
+  if (process.env.VERCEL) return undefined
+  return process.env.INTERNAL_APP_URL ?? process.env.NEXT_PUBLIC_APP_URL
+}
+
 export function serverProxyFetch(
   input: RequestInfo | URL,
   init?: RequestInit,
 ): Promise<Response> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL
+  const appUrl = resolveServerProxyBaseUrl()
   if (supabaseUrl && appUrl) {
     const url = input instanceof Request ? input.url : String(input)
     if (url.startsWith(supabaseUrl)) {
