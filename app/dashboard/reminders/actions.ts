@@ -122,7 +122,7 @@ export async function setSubscriptionReminderKind(
   if (subErr || !sub) throw new Error('Подписка не найдена')
 
   if (!enabled) {
-    await supabase.from('reminders').delete().eq('subscription_id', subscriptionId).eq('type', kind)
+    await supabase.from('reminders').delete().eq('user_id', user.id).eq('subscription_id', subscriptionId).eq('type', kind)
     revalidatePath('/dashboard/reminders')
     revalidatePath(`/dashboard/subscriptions/${subscriptionId}/edit`)
     return
@@ -142,7 +142,7 @@ export async function setSubscriptionReminderKind(
 
   if (!remindAtIso) throw new Error('Не удалось вычислить дату напоминания')
 
-  await supabase.from('reminders').delete().eq('subscription_id', subscriptionId).eq('type', kind)
+  await supabase.from('reminders').delete().eq('user_id', user.id).eq('subscription_id', subscriptionId).eq('type', kind)
 
   const id = crypto.randomUUID()
   const { error } = await supabase.from('reminders').insert({

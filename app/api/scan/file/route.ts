@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { checkScanLimit } from '@/lib/ratelimit'
 import { NextResponse, type NextRequest } from 'next/server'
 import {
   parseBankStatement,
@@ -77,6 +78,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Требуется авторизация' }, { status: 401 })
   }
 
+  const { limited, retryAfter } = await checkScanLimit(user.id)
+  if (limited) {
+    return NextResponse.json(
+      { error: 'Too many requests — please wait before sending another request.' },
+      { status: 429, headers: { 'Retry-After': String(retryAfter) } },
+    )
+  }
+
   // Парсим multipart/form-data
   let formData: FormData
   try {
@@ -97,6 +106,7 @@ export async function POST(request: NextRequest) {
 
   const fileName = file.name.toLowerCase()
   let rawTransactions: RawTransaction[] = []
+  let csvText: string | null = null
 
   try {
     if (fileName.endsWith('.pdf')) {
@@ -108,8 +118,8 @@ export async function POST(request: NextRequest) {
       rawTransactions = extractTransactionsFromText(text)
     } else if (fileName.endsWith('.csv') || fileName.endsWith('.txt')) {
       // CSV
-      const text = await file.text()
-      rawTransactions = parseCsvTransactions(text)
+      csvText = await file.text()
+      rawTransactions = parseCsvTransactions(csvText)
     } else {
       return NextResponse.json(
         { error: 'Поддерживаются форматы: PDF, CSV, TXT' },
@@ -136,8 +146,9 @@ export async function POST(request: NextRequest) {
 
   // Для CSV — используем существующий быстрый алгоритм как базу
   if (!fileName.endsWith('.pdf')) {
-    const format = detectBankFormat(await file.text().catch(() => ''))
-    const txns = parseBankStatement(await file.text().catch(() => ''), format)
+    const text = csvText ?? ''
+    const format = detectBankFormat(text)
+    const txns = parseBankStatement(text, format)
     const algResult = detectSubscriptions(txns)
 
     // Конвертируем в AiDetectedSubscription формат

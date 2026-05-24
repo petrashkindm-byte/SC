@@ -16,6 +16,19 @@ export const metadata: Metadata = {
   title: "Subcuro — подписки в браузере",
   description:
     "Те же данные, что в приложении Subcuro: активные подписки, расход в месяц и ближайшие списания.",
+  openGraph: {
+    title: "Subcuro — управление подписками",
+    description: "Отслеживайте подписки, контролируйте расходы и экономьте с AI-советником.",
+    type: "website",
+    locale: "ru_RU",
+    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Subcuro" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Subcuro — управление подписками",
+    description: "Отслеживайте подписки, контролируйте расходы и экономьте с AI-советником.",
+    images: ["/og-image.png"],
+  },
 };
 
 export default function RootLayout({

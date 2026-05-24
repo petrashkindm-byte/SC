@@ -1,6 +1,7 @@
 import { requireUserAndSubscriptionsByIds } from '@/lib/ai/require-user-subs'
 import type { AiLocale } from '@/lib/ai/types'
 import { analyzeDailyTip, isOpenRouterConfigured } from '@/lib/openrouter'
+import { checkAiLimit } from '@/lib/ratelimit'
 import { NextResponse } from 'next/server'
 
 export async function POST(req: Request) {
@@ -29,6 +30,14 @@ export async function POST(req: Request) {
     return NextResponse.json(
       { error: auth.status === 401 ? 'Нужна авторизация' : 'Неверный выбор подписок' },
       { status },
+    )
+  }
+
+  const { limited, retryAfter } = await checkAiLimit(auth.userId)
+  if (limited) {
+    return NextResponse.json(
+      { error: 'Too many requests — please wait before sending another request.' },
+      { status: 429, headers: { 'Retry-After': String(retryAfter) } },
     )
   }
 

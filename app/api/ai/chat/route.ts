@@ -2,6 +2,7 @@ import { subscriptionToAiPayload } from '@/lib/ai/map-subscription'
 import { requireUserSubscriptions } from '@/lib/ai/require-user-subs'
 import type { AiLocale } from '@/lib/ai/types'
 import { chatWithAIStream, isOpenRouterConfigured } from '@/lib/openrouter'
+import { checkAiLimit } from '@/lib/ratelimit'
 import { NextResponse } from 'next/server'
 
 const MAX_MESSAGES = 24
@@ -39,6 +40,14 @@ export async function POST(req: Request) {
 
   if (auth.subs.length === 0) {
     return NextResponse.json({ error: 'Нет активных подписок' }, { status: 400 })
+  }
+
+  const { limited, retryAfter } = await checkAiLimit(auth.userId)
+  if (limited) {
+    return NextResponse.json(
+      { error: 'Too many requests — please wait before sending another request.' },
+      { status: 429, headers: { 'Retry-After': String(retryAfter) } },
+    )
   }
 
   let body: { messages?: unknown; locale?: AiLocale }

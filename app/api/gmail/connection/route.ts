@@ -1,12 +1,25 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
-/** Отключить Gmail — удалить токены */
+/** Отключить Gmail — отозвать токен и удалить запись */
 export async function DELETE() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return NextResponse.json({ error: 'Требуется авторизация' }, { status: 401 })
+  }
+
+  const { data: conn } = await supabase
+    .from('gmail_connections')
+    .select('access_token')
+    .eq('user_id', user.id)
+    .single()
+
+  if (conn?.access_token) {
+    await fetch(
+      `https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(conn.access_token)}`,
+      { method: 'POST' },
+    ).catch(() => {})
   }
 
   const { error } = await supabase

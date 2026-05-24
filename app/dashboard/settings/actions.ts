@@ -123,7 +123,7 @@ export async function updatePassword(formData: FormData) {
   const password = String(formData.get('password') ?? '')
   const confirm = String(formData.get('password_confirm') ?? '')
 
-  if (password.length < 6) {
+  if (password.length < 12) {
     redirect(`${next}?pwd_error=short`)
   }
   if (password !== confirm) {

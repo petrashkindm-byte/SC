@@ -115,13 +115,14 @@ export async function GET(req: NextRequest) {
     try {
       const res = await fetch(sub.pricing_url, {
         method: 'GET',
+        redirect: 'manual',
         headers: {
           'User-Agent': 'SubcuroPriceBot/1.0 (+https://subcuro.app)',
           Accept: 'text/html,application/xhtml+xml',
         },
         cache: 'no-store',
       })
-      if (!res.ok) continue
+      if (!res.ok || res.status !== 200) continue
       html = await res.text()
     } catch {
       continue

@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import type { Subscription } from '@/lib/supabase/types'
 
 export async function requireUserSubscriptions(): Promise<
-  | { ok: true; subs: Subscription[] }
+  | { ok: true; userId: string; subs: Subscription[] }
   | { ok: false; status: 401 }
 > {
   const supabase = await createClient()
@@ -15,14 +15,14 @@ export async function requireUserSubscriptions(): Promise<
     .eq('user_id', user.id)
     .eq('status', 'active')
 
-  return { ok: true, subs: data ?? [] }
+  return { ok: true, userId: user.id, subs: data ?? [] }
 }
 
 /** Любые подписки пользователя по id (для ИИ-анализа выбранных, в т.ч. paused). */
 export async function requireUserAndSubscriptionsByIds(
   ids: string[],
 ): Promise<
-  | { ok: true; subs: Subscription[] }
+  | { ok: true; userId: string; subs: Subscription[] }
   | { ok: false; status: 401 | 404 }
 > {
   const supabase = await createClient()
@@ -39,5 +39,5 @@ export async function requireUserAndSubscriptionsByIds(
     return { ok: false, status: 404 }
   }
 
-  return { ok: true, subs: data as Subscription[] }
+  return { ok: true, userId: user.id, subs: data as Subscription[] }
 }

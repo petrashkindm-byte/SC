@@ -155,7 +155,7 @@ function parseSubscriptionForm(formData: FormData, billingInterval: number): Par
     : 'monthly'
   const first = String(formData.get('first_charge_date') ?? '').slice(0, 10)
   const next = String(formData.get('next_charge_date') ?? '').slice(0, 10)
-  const notesRaw = String(formData.get('notes') ?? '').trim()
+  const notesRaw = String(formData.get('notes') ?? '').trim().slice(0, 2000)
   const notes = notesRaw || null
   const iconRaw = String(formData.get('icon') ?? '').trim()
   const icon = iconRaw ? iconRaw.slice(0, 48) : null

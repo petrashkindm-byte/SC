@@ -184,11 +184,14 @@ $$;
 create or replace function public.delete_my_data()
 returns void language plpgsql security definer set search_path = public as $$
 begin
-  delete from public.reminders where user_id = auth.uid();
-  delete from public.subscriptions where user_id = auth.uid();
-  delete from public.categories where owner_id = auth.uid();
-  delete from public.user_settings where user_id = auth.uid();
-  delete from public.profiles where id = auth.uid();
+  delete from public.planned_actions   where user_id = auth.uid();
+  delete from public.gmail_connections where user_id = auth.uid();
+  delete from public.savings_actions   where user_id = auth.uid();
+  delete from public.reminders         where user_id = auth.uid();
+  delete from public.subscriptions     where user_id = auth.uid();
+  delete from public.categories        where owner_id = auth.uid();
+  delete from public.user_settings     where user_id = auth.uid();
+  delete from public.profiles          where id = auth.uid();
 end;
 $$;
 

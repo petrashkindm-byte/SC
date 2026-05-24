@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { cookies } from 'next/headers'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function GET(request: NextRequest) {
@@ -65,11 +66,14 @@ export async function GET(request: NextRequest) {
 
   // Сохраняем в Supabase (upsert — один пользователь = одна запись)
   const supabase = await createClient()
+  const cookieStore = await cookies()
+  const storedState = cookieStore.get('gmail_oauth_state')?.value
+  cookieStore.set('gmail_oauth_state', '', { maxAge: 0, path: '/' })
 
-  // Проверяем что state соответствует залогиненному пользователю
+  // Verify CSRF token and authenticated session
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.id !== state) {
-    console.error('[gmail/callback] user mismatch')
+  if (!user || !storedState || storedState !== state) {
+    console.error('[gmail/callback] CSRF or user mismatch')
     return NextResponse.redirect(`${origin}/auth`)
   }
 

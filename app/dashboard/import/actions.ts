@@ -23,12 +23,8 @@ export async function importSubscriptionsCsv(formData: FormData) {
     redirect('/dashboard/import?error=too_large')
   }
 
-  // Только CSV/text файлы
-  const fileType = (file as File).type
+  // Только CSV/text файлы — проверяем только расширение (MIME type ненадёжен)
   const fileName = (file as File).name ?? ''
-  if (fileType && !['text/csv', 'text/plain', 'application/csv', 'application/octet-stream'].includes(fileType)) {
-    redirect('/dashboard/import?error=wrong_type')
-  }
   if (!fileName.toLowerCase().endsWith('.csv') && !fileName.toLowerCase().endsWith('.txt') && fileName !== '') {
     redirect('/dashboard/import?error=wrong_type')
   }

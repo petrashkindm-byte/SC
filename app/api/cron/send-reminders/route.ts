@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
       try {
         if (channel === 'email') {
           const email = emailByUser.get(r.user_id)
-          if (!email) throw new Error(`No email for user ${r.user_id}`)
+          if (!email || !email.includes('@')) throw new Error(`Invalid or missing email for user ${r.user_id}`)
           await sendReminderEmail(email, subName, type, r.remind_at)
 
         } else if (channel === 'local_push') {
