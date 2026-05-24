@@ -4,7 +4,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useRef } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { signOutAction } from '@/app/dashboard/settings/actions'
 import { useLang } from '@/lib/LangContext'
 
 // ── Per-route color config ────────────────────────────────────
@@ -162,8 +162,7 @@ export default function DashboardSidebar({ displayName, paymentsCount }: Dashboa
   }
 
   async function handleSignOut() {
-    const supabase = createClient()
-    await supabase.auth.signOut()
+    await signOutAction()
     window.location.href = '/auth'
   }
 
