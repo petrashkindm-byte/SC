@@ -1,14 +1,11 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { signOutAction } from '@/app/dashboard/settings/actions'
 
 export default function LogoutButton() {
-  const router = useRouter()
-
   async function handleLogout() {
-    const supabase = createClient()
-    await supabase.auth.signOut()
+    // Use server action so httpOnly session cookies are properly cleared.
+    await signOutAction()
     // Full page navigation avoids the React error boundary catching
     // Next.js's internal redirect() thrown by the protected layout.
     window.location.href = '/auth'
