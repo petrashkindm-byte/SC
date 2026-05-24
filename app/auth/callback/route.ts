@@ -38,10 +38,15 @@ function createCallbackFetch(): typeof fetch {
 }
 
 export async function GET(request: NextRequest) {
-  const { searchParams, origin } = new URL(request.url)
+  const { searchParams, origin: requestOrigin } = new URL(request.url)
   const code = searchParams.get('code')
   const type = searchParams.get('type')
   const flow = searchParams.get('flow')
+
+  // When running behind a reverse proxy (e.g. VPS nginx) that rewrites the Host
+  // header to subcuro.vercel.app, Next.js constructs request.url with that host.
+  // NEXT_PUBLIC_SITE_URL overrides it so redirects always land on the real domain.
+  const origin = (process.env.NEXT_PUBLIC_SITE_URL ?? requestOrigin).replace(/\/$/, '')
 
   if (!code) {
     return NextResponse.redirect(`${origin}/auth?error=auth`)

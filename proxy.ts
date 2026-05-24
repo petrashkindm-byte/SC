@@ -2,6 +2,14 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { serverProxyFetch } from '@/lib/supabase/server'
 
+/** Base URL for all server-side redirects.
+ *  Set NEXT_PUBLIC_SITE_URL=https://subcuro.app in Vercel env vars so that
+ *  redirects land on the real domain even when the proxy rewrites the Host header. */
+function redirect(path: string, request: NextRequest) {
+  const base = process.env.NEXT_PUBLIC_SITE_URL ?? request.url
+  return NextResponse.redirect(new URL(path, base))
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   if (pathname.startsWith('/auth/callback')) {
@@ -16,7 +24,7 @@ export async function proxy(request: NextRequest) {
   )
   if (!hasSessionCookie) {
     if (pathname.startsWith('/dashboard')) {
-      return NextResponse.redirect(new URL('/login', request.url))
+      return redirect('/login', request)
     }
     return NextResponse.next({ request })
   }
@@ -48,21 +56,21 @@ export async function proxy(request: NextRequest) {
   const isResetFlow = pathname === '/' && request.nextUrl.searchParams.get('reset') === '1'
 
   if (!user && pathname.startsWith('/dashboard')) {
-    return NextResponse.redirect(new URL('/login', request.url))
+    return redirect('/login', request)
   }
 
   const isPasswordReset = pathname === '/auth' && request.nextUrl.searchParams.get('reset') === '1'
 
   if (user && (pathname === '/login' || pathname === '/signup')) {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+    return redirect('/dashboard', request)
   }
 
   if (user && pathname === '/auth' && !isPasswordReset) {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+    return redirect('/dashboard', request)
   }
 
   if (user && pathname === '/' && !isResetFlow) {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+    return redirect('/dashboard', request)
   }
 
   return supabaseResponse
