@@ -19,8 +19,11 @@ export async function proxy(request: NextRequest) {
   // Fast-path: no Supabase session cookie → user is definitely not logged in.
   // Skip the getUser() network call entirely to avoid an extra round-trip on
   // every page load for unauthenticated visitors (e.g. the /auth page).
+  // Match both plain and chunked Supabase session cookies:
+  //   sb-<ref>-auth-token        (single cookie)
+  //   sb-<ref>-auth-token.0 / .1 (chunked when token > 4 KB)
   const hasSessionCookie = request.cookies.getAll().some(
-    (c) => c.name.endsWith('-auth-token') && !c.name.endsWith('-code-verifier'),
+    (c) => c.name.includes('-auth-token') && !c.name.endsWith('-code-verifier'),
   )
   if (!hasSessionCookie) {
     if (pathname.startsWith('/dashboard')) {
