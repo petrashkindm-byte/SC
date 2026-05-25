@@ -248,10 +248,7 @@ export default function ProfilePageClient({
 
   const onLogout = () => {
     if (!window.confirm(p.logoutConfirm)) return
-    startTransition(async () => {
-      await signOutAction()
-      window.location.href = '/auth'
-    })
+    window.location.href = '/logout'
   }
 
   const emailLine = email ?? '—'

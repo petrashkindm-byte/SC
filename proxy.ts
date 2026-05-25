@@ -12,7 +12,7 @@ function redirect(path: string, request: NextRequest) {
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
-  if (pathname.startsWith('/auth/callback')) {
+  if (pathname.startsWith('/auth/callback') || pathname === '/logout') {
     return NextResponse.next({ request })
   }
 
