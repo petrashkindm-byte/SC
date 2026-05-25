@@ -120,7 +120,7 @@ export default function AuthLanding() {
     }
 
     const supabase = createClient()
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email: normalizedEmail,
       password,
       options: {
@@ -131,6 +131,14 @@ export default function AuthLanding() {
 
     if (error) {
       setError(mapAuthError(error.message))
+      setLoading(false)
+      return
+    }
+
+    // Supabase returns success even for existing emails (to prevent enumeration),
+    // but identities will be empty if the account already exists.
+    if (data.user && (!data.user.identities || data.user.identities.length === 0)) {
+      setError('Аккаунт с этим email уже зарегистрирован. Войдите или воспользуйтесь «Забыли пароль?».')
       setLoading(false)
       return
     }
