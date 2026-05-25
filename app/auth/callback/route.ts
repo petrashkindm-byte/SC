@@ -39,16 +39,17 @@ function createCallbackFetch(): typeof fetch {
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin: requestOrigin } = new URL(request.url)
-  const code = searchParams.get('code')
-  const type = searchParams.get('type')
-  const flow = searchParams.get('flow')
+  const code       = searchParams.get('code')
+  const token_hash = searchParams.get('token_hash')
+  const type       = searchParams.get('type') as 'signup' | 'recovery' | 'email_change' | 'magiclink' | null
+  const flow       = searchParams.get('flow')
 
   // When running behind a reverse proxy (e.g. VPS nginx) that rewrites the Host
   // header to subcuro.vercel.app, Next.js constructs request.url with that host.
   // NEXT_PUBLIC_SITE_URL overrides it so redirects always land on the real domain.
   const origin = (process.env.NEXT_PUBLIC_SITE_URL ?? requestOrigin).replace(/\/$/, '')
 
-  if (!code) {
+  if (!code && !token_hash) {
     return NextResponse.redirect(`${origin}/auth?error=auth`)
   }
 
@@ -73,7 +74,28 @@ export async function GET(request: NextRequest) {
 
   const isRecovery = type === 'recovery' || flow === 'recovery'
 
-  const { error } = await supabase.auth.exchangeCodeForSession(code)
+  // ── token_hash path (new email templates that bypass supabase.co) ──────────
+  // Links in emails point directly to subcuro.app/auth/callback?token_hash=...
+  // so the user's browser never needs to reach supabase.co (blocked in Russia).
+  if (token_hash && type) {
+    const { error } = await supabase.auth.verifyOtp({ token_hash, type })
+    if (error) {
+      console.error('[auth/callback] verifyOtp:', error.message, error.status)
+      if (isRecovery) {
+        return NextResponse.redirect(`${origin}/auth?recovery_expired=1`)
+      }
+      return NextResponse.redirect(
+        `${origin}/auth?error=auth&reason=${encodeURIComponent(error.message)}`,
+      )
+    }
+    if (isRecovery) {
+      return NextResponse.redirect(`${origin}/auth?reset=1`)
+    }
+    return NextResponse.redirect(`${origin}/dashboard`)
+  }
+
+  // ── PKCE code path (OAuth and old-format email links) ────────────────────
+  const { error } = await supabase.auth.exchangeCodeForSession(code!)
   if (error) {
     console.error('[auth/callback] exchangeCodeForSession:', error.message, error.status)
     // For recovery flow: redirect to a dedicated expired state so the auth page
