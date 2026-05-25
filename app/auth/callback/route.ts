@@ -71,15 +71,22 @@ export async function GET(request: NextRequest) {
     },
   )
 
+  const isRecovery = type === 'recovery' || flow === 'recovery'
+
   const { error } = await supabase.auth.exchangeCodeForSession(code)
   if (error) {
     console.error('[auth/callback] exchangeCodeForSession:', error.message, error.status)
+    // For recovery flow: redirect to a dedicated expired state so the auth page
+    // can show a helpful "request a new reset link" UI instead of a generic error.
+    if (isRecovery) {
+      return NextResponse.redirect(`${origin}/auth?recovery_expired=1`)
+    }
     return NextResponse.redirect(
       `${origin}/auth?error=auth&reason=${encodeURIComponent(error.message)}`,
     )
   }
 
-  if (type === 'recovery' || flow === 'recovery') {
+  if (isRecovery) {
     return NextResponse.redirect(`${origin}/auth?reset=1`)
   }
 

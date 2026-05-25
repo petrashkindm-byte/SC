@@ -24,6 +24,7 @@ export default function AuthLanding() {
   const authError = searchParams.get('error') === 'auth'
   const authErrorReason = searchParams.get('reason')
   const resetMode = searchParams.get('reset') === '1'
+  const recoveryExpired = searchParams.get('recovery_expired') === '1'
   const requestedTab: AuthTab = searchParams.get('tab') === 'register' ? 'register' : 'login'
 
   const [tab, setTab] = useState<AuthTab>(requestedTab)
@@ -303,7 +304,43 @@ export default function AuthLanding() {
                 </button>
               </div>
 
-              {(resetMode || hashRecoveryMode) ? (
+              {recoveryExpired ? (
+                <div className="auth-panel auth-panel-fixed">
+                  <h2 className="auth-panel-title">Ссылка устарела</h2>
+                  <p className="auth-panel-sub">
+                    Ссылка для сброса пароля недействительна или была открыта на другом устройстве.
+                    Запросите новую ссылку — введите email и нажмите «Забыли пароль?».
+                  </p>
+                  <div className="auth-field">
+                    <label className="auth-label">Email</label>
+                    <div className="auth-input-wrap">
+                      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M4 6h16v12H4V6zm0 0l8 6 8-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      <input
+                        className="auth-input"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        autoComplete="email"
+                        placeholder="you@example.com"
+                      />
+                    </div>
+                  </div>
+                  {resetDone && (
+                    <p style={{ color: '#166534', fontSize: 13, marginBottom: 10 }}>{resetDone}</p>
+                  )}
+                  {error && <p style={{ color: '#dc2626', fontSize: 13, marginBottom: 10 }}>{error}</p>}
+                  <button
+                    type="button"
+                    className="auth-submit"
+                    disabled={loading}
+                    onClick={() => void handleResetPassword()}
+                  >
+                    {loading ? 'Отправляю…' : 'Отправить новую ссылку'}
+                  </button>
+                </div>
+              ) : (resetMode || hashRecoveryMode) ? (
                 <div className="auth-panel auth-panel-fixed">
                   <h2 className="auth-panel-title">Создать новый пароль</h2>
                   <p className="auth-panel-sub">Введите новый пароль для аккаунта SubCuro</p>
