@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { PAYMENT_ICON_PRESETS } from '@/lib/payment-icon-presets'
 import { effectiveIconBackgroundFromViz, resolveSubscriptionIconDisplay } from '@/lib/subscription-icon-background'
 import { CATEGORY_FORM_OPTIONS } from '@/lib/subscription-labels'
 import { DEFAULT_SUBCURO_VIZ } from '@/lib/subscription-viz-notes'
+import { searchCatalog, type ServiceEntry } from '@/lib/service-catalog'
 import { createSubscription } from './subscriptions/actions'
 import PaymentServiceIcon from './PaymentServiceIcon'
 import type { BillingCycle } from '@/lib/supabase/types'
@@ -30,6 +31,10 @@ export default function AddPaymentModal({ open, onClose, defaultCurrency }: Prop
   const [chargeDate, setChargeDate] = useState(today)
   const [icon, setIcon] = useState('payments')
 
+  const [suggestions, setSuggestions] = useState<ServiceEntry[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const nameRef = useRef<HTMLInputElement>(null)
+
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
@@ -48,6 +53,25 @@ export default function AddPaymentModal({ open, onClose, defaultCurrency }: Prop
     }
   }, [open])
 
+  function handleNameChange(val: string) {
+    setName(val)
+    const results = searchCatalog(val)
+    setSuggestions(results)
+    setShowSuggestions(results.length > 0 && val.length >= 2)
+  }
+
+  function applySuggestion(entry: ServiceEntry) {
+    setName(entry.name)
+    setAmount(String(entry.amount))
+    setCurrency(CURRENCIES.includes(entry.currency as (typeof CURRENCIES)[number]) ? entry.currency : 'RUB')
+    setCategorySlug(entry.category_slug)
+    setBillingCycle(entry.billing_cycle)
+    setIcon(entry.icon)
+    setSuggestions([])
+    setShowSuggestions(false)
+    nameRef.current?.focus()
+  }
+
   const resetForm = () => {
     setName('')
     setAmount('299')
@@ -60,6 +84,8 @@ export default function AddPaymentModal({ open, onClose, defaultCurrency }: Prop
     setCustomIntervalDays('30')
     setChargeDate(new Date().toISOString().slice(0, 10))
     setIcon('payments')
+    setSuggestions([])
+    setShowSuggestions(false)
   }
 
   const handleClose = () => {
@@ -113,20 +139,66 @@ export default function AddPaymentModal({ open, onClose, defaultCurrency }: Prop
           <input type="hidden" name="billing_interval" value="1" />
           <input type="hidden" name="custom_interval_days" value={billingCycle === 'custom' ? customIntervalDays : ''} />
 
-          <label className="mb-3 block text-xs font-medium text-[#6b6b80]">
-            Название сервиса
-            <input
-              name="name"
-              required
-              minLength={2}
-              maxLength={60}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoComplete="off"
-              placeholder="Например, Музыка"
-              className="mt-1.5 block w-full rounded-[10px] border border-[rgba(26,26,61,0.08)] px-3 py-2.5 text-sm text-[#1a1a2e] font-[inherit] box-border"
-            />
-          </label>
+          <div className="relative mb-3">
+            <label className="block text-xs font-medium text-[#6b6b80]">
+              Название сервиса
+              <input
+                ref={nameRef}
+                name="name"
+                required
+                minLength={2}
+                maxLength={60}
+                value={name}
+                onChange={(e) => handleNameChange(e.target.value)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                autoComplete="off"
+                placeholder="Начни вводить — например, Spotify…"
+                className="mt-1.5 block w-full rounded-[10px] border border-[rgba(26,26,61,0.08)] px-3 py-2.5 text-sm text-[#1a1a2e] font-[inherit] box-border"
+              />
+            </label>
+            {showSuggestions && (
+              <ul className="absolute z-20 left-0 right-0 top-full mt-1 rounded-xl border border-[rgba(26,26,61,0.12)] bg-white shadow-[0_8px_24px_rgba(26,26,61,0.14)] overflow-hidden">
+                {suggestions.map((entry) => {
+                  const sugIcon = resolveSubscriptionIconDisplay(null, entry.icon, entry.category_slug)
+                  return (
+                    <li key={entry.name}>
+                      <button
+                        type="button"
+                        onMouseDown={() => applySuggestion(entry)}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-[#f8f6f2] transition-colors"
+                      >
+                        <PaymentServiceIcon
+                          icon={entry.icon}
+                          categorySlug={entry.category_slug}
+                          iconBg={sugIcon.iconBg}
+                          shape={sugIcon.shape}
+                          size={32}
+                        />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-[#1a1a2e]">{entry.name}</p>
+                          <p className="text-xs text-[#6b6b80]">
+                            {entry.amount > 0
+                              ? `${entry.amount.toLocaleString('ru-RU')} ${entry.currency} · `
+                              : ''}
+                            {entry.billing_cycle === 'monthly'
+                              ? 'в месяц'
+                              : entry.billing_cycle === 'yearly'
+                              ? 'в год'
+                              : entry.billing_cycle === 'quarterly'
+                              ? 'раз в квартал'
+                              : entry.billing_cycle === 'weekly'
+                              ? 'в неделю'
+                              : entry.billing_cycle}
+                          </p>
+                        </div>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
 
           <label className="mb-3 block text-xs font-medium text-[#6b6b80]">
             <span>{amountLabel}</span>
