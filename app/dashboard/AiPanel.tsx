@@ -5,6 +5,106 @@ import { useLang } from '@/lib/LangContext'
 
 type ChatMessage = { role: 'user' | 'assistant'; content: string }
 
+// ── Simple markdown renderer ──────────────────────────────────────────────────
+// Handles **bold**, *italic*, numbered lists, bullet lists, and blank lines.
+function renderMarkdown(text: string): React.ReactNode {
+  const lines = text.split('\n')
+  const nodes: React.ReactNode[] = []
+  let i = 0
+
+  function inlineFormat(raw: string): React.ReactNode {
+    // Split on **…** and *…*
+    const parts = raw.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g)
+    return parts.map((part, idx) => {
+      if (part.startsWith('**') && part.endsWith('**'))
+        return <strong key={idx}>{part.slice(2, -2)}</strong>
+      if (part.startsWith('*') && part.endsWith('*'))
+        return <em key={idx}>{part.slice(1, -1)}</em>
+      return part
+    })
+  }
+
+  while (i < lines.length) {
+    const line = lines[i]
+
+    // Blank line → spacer
+    if (line.trim() === '') {
+      nodes.push(<div key={i} className="h-2" />)
+      i++
+      continue
+    }
+
+    // Numbered list item: "1. text"
+    const numbered = line.match(/^(\d+)\.\s+(.+)$/)
+    if (numbered) {
+      const listItems: React.ReactNode[] = []
+      while (i < lines.length && lines[i].match(/^\d+\.\s+.+$/)) {
+        const m = lines[i].match(/^(\d+)\.\s+(.+)$/)!
+        listItems.push(
+          <li key={i} className="mb-0.5">
+            <span className="font-semibold text-[#5b43d4] mr-1">{m[1]}.</span>
+            {inlineFormat(m[2])}
+          </li>
+        )
+        i++
+      }
+      nodes.push(<ol key={`ol-${i}`} className="pl-1 mb-1 space-y-0.5 list-none">{listItems}</ol>)
+      continue
+    }
+
+    // Bullet list: "- text" or "• text"
+    if (/^[-•]\s+/.test(line)) {
+      const listItems: React.ReactNode[] = []
+      while (i < lines.length && /^[-•]\s+/.test(lines[i])) {
+        const content = lines[i].replace(/^[-•]\s+/, '')
+        listItems.push(
+          <li key={i} className="flex gap-1.5 mb-0.5">
+            <span className="text-[#5b43d4] mt-0.5">•</span>
+            <span>{inlineFormat(content)}</span>
+          </li>
+        )
+        i++
+      }
+      nodes.push(<ul key={`ul-${i}`} className="pl-0 mb-1 space-y-0.5 list-none">{listItems}</ul>)
+      continue
+    }
+
+    // Regular paragraph line
+    nodes.push(
+      <p key={i} className="mb-0.5 leading-relaxed">
+        {inlineFormat(line)}
+      </p>
+    )
+    i++
+  }
+
+  return <div className="text-sm text-[#1a1a2e]">{nodes}</div>
+}
+
+// ── Fetch helper: streaming text/plain success, JSON error ────────────────────
+async function fetchAiText(url: string, body: unknown): Promise<{ text: string } | { error: string }> {
+  let res: Response
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  } catch {
+    return { error: 'network' }
+  }
+  if (!res.ok) {
+    try {
+      const data = await res.json() as { error?: string }
+      return { error: typeof data.error === 'string' ? data.error : `Ошибка ${res.status}` }
+    } catch {
+      return { error: `Ошибка ${res.status}` }
+    }
+  }
+  const text = await res.text()
+  return { text }
+}
+
 type Props = {
   selectedIds: string[]
   currency: string
@@ -42,46 +142,26 @@ export default function AiPanel({ selectedIds, currency, hasSubscriptions }: Pro
     setAnalyzeLoading(true)
     setAnalyzeError(null)
     setAnalyzeText(null)
-    try {
-      const res = await fetch('/api/ai/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subscriptionIds: selectedIds, locale: lang }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        setAnalyzeError(typeof data.error === 'string' ? data.error : s.aiNoAnswerError)
-        return
-      }
-      setAnalyzeText(data.text ?? '')
-    } catch {
-      setAnalyzeError(s.aiNetworkError)
-    } finally {
-      setAnalyzeLoading(false)
+    const result = await fetchAiText('/api/ai/analyze', { subscriptionIds: selectedIds, locale: lang })
+    if ('error' in result) {
+      setAnalyzeError(result.error === 'network' ? s.aiNetworkError : result.error || s.aiNoAnswerError)
+    } else {
+      setAnalyzeText(result.text)
     }
+    setAnalyzeLoading(false)
   }, [selectedIds, lang, s])
 
   const runWhatIf = useCallback(async () => {
     setWhatIfLoading(true)
     setWhatIfError(null)
     setWhatIfText(null)
-    try {
-      const res = await fetch('/api/ai/what-if', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ budgetLimit: budget, currency, locale: lang }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        setWhatIfError(typeof data.error === 'string' ? data.error : s.aiNoAnswerError)
-        return
-      }
-      setWhatIfText(data.text ?? '')
-    } catch {
-      setWhatIfError(s.aiNetworkError)
-    } finally {
-      setWhatIfLoading(false)
+    const result = await fetchAiText('/api/ai/what-if', { budgetLimit: budget, currency, locale: lang })
+    if ('error' in result) {
+      setWhatIfError(result.error === 'network' ? s.aiNetworkError : result.error || s.aiNoAnswerError)
+    } else {
+      setWhatIfText(result.text)
     }
+    setWhatIfLoading(false)
   }, [budget, currency, lang, s])
 
   const sendChat = useCallback(async () => {
@@ -91,26 +171,14 @@ export default function AiPanel({ selectedIds, currency, hasSubscriptions }: Pro
     setChatMessages(nextMessages)
     setChatInput('')
     setChatLoading(true)
-    try {
-      const res = await fetch('/api/ai/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: nextMessages, locale: lang }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        setChatMessages((prev) => [
-          ...prev,
-          { role: 'assistant', content: typeof data.error === 'string' ? data.error : s.aiNoAnswerError },
-        ])
-        return
-      }
-      setChatMessages((prev) => [...prev, { role: 'assistant', content: data.text ?? '' }])
-    } catch {
-      setChatMessages((prev) => [...prev, { role: 'assistant', content: s.aiNoAnswerError }])
-    } finally {
-      setChatLoading(false)
+    const result = await fetchAiText('/api/ai/chat', { messages: nextMessages, locale: lang })
+    if ('error' in result) {
+      const msg = result.error === 'network' ? s.aiNetworkError : result.error || s.aiNoAnswerError
+      setChatMessages((prev) => [...prev, { role: 'assistant', content: msg }])
+    } else {
+      setChatMessages((prev) => [...prev, { role: 'assistant', content: result.text }])
     }
+    setChatLoading(false)
   }, [chatInput, chatMessages, chatLoading, lang, s])
 
   if (!hasSubscriptions) return null
@@ -141,7 +209,7 @@ export default function AiPanel({ selectedIds, currency, hasSubscriptions }: Pro
           <div className="px-4 pb-4 space-y-3 border-t border-[#f0ece6]">
             {analyzeText ? (
               <div className="space-y-2">
-                <p className="text-sm text-[#1a1a2e] whitespace-pre-wrap">{analyzeText}</p>
+                <div className="text-sm text-[#1a1a2e]">{renderMarkdown(analyzeText)}</div>
                 <button
                   type="button"
                   onClick={() => { setAnalyzeText(null); void runAnalyze() }}
@@ -211,7 +279,7 @@ export default function AiPanel({ selectedIds, currency, hasSubscriptions }: Pro
             </label>
             {whatIfText ? (
               <div className="space-y-2">
-                <p className="text-sm text-[#1a1a2e] whitespace-pre-wrap">{whatIfText}</p>
+                <div className="text-sm text-[#1a1a2e]">{renderMarkdown(whatIfText)}</div>
                 <button
                   type="button"
                   onClick={() => { setWhatIfText(null); void runWhatIf() }}
@@ -268,13 +336,13 @@ export default function AiPanel({ selectedIds, currency, hasSubscriptions }: Pro
               {chatMessages.map((m, i) => (
                 <div
                   key={i}
-                  className={`rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${
+                  className={`rounded-lg px-3 py-2 text-sm ${
                     m.role === 'user'
-                      ? 'bg-[#ede9fc] text-[#3f2b8f] ml-6'
+                      ? 'bg-[#ede9fc] text-[#3f2b8f] ml-6 whitespace-pre-wrap'
                       : 'bg-[#f4f5f8] text-[#1a1a2e] mr-6'
                   }`}
                 >
-                  {m.content}
+                  {m.role === 'user' ? m.content : renderMarkdown(m.content)}
                 </div>
               ))}
               {chatLoading && (
