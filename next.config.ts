@@ -2,6 +2,11 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const nextConfig: NextConfig = {
+  // Allow Server Actions from subcuro.app when the proxy sends Host: subcuro.vercel.app.
+  // Without this Next.js aborts actions because x-forwarded-host !== origin.
+  experimental: {
+    allowedOrigins: ['subcuro.app', 'www.subcuro.app'],
+  },
   // Pin app root so Turbopack does not pick a parent folder that has extra lockfiles.
   turbopack: {
     root: path.join(__dirname),
