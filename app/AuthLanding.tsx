@@ -10,7 +10,16 @@ import { createClient } from '@/lib/supabase/client'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+
+// Google Identity Services type stubs
+declare global {
+  interface Window {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    google?: any
+  }
+}
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? ''
 
 type AuthTab = 'login' | 'register'
 
@@ -43,6 +52,7 @@ export default function AuthLanding() {
   const [showLoginPassword, setShowLoginPassword] = useState(false)
   const [showRegisterPassword, setShowRegisterPassword] = useState(false)
   const [oauthLoading, setOauthLoading] = useState<'google' | 'apple' | null>(null)
+  const gisReady = useRef(false)
   // true когда Supabase обнаруживает PASSWORD_RECOVERY из хэш-токена в URL
   const [hashRecoveryMode, setHashRecoveryMode] = useState(false)
 
@@ -166,9 +176,67 @@ export default function AuthLanding() {
     setResetDone('Отправили письмо для сброса пароля. Проверьте почту и спам.')
   }
 
+  // ── GIS (Google Identity Services) — popup flow, works without VPN ─────────
+  // Loaded once; if NEXT_PUBLIC_GOOGLE_CLIENT_ID is not set we skip GIS and
+  // fall back to the Supabase redirect flow (requires supabase.co reachability).
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID) return
+    if (document.getElementById('gis-script')) return // already added
+
+    const script = document.createElement('script')
+    script.id = 'gis-script'
+    script.src = 'https://accounts.google.com/gsi/client'
+    script.async = true
+    script.onload = () => {
+      window.google?.accounts?.id?.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: async (response: { credential: string }) => {
+          const supabase = createClient()
+          const { error: idErr } = await supabase.auth.signInWithIdToken({
+            provider: 'google',
+            token: response.credential,
+          })
+          if (idErr) {
+            setError(mapAuthError(idErr.message))
+            setOauthLoading(null)
+            return
+          }
+          router.push('/dashboard')
+        },
+        use_fedcm_for_prompt: true,
+      })
+      gisReady.current = true
+    }
+    document.head.appendChild(script)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   async function handleOAuth(provider: 'google' | 'apple') {
     setOauthLoading(provider)
     setError(null)
+
+    // Google: prefer GIS popup (no redirect through supabase.co → works in Russia without VPN)
+    if (provider === 'google' && GOOGLE_CLIENT_ID && gisReady.current) {
+      window.google?.accounts?.id?.prompt((notification: {
+        isNotDisplayed(): boolean
+        isSkippedMoment(): boolean
+        isDismissedMoment(): boolean
+      }) => {
+        // One Tap didn't appear (browser blocked it, or user dismissed) → fall back to redirect
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          setOauthLoading(null)
+          void handleOAuthRedirect(provider)
+        }
+      })
+      return
+    }
+
+    // Apple or GIS not configured: use standard Supabase redirect flow
+    await handleOAuthRedirect(provider)
+  }
+
+  async function handleOAuthRedirect(provider: 'google' | 'apple') {
+    setOauthLoading(provider)
     const supabase = createClient()
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
@@ -182,8 +250,6 @@ export default function AuthLanding() {
       setOauthLoading(null)
       return
     }
-    // При успехе Supabase строит URL и redirect происходит на стороне браузера.
-    // Если URL не вернулся — что-то пошло не так.
     if (!data?.url) {
       console.error('[OAuth] No redirect URL returned from Supabase')
       setError('Не удалось получить ссылку для входа. Попробуйте позже.')
@@ -589,7 +655,9 @@ export default function AuthLanding() {
                       <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                     </svg>
                   )}
-                  {oauthLoading === 'google' ? 'Перенаправление…' : 'Продолжить с Google'}
+                  {oauthLoading === 'google'
+                    ? (GOOGLE_CLIENT_ID ? 'Выбор аккаунта…' : 'Перенаправление…')
+                    : 'Продолжить с Google'}
                 </button>
                 <button
                   type="button"
