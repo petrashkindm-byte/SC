@@ -50,12 +50,15 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline'",
-              "style-src 'self' 'unsafe-inline'",
+              // Google Identity Services (GIS) for popup OAuth — required for Russia (no VPN)
+              "script-src 'self' 'unsafe-inline' https://accounts.google.com",
+              "style-src 'self' 'unsafe-inline' https://accounts.google.com",
               "img-src 'self' data: blob: https:",
-              "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://accounts.google.com https://oauth2.googleapis.com",
               "font-src 'self' data:",
               "worker-src 'self'",
+              // GIS One Tap renders in an iframe from accounts.google.com
+              "frame-src https://accounts.google.com https://content.googleapis.com",
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",
