@@ -39,9 +39,7 @@ export default async function NewSubscriptionPage({
         <span aria-hidden>←</span> К обзору
       </Link>
       <h1 className="text-[32px] leading-tight font-bold tracking-[-0.03em] text-[#1a1a2e] mb-2">Новая подписка</h1>
-      <p className="text-[#6b6b80] text-sm mb-8">
-        Минимальный набор полей — как в базе Supabase. Редактор из приложения появится позже.
-      </p>
+
       <SubscriptionForm defaultCurrency={defaultCurrency} error={error} />
     </main>
   )
