@@ -6,6 +6,7 @@ import type { SavingsAction, SavingsHistoryResult } from '@/lib/savings-history'
 import SavingsSimulatorView from '../SavingsSimulatorView'
 import SavingsHistory from '../SavingsHistory'
 import ActionTimeline from '../ActionTimeline'
+import AnalyticsView from '../AnalyticsView'
 import { getPlannedActions } from './actions'
 import type { DbPlannedAction } from './actions'
 
@@ -72,6 +73,16 @@ export default async function SavingsPage({
         />
 
         <SavingsHistory data={savingsHistoryData} />
+
+        {/* ── Аналитика — только на мобильном (на десктопе отдельная вкладка в сайдбаре) ── */}
+        <div className="md:hidden mt-8">
+          <div className="mb-4 flex items-center gap-3">
+            <div className="h-px flex-1 bg-[#e7e3dc]" />
+            <span className="text-[11px] font-bold uppercase tracking-widest text-[#8e8e93]">Аналитика</span>
+            <div className="h-px flex-1 bg-[#e7e3dc]" />
+          </div>
+          <AnalyticsView subs={subs} currency="RUB" />
+        </div>
       </div>
     </main>
   )
