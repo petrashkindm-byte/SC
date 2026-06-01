@@ -1386,7 +1386,18 @@ function parseAiResponse(raw: string): AiParagraph[] {
     .map(para => para.trim())
     .filter(Boolean)
     .map(para => {
-      // Ищем имя сервиса: «Название:» или «Название стоит…» или «Название,»
+      // Предпочтительный формат: «Название — вердикт: …»
+      // Вердикт берём ТОЛЬКО из сегмента между тире и двоеточием, чтобы упоминание
+      // отмены другого сервиса дальше в абзаце не перебивало вердикт этой подписки.
+      const dashMatch = para.match(/^(.{1,40}?)\s+[—–]\s+([^:\n]{1,40}?):\s*/)
+      if (dashMatch) {
+        const name = dashMatch[1].trim()
+        const verdictSegment = dashMatch[2].trim()
+        const body = para.slice(dashMatch[0].length).trim()
+        const verdict = detectVerdict(verdictSegment) ?? detectVerdict(body)
+        return { name, verdict, verdictLabel: '', body }
+      }
+      // Запасной формат: «Название: …» (вердикт ищем по всему абзацу)
       const colonMatch = para.match(/^([A-ZА-ЯЁa-zа-яё][^.!?:,\n]{1,40}):\s*/)
       let name = ''
       let body = para

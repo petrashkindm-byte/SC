@@ -188,6 +188,13 @@ function buildAnalyzePrompt(subscriptions: SubscriptionForAI[], lang: string): s
     ? `\nOverlapping service types (evaluate trade-offs carefully):\n${dupes.map(d => `  - ${d}`).join('\n')}`
     : ''
 
+  const isRu = lang === 'Russian'
+  const vKeep   = isRu ? 'оставить' : 'keep'
+  const vCancel = isRu ? 'отменить' : 'cancel'
+  const vAnnual = isRu ? 'перейти на годовой' : 'switch to annual'
+  const vDown   = isRu ? 'понизить' : 'downgrade'
+  const vReview = isRu ? 'пересмотреть' : 'review'
+
   return `You are a personal finance assistant reviewing a user's active subscriptions.
 
 Subscriptions:${list}
@@ -195,7 +202,15 @@ ${dupeNote}
 
 Task: for each subscription write ONE paragraph with a clear verdict and specific reasoning.
 
-Verdict options: Keep · Cancel at renewal · Switch to annual · Downgrade · Review usage
+Format: start every paragraph with the service name, a space, an em dash "—", a space, exactly ONE verdict word, then a colon, then the reasoning.
+Verdict words (use the ${lang} form below):
+  • Keep             → ${vKeep}
+  • Cancel at renewal → ${vCancel}
+  • Switch to annual → ${vAnnual}
+  • Downgrade        → ${vDown}
+  • Review usage     → ${vReview}
+The verdict before the colon is the recommendation for THIS subscription only. Mentions of other services later in the same paragraph do NOT change this subscription's verdict.
+Example: "Spotify — ${vKeep}: ..."
 
 Analysis priorities (in order):
 1. Overlapping types — when multiple services cover the same need (music, video, ai…), use the feature data above to explain which is stronger and why. Be specific: mention actual differentiators like exclusive content, audio quality, or bundle value.
@@ -205,6 +220,7 @@ Analysis priorities (in order):
 5. Usage signal — "last used: unknown" means the user did not track it, NOT that they don't use it. Flag unused only when combined with a duplicate or high price.
 
 Rules:
+- When two or more services cover the SAME need, KEEP the single strongest option (verdict "${vKeep}") and recommend "${vCancel}" or "${vReview}" only for the weaker ones. NEVER give the "${vCancel}" verdict to every overlapping service — at least one must be kept.
 - Every sentence must reference this user's specific data (names, amounts, features listed above).
 - For subscriptions already on an annual plan, do not suggest cancellation as an immediate action — recommend reconsidering at next renewal if applicable.
 - Do not repeat reasoning across subscriptions.
