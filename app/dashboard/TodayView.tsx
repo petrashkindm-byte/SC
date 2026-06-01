@@ -347,7 +347,7 @@ function UpcomingRow({ sub, isFirst, index }: { sub: Subscription; isFirst: bool
 
   return (
     <Link
-      href={`/dashboard/subscriptions/${sub.id}`}
+      href={`/dashboard?tab=payments&openSub=${sub.id}`}
       className={`su-slide-left grid items-center gap-x-3.5 py-3.5 text-current no-underline transition-colors hover:bg-[rgba(91,67,212,0.04)] active:scale-[0.99] ${
         isFirst ? '' : 'border-t border-[#ececee]'
       }`}
