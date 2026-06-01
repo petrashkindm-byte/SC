@@ -11,7 +11,7 @@ import { categoryLabel } from '@/lib/subscription-labels'
 import type { Subscription, SubscriptionStatus } from '@/lib/supabase/types'
 import { resolveSubscriptionIconDisplay } from '@/lib/subscription-icon-background'
 import { CARD_COLOR_PRESETS } from '@/lib/subscription-viz-notes'
-import { archiveSubscription, markAsPaid, updateSubscriptionStatus } from './subscriptions/actions'
+import { archiveSubscription, deleteSubscription, markAsPaid, updateSubscriptionStatus } from './subscriptions/actions'
 import { fmtCurrency, groupMonthlyByCurrency, formatGroups, getMonthlyAmount } from '@/lib/currency'
 import StatusPill from './ui/StatusPill'
 import { actionButtonClass } from './ui/action-button'
@@ -130,6 +130,7 @@ function SubscriptionDetailPanel({
   onClose,
   onMarkPaid,
   onStatusChange,
+  onDelete,
   markingPaidId,
   statusUpdatingId,
   p,
@@ -139,6 +140,7 @@ function SubscriptionDetailPanel({
   onClose: () => void
   onMarkPaid: (id: string) => void
   onStatusChange: (sub: Subscription, next: 'active' | 'paused' | 'cancelled') => void
+  onDelete: (sub: Subscription) => void
   markingPaidId: string | null
   statusUpdatingId: string | null
   p: PaymentsStrings
@@ -274,17 +276,28 @@ function SubscriptionDetailPanel({
             </button>
           </div>
 
-          {sub.status !== 'cancelled' && (
+          <div className="mb-4 flex flex-col gap-2">
+            {sub.status !== 'cancelled' && (
+              <button
+                type="button"
+                disabled={statusUpdatingId === sub.id}
+                onClick={() => onStatusChange(sub, 'cancelled')}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-[rgba(229,72,77,0.22)] bg-transparent py-2.5 text-[14px] font-semibold text-[#e5484d] hover:bg-[#fde8ea] disabled:opacity-40 transition-colors"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                {p.detailCancelSub}
+              </button>
+            )}
             <button
               type="button"
               disabled={statusUpdatingId === sub.id}
-              onClick={() => onStatusChange(sub, 'cancelled')}
-              className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl border border-[rgba(229,72,77,0.22)] bg-transparent py-2.5 text-[14px] font-semibold text-[#e5484d] hover:bg-[#fde8ea] disabled:opacity-40 transition-colors"
+              onClick={() => onDelete(sub)}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border-0 bg-[#fde8ea] py-2.5 text-[14px] font-semibold text-[#c5384b] hover:bg-[#fbd5d9] disabled:opacity-40 transition-colors"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
-              {p.detailCancelSub}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+              {p.detailDelete}
             </button>
-          )}
+          </div>
 
           {/* Privacy note */}
           <div className="flex items-start gap-2 rounded-xl border border-[rgba(26,26,61,0.08)] bg-[#f7f7fb] p-3 text-[12px] leading-relaxed text-[#6b6b80]">
@@ -361,8 +374,9 @@ export default function PaymentsTable({
     return stored === 'grid' ? 'grid' : 'list'
   })
   const [filterOpen, setFilterOpen] = useState(false)
-  // Оптимистичные смены статуса: мгновенно отражаем в UI, не дожидаясь ревалидации сервера
+  // Оптимистичные смены статуса/удаления: мгновенно отражаем в UI, не дожидаясь ревалидации сервера
   const [optimisticStatus, setOptimisticStatus] = useState<Record<string, SubscriptionStatus>>({})
+  const [optimisticRemoved, setOptimisticRemoved] = useState<Set<string>>(() => new Set())
   const notifRef = useRef<HTMLDivElement>(null)
   const actionsRef = useRef<HTMLButtonElement>(null)
   const filterRef = useRef<HTMLDivElement>(null)
@@ -373,11 +387,14 @@ export default function PaymentsTable({
   if (prevSubs !== subs) {
     setPrevSubs(subs)
     if (Object.keys(optimisticStatus).length > 0) setOptimisticStatus({})
+    if (optimisticRemoved.size > 0) setOptimisticRemoved(new Set())
   }
 
   const effectiveSubs = useMemo(
-    () => subs.map((s) => (optimisticStatus[s.id] ? { ...s, status: optimisticStatus[s.id] } : s)),
-    [subs, optimisticStatus],
+    () => subs
+      .filter((s) => !optimisticRemoved.has(s.id))
+      .map((s) => (optimisticStatus[s.id] ? { ...s, status: optimisticStatus[s.id] } : s)),
+    [subs, optimisticStatus, optimisticRemoved],
   )
 
   const changeView = (mode: 'list' | 'grid') => {
@@ -522,6 +539,23 @@ export default function PaymentsTable({
     try { await markAsPaid(id) } finally { setMarkingPaidId(null) }
   }
 
+  const handleDelete = async (sub: Subscription) => {
+    if (!window.confirm(p.detailDeleteConfirm)) return
+    // Оптимистично убираем строку и закрываем панель/меню
+    setOptimisticRemoved((prev) => new Set(prev).add(sub.id))
+    if (detailSub?.id === sub.id) setDetailSub(null)
+    setActionsOpenId(null)
+    try {
+      await deleteSubscription(sub.id)
+    } catch {
+      setOptimisticRemoved((prev) => {
+        const copy = new Set(prev)
+        copy.delete(sub.id)
+        return copy
+      })
+    }
+  }
+
   /** Пункты выпадающего меню строки/карточки — общие для списка и плитки */
   const rowMenuItems = (sub: Subscription, days: number) => (
     <>
@@ -538,6 +572,8 @@ export default function PaymentsTable({
       }
       {sub.status !== 'cancelled' && <button type="button" disabled={statusUpdatingId === sub.id} onClick={(e) => { e.stopPropagation(); void applyStatusAction(sub, 'cancelled') }} className="block w-full rounded-lg px-3 py-2 text-left text-xs text-[#c24f00] hover:bg-[#fff4eb] disabled:opacity-50">{p.cancelAction}</button>}
       {sub.status !== 'archived' && <button type="button" disabled={statusUpdatingId === sub.id} onClick={(e) => { e.stopPropagation(); void applyStatusAction(sub, 'archived') }} className="block w-full rounded-lg px-3 py-2 text-left text-xs text-[#6b6b80] hover:bg-[#f6f6f8] disabled:opacity-50">{p.archiveAction}</button>}
+      <div className="my-1 border-t border-[#f0ece6]" />
+      <button type="button" onClick={(e) => { e.stopPropagation(); void handleDelete(sub) }} className="block w-full rounded-lg px-3 py-2 text-left text-xs text-[#c5384b] hover:bg-[#fde8ea]">{p.detailDelete}</button>
     </>
   )
 
@@ -566,6 +602,7 @@ export default function PaymentsTable({
           onClose={() => setDetailSub(null)}
           onMarkPaid={handleMarkPaid}
           onStatusChange={(sub, next) => applyStatusAction(sub, next)}
+          onDelete={handleDelete}
           markingPaidId={markingPaidId}
           statusUpdatingId={statusUpdatingId}
           p={p}

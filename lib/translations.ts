@@ -312,8 +312,10 @@ export const t = {
       detailStatusLabel: 'Статус',
       detailReminderLabel: 'Напоминание',
       detailReminderVal: 'За 3 дня до списания',
-      detailMarkPaid: '✓ Отметить как оплачено',
+      detailMarkPaid: 'Оплачено',
       detailCancelSub: 'Отменить подписку',
+      detailDelete: 'Удалить',
+      detailDeleteConfirm: 'Удалить подписку навсегда? Это действие необратимо.',
       detailPrivacy: 'Без банковских данных. Мы не храним и не запрашиваем данные ваших карт. Ваши платёжные данные остаются только у провайдера.',
     },
     analytics: {
@@ -882,8 +884,10 @@ export const t = {
       detailStatusLabel: 'Status',
       detailReminderLabel: 'Reminder',
       detailReminderVal: '3 days before charge',
-      detailMarkPaid: '✓ Mark as paid',
+      detailMarkPaid: 'Paid',
       detailCancelSub: 'Cancel subscription',
+      detailDelete: 'Delete',
+      detailDeleteConfirm: 'Delete subscription permanently? This cannot be undone.',
       detailPrivacy: 'No payment data stored. We do not store or request your card details. Your payment data stays with the provider only.',
     },
     analytics: {
