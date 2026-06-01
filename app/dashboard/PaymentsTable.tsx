@@ -8,10 +8,10 @@ import AddPaymentModal from './AddPaymentModal'
 import PaymentServiceIcon from './PaymentServiceIcon'
 import { coerceNumber } from '@/lib/coerce-number'
 import { categoryLabel } from '@/lib/subscription-labels'
-import type { CategorySlug, Subscription } from '@/lib/supabase/types'
+import type { Subscription, SubscriptionStatus } from '@/lib/supabase/types'
 import { resolveSubscriptionIconDisplay } from '@/lib/subscription-icon-background'
 import { CARD_COLOR_PRESETS } from '@/lib/subscription-viz-notes'
-import { archiveSubscription, markAsPaid, markLastUsed, updateSubscriptionStatus } from './subscriptions/actions'
+import { archiveSubscription, markAsPaid, updateSubscriptionStatus } from './subscriptions/actions'
 import { fmtCurrency, groupMonthlyByCurrency, formatGroups, getMonthlyAmount } from '@/lib/currency'
 import StatusPill from './ui/StatusPill'
 import { actionButtonClass } from './ui/action-button'
@@ -20,24 +20,6 @@ import { useLang } from '@/lib/LangContext'
 
 export type PaymentsFilter = 'all' | 'active' | 'soon' | 'overdue' | 'paused' | 'cancelled'
 type PaymentsSortKey = 'next_charge' | 'amount' | 'name'
-
-const FILTER_HOVER: Record<PaymentsFilter, string> = {
-  all:       'hover:border-[#5b43d4] hover:text-[#5b43d4]',
-  active:    'hover:border-[#2563eb] hover:text-[#2563eb]',
-  soon:      'hover:border-[#db2777] hover:text-[#db2777]',
-  overdue:   'hover:border-[#e5484d] hover:text-[#e5484d]',
-  paused:    'hover:border-[#ca8a04] hover:text-[#ca8a04]',
-  cancelled: 'hover:border-slate-500 hover:text-slate-600',
-}
-
-const MINI_CATS: { slug: CategorySlug; from: string; to: string }[] = [
-  { slug: 'entertainment', from: '#4c2db8', to: '#7c5dfa' },
-  { slug: 'productivity',  from: '#991b1b', to: '#ef4444' },
-  { slug: 'utilities',     from: '#166534', to: '#22c55e' },
-  { slug: 'health',        from: '#0f766e', to: '#2dd4bf' },
-  { slug: 'shopping',      from: '#9a3412', to: '#f97316' },
-  { slug: 'other',         from: '#57534e', to: '#a8a29e' },
-]
 
 function daysUntil(dateStr: string): number {
   const today = new Date()
@@ -72,24 +54,6 @@ function dueRelativePhrase(days: number, p: PaymentsStrings): string {
   if (days === 0) return p.dueToday
   if (days === 1) return p.dueTomorrow
   return p.dueInDays(days)
-}
-
-function calendarDaysAgo(isoStr: string): number {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const d = new Date(isoStr)
-  d.setHours(0, 0, 0, 0)
-  return Math.max(0, Math.round((today.getTime() - d.getTime()) / 86400000))
-}
-
-function lastUsedLabel(lastUsedAt: string | null, p: PaymentsStrings): { text: string; stale: boolean } {
-  if (!lastUsedAt) return { text: p.activityNotMarked, stale: true }
-  const days = calendarDaysAgo(lastUsedAt)
-  if (days === 0) return { text: p.activityToday, stale: false }
-  if (days === 1) return { text: p.activityYesterday, stale: false }
-  if (days <= 7)  return { text: p.activityDaysAgo(days), stale: false }
-  if (days <= 30) return { text: p.activityDaysAgo(days), stale: true }
-  return { text: p.activityDaysAgo(days), stale: true }
 }
 
 function cardPresetColors(preset: string | null): { tint: string; darkTint: string; swatch: string } | null {
@@ -384,7 +348,6 @@ export default function PaymentsTable({
   }
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [markingPaidId, setMarkingPaidId] = useState<string | null>(null)
-  const [markingUsedId, setMarkingUsedId] = useState<string | null>(null)
   const [actionsOpenId, setActionsOpenId] = useState<string | null>(null)
   const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null)
   const [detailSub, setDetailSub] = useState<Subscription | null>(null)
@@ -393,8 +356,25 @@ export default function PaymentsTable({
     const stored = localStorage.getItem('payments_view')
     return stored === 'grid' ? 'grid' : 'list'
   })
+  const [filterOpen, setFilterOpen] = useState(false)
+  // Оптимистичные смены статуса: мгновенно отражаем в UI, не дожидаясь ревалидации сервера
+  const [optimisticStatus, setOptimisticStatus] = useState<Record<string, SubscriptionStatus>>({})
   const notifRef = useRef<HTMLDivElement>(null)
   const actionsRef = useRef<HTMLButtonElement>(null)
+  const filterRef = useRef<HTMLDivElement>(null)
+
+  // Когда приходят свежие данные с сервера — сбрасываем оптимистичные оверрайды.
+  // Официальный React-паттерн «adjust state during render when a prop changes».
+  const [prevSubs, setPrevSubs] = useState(subs)
+  if (prevSubs !== subs) {
+    setPrevSubs(subs)
+    if (Object.keys(optimisticStatus).length > 0) setOptimisticStatus({})
+  }
+
+  const effectiveSubs = useMemo(
+    () => subs.map((s) => (optimisticStatus[s.id] ? { ...s, status: optimisticStatus[s.id] } : s)),
+    [subs, optimisticStatus],
+  )
 
   const changeView = (mode: 'list' | 'grid') => {
     setViewMode(mode)
@@ -432,6 +412,16 @@ export default function PaymentsTable({
     return () => document.removeEventListener('keydown', onKey)
   }, [detailSub])
 
+  // Close filters dropdown on outside click
+  useEffect(() => {
+    if (!filterOpen) return
+    const onDoc = (e: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) setFilterOpen(false)
+    }
+    document.addEventListener('click', onDoc)
+    return () => document.removeEventListener('click', onDoc)
+  }, [filterOpen])
+
   useEffect(() => {
     const params = new URLSearchParams(searchParams.toString())
     params.set('tab', 'payments')
@@ -446,28 +436,28 @@ export default function PaymentsTable({
   }, [filter, search, sortKey, sortDir, router, searchParams])
 
   const monthlyGroups = useMemo(
-    () => groupMonthlyByCurrency(subs.filter((s) => s.status === 'active'), getMonthlyAmount),
-    [subs],
+    () => groupMonthlyByCurrency(effectiveSubs.filter((s) => s.status === 'active'), getMonthlyAmount),
+    [effectiveSubs],
   )
-  const activeCount = useMemo(() => subs.filter((s) => s.status === 'active').length, [subs])
+  const activeCount = useMemo(() => effectiveSubs.filter((s) => s.status === 'active').length, [effectiveSubs])
 
   // Stats
-  const todayCount   = useMemo(() => subs.filter((s) => s.status === 'active' && daysUntil(s.next_charge_date) === 0).length, [subs])
-  const weekCount    = useMemo(() => subs.filter((s) => s.status === 'active' && daysUntil(s.next_charge_date) >= 0 && daysUntil(s.next_charge_date) <= 7).length, [subs])
-  const overdueCount = useMemo(() => subs.filter((s) => s.status === 'active' && daysUntil(s.next_charge_date) < 0).length, [subs])
+  const todayCount   = useMemo(() => effectiveSubs.filter((s) => s.status === 'active' && daysUntil(s.next_charge_date) === 0).length, [effectiveSubs])
+  const weekCount    = useMemo(() => effectiveSubs.filter((s) => s.status === 'active' && daysUntil(s.next_charge_date) >= 0 && daysUntil(s.next_charge_date) <= 7).length, [effectiveSubs])
+  const overdueCount = useMemo(() => effectiveSubs.filter((s) => s.status === 'active' && daysUntil(s.next_charge_date) < 0).length, [effectiveSubs])
 
   const filtered = useMemo(() => {
-    let list = subs
+    let list = effectiveSubs
     if (filter === 'soon') {
-      list = subs.filter((s) => { if (s.status !== 'active') return false; const d = daysUntil(s.next_charge_date); return d >= 0 && d <= 14 })
+      list = effectiveSubs.filter((s) => { if (s.status !== 'active') return false; const d = daysUntil(s.next_charge_date); return d >= 0 && d <= 14 })
     } else if (filter === 'overdue') {
-      list = subs.filter((s) => s.status === 'active' && daysUntil(s.next_charge_date) < 0)
+      list = effectiveSubs.filter((s) => s.status === 'active' && daysUntil(s.next_charge_date) < 0)
     } else if (filter === 'active') {
-      list = subs.filter((s) => s.status === 'active')
+      list = effectiveSubs.filter((s) => s.status === 'active')
     } else if (filter === 'paused') {
-      list = subs.filter((s) => s.status === 'paused')
+      list = effectiveSubs.filter((s) => s.status === 'paused')
     } else if (filter === 'cancelled') {
-      list = subs.filter((s) => s.status === 'cancelled')
+      list = effectiveSubs.filter((s) => s.status === 'cancelled')
     }
     const q = search.trim().toLowerCase()
     if (q) {
@@ -479,7 +469,7 @@ export default function PaymentsTable({
       })
     }
     return list
-  }, [subs, filter, search])
+  }, [effectiveSubs, filter, search, lang])
 
   const sortedFiltered = useMemo(() => {
     const mul = sortDir === 'asc' ? 1 : -1
@@ -490,7 +480,7 @@ export default function PaymentsTable({
     })
   }, [filtered, sortDir, sortKey])
 
-  const notifItems = useMemo(() => subs
+  const notifItems = useMemo(() => effectiveSubs
     .filter((s) => {
       if (s.status !== 'active') return false
       if (dismissedNotifIds.has(s.id)) return false
@@ -498,19 +488,28 @@ export default function PaymentsTable({
       return d >= 0 && d <= 7
     })
     .sort((a, b) => daysUntil(a.next_charge_date) - daysUntil(b.next_charge_date))
-    .slice(0, 6), [subs])
+    .slice(0, 6), [effectiveSubs, dismissedNotifIds])
 
   const openRow = (sub: Subscription) => setDetailSub(sub)
 
   const applyStatusAction = async (sub: Subscription, next: 'active' | 'paused' | 'cancelled' | 'archived') => {
+    // Оптимистично: сразу отражаем новый статус и закрываем панель/меню
+    setOptimisticStatus((prev) => ({ ...prev, [sub.id]: next }))
+    if (detailSub?.id === sub.id) setDetailSub(null)
+    setActionsOpenId(null)
     setStatusUpdatingId(sub.id)
     try {
       if (next === 'archived') await archiveSubscription(sub.id)
       else await updateSubscriptionStatus(sub.id, next)
-      if (detailSub?.id === sub.id) setDetailSub(null)
+    } catch {
+      // Откат при ошибке
+      setOptimisticStatus((prev) => {
+        const copy = { ...prev }
+        delete copy[sub.id]
+        return copy
+      })
     } finally {
       setStatusUpdatingId(null)
-      setActionsOpenId(null)
     }
   }
 
@@ -542,15 +541,6 @@ export default function PaymentsTable({
     st.overdue ? 'text-[#e5484d] font-semibold' :
     days === 0 ? 'text-[#e5484d] font-semibold' :
     days <= 3  ? 'text-[#d97706] font-semibold' : ''
-
-  // Category stats for collections grid
-  const catStats = useMemo(() => {
-    return MINI_CATS.map((cat) => {
-      const items = subs.filter((s) => s.status === 'active' && s.category_slug === cat.slug)
-      const monthly = items.reduce((sum, s) => sum + getMonthlyAmount(s), 0)
-      return { ...cat, count: items.length, monthly }
-    })
-  }, [subs])
 
   const FILTER_LABELS: Record<PaymentsFilter, string> = {
     all:       p.filterAll,
@@ -597,16 +587,16 @@ export default function PaymentsTable({
       )}
 
       {/* ── Header ──────────────────────────────────────────────────── */}
-      <header className="mb-5">
-        <div className="mb-3">
+      <header className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="shrink-0">
           <h1 className="m-0 mb-1 text-[1.75rem] font-bold tracking-[-0.03em] text-[#1a1a2e]">{p.title}</h1>
           <p className="m-0 text-sm text-[#6b6b80] leading-snug">
             {p.activeCount(activeCount)} · {p.perMonth}: {formatGroups(monthlyGroups)}
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
-          <div className="flex items-center gap-2.5 flex-1">
-            <div className="flex items-center gap-2.5 bg-white border border-[rgba(26,26,61,0.08)] rounded-full pl-4 pr-4 flex-1 h-11 shadow-[0_1px_3px_rgba(26,26,61,0.06),0_8px_24px_rgba(26,26,61,0.06)]">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 lg:flex-1 lg:justify-end">
+          <div className="flex items-center gap-2.5 flex-1 lg:flex-none">
+            <div className="flex items-center gap-2.5 bg-white border border-[rgba(26,26,61,0.08)] rounded-full pl-4 pr-4 flex-1 lg:w-[300px] lg:flex-none h-11 shadow-[0_1px_3px_rgba(26,26,61,0.06),0_8px_24px_rgba(26,26,61,0.06)]">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 opacity-[0.45] text-[#1a1a2e]"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
               <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={p.searchPlaceholder} aria-label={p.searchAriaLabel} className="flex-1 min-w-0 border-0 bg-transparent outline-none text-sm text-[#1a1a2e] placeholder:text-[#9a9aaf] font-[inherit]" />
             </div>
@@ -697,30 +687,48 @@ export default function PaymentsTable({
         ))}
       </div>
 
-      {/* ── Filter chips ─────────────────────────────────────────────── */}
-      <div className="mb-[18px]">
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] sm:flex-wrap sm:overflow-visible">
-          {(['all', 'active', 'soon', 'overdue', 'paused', 'cancelled'] as const).map((key) => (
-            <button key={key} type="button" onClick={() => setFilter(key)}
-              className={`shrink-0 rounded-full px-4 py-2.5 text-[13px] font-medium transition-colors border ${
-                filter === key
-                  ? 'border-[#0d9f6e] bg-[#0d9f6e] text-white shadow-[0_4px_14px_rgba(13,159,110,0.35)]'
-                  : `border-[rgba(26,26,61,0.08)] bg-white text-[#6b6b80] ${FILTER_HOVER[key]}`
-              }`}
-            >
-              {FILTER_LABELS[key]}
-            </button>
-          ))}
-          <div className="ml-auto hidden sm:flex items-center gap-2 shrink-0">
-            <select value={sortKey} onChange={(e) => setSortKey(e.target.value as PaymentsSortKey)} className={`${actionButtonClass('ghost', 'sm')} font-normal`} aria-label={p.sortLabel}>
-              <option value="next_charge">{p.sortByDate}</option>
-              <option value="amount">{p.sortByAmount}</option>
-              <option value="name">{p.sortByName}</option>
-            </select>
-            <button type="button" onClick={() => setSortDir((v) => (v === 'asc' ? 'desc' : 'asc'))} className={actionButtonClass('ghost', 'sm')}>{sortDir === 'asc' ? '↑' : '↓'}</button>
-          </div>
+      {/* ── Filters dropdown + sort ──────────────────────────────────── */}
+      <div className="mb-[18px] flex items-center gap-2">
+        {/* Фильтры — выпадающий список вместо постоянных чипов */}
+        <div className="relative shrink-0" ref={filterRef}>
+          <button
+            type="button"
+            onClick={() => setFilterOpen((v) => !v)}
+            className={`flex items-center gap-2 rounded-full border px-4 py-2.5 text-[13px] font-medium transition-colors ${
+              filter !== 'all'
+                ? 'border-[#0d9f6e] bg-[#0d9f6e] text-white shadow-[0_4px_14px_rgba(13,159,110,0.35)]'
+                : 'border-[rgba(26,26,61,0.08)] bg-white text-[#1a1a2e] hover:border-[#5b43d4] hover:text-[#5b43d4]'
+            }`}
+            aria-expanded={filterOpen}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            {p.filtersButton}
+            {filter !== 'all' && <span className="rounded-full bg-white/25 px-2 py-0.5 text-[11px] font-semibold">{FILTER_LABELS[filter]}</span>}
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className={`transition-transform ${filterOpen ? 'rotate-180' : ''}`}><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          {filterOpen && (
+            <div className="absolute left-0 top-[calc(100%+8px)] z-50 w-[220px] rounded-2xl border border-[rgba(26,26,61,0.08)] bg-white p-1.5 shadow-[0_4px_6px_rgba(26,26,61,0.04),0_12px_32px_rgba(26,26,61,0.10)]">
+              {(['all', 'active', 'soon', 'overdue', 'paused', 'cancelled'] as const).map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => { setFilter(key); setFilterOpen(false) }}
+                  className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-[13px] font-medium transition-colors ${
+                    filter === key ? 'bg-[#ede9fc] text-[#5b43d4]' : 'text-[#1a1a2e] hover:bg-[#f6f6f9]'
+                  }`}
+                >
+                  {FILTER_LABELS[key]}
+                  {filter === key && (
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-        <div className="flex items-center justify-end gap-2 mt-2 sm:hidden">
+
+        {/* Sort */}
+        <div className="ml-auto flex items-center gap-2 shrink-0">
           <select value={sortKey} onChange={(e) => setSortKey(e.target.value as PaymentsSortKey)} className={`${actionButtonClass('ghost', 'sm')} font-normal`} aria-label={p.sortLabel}>
             <option value="next_charge">{p.sortByDate}</option>
             <option value="amount">{p.sortByAmount}</option>
@@ -931,40 +939,19 @@ export default function PaymentsTable({
         </div>
       )}
 
-      {/* ── Collections grid ─────────────────────────────────────────── */}
+      {/* ── Collections entry banner ──────────────────────────────────── */}
       <section className="mt-5" aria-labelledby="payments-collections-title">
-        <div className="mb-3 flex items-start justify-between gap-4">
-          <div>
-            <span id="payments-collections-title" className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-[#5b43d4]">{p.collectionsLabel}</span>
-            <h2 className="m-0 text-[1.35rem] font-bold tracking-tight text-[#1a1a2e]">{p.collectionsTitle}</h2>
-            <p className="mt-1 text-[13px] text-[#6b6b80] m-0">{p.collectionsSubtitle}</p>
+        <Link
+          href="/dashboard/collections"
+          className="flex items-center justify-between gap-4 rounded-2xl border border-[rgba(26,26,61,0.08)] bg-white px-[18px] py-[18px] text-inherit no-underline shadow-[0_1px_3px_rgba(26,26,61,0.06),0_8px_24px_rgba(26,26,61,0.06)] transition-all hover:border-[rgba(91,67,212,0.3)] hover:shadow-[0_8px_20px_rgba(91,67,212,0.12)] active:translate-y-px"
+        >
+          <div className="min-w-0 flex-1">
+            <span id="payments-collections-title" className="mb-1 block text-xs font-bold uppercase tracking-wider text-[#6b6b80]">{p.collectionsLabel}</span>
+            <h2 className="m-0 text-[1.85rem] font-bold leading-tight tracking-[-0.02em] text-[#1a1a2e]">{p.collectionsTitle}</h2>
+            <p className="mt-2 max-w-[690px] text-sm leading-snug text-[#6b6b80] m-0">{p.collectionsDesc}</p>
           </div>
-          <Link href="/dashboard/collections" className="shrink-0 mt-1 text-[13px] font-semibold text-[#5b43d4] hover:underline">{p.collectionsViewAll}</Link>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {catStats.map((cat) => (
-            <Link
-              key={cat.slug}
-              href={`/dashboard/collections?category=${cat.slug}`}
-              className="group relative overflow-hidden rounded-[18px] p-4 text-white no-underline transition-transform hover:-translate-y-0.5 border border-white/20"
-              style={{ background: `linear-gradient(135deg, ${cat.from}, ${cat.to})` }}
-            >
-              {/* Декоративный круг */}
-              <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-white/10" />
-              <div className="text-[1rem] font-extrabold leading-tight tracking-tight">{categoryLabel(cat.slug, lang)}</div>
-              <div className="mt-1 text-[12px] text-white/85">
-                {cat.count === 0 ? p.noServices : `${cat.count} ${lang === 'ru' ? (cat.count === 1 ? 'сервис' : cat.count < 5 ? 'сервиса' : 'сервисов') : 'services'}`}
-              </div>
-              <div className="mt-3 flex items-end justify-between">
-                <div className="text-[0.95rem] font-extrabold">
-                  {cat.count > 0 ? `${fmtCurrency(Math.round(cat.monthly), subs.find(s => s.category_slug === cat.slug)?.currency ?? currency)} / мес` : '—'}
-                </div>
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white/18 text-[17px] leading-none">›</div>
-              </div>
-            </Link>
-          ))}
-        </div>
+          <span className="inline-flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-[#f2eefc] text-[28px] leading-none text-[#5b43d4]" aria-hidden>›</span>
+        </Link>
       </section>
     </>
   )
