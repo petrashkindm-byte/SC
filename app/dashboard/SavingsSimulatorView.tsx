@@ -691,11 +691,14 @@ function DuplicatesPanel({ groups, cutIds, onCut, onKeepOnly }: DuplicatesPanelP
         return (
           <div key={groupKey} className="rounded-2xl border border-[#e7e3dc] bg-white shadow-[0_1px_3px_rgba(26,26,61,0.06)] overflow-hidden">
 
-            {/* ── Service cards header ── */}
-            <div className="px-4 pt-4 pb-3 border-b border-[#f0ece6]">
-              <p className="text-[11px] font-bold text-[#6b6b80] uppercase tracking-wider mb-3">{label}</p>
-              <div className="overflow-x-auto -mx-1 px-1">
-              <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${n}, minmax(150px, 1fr))` }}>
+            {/* Label — общий заголовок группы */}
+            <div className="px-4 pt-4 pb-2">
+              <p className="text-[11px] font-bold text-[#6b6b80] uppercase tracking-wider">{label}</p>
+            </div>
+
+            {/* ── DESKTOP: карточки сервисов ── */}
+            <div className="hidden md:block px-4 pb-3 border-b border-[#f0ece6]">
+              <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${n}, 1fr)` }}>
                 {subs.map((s, i) => {
                   const entry = entries[i]
                   const isMax = i === 0
@@ -776,7 +779,6 @@ function DuplicatesPanel({ groups, cutIds, onCut, onKeepOnly }: DuplicatesPanelP
                   )
                 })}
               </div>
-              </div>
             </div>
 
             {/* Уведомление о нераспознанных сервисах */}
@@ -798,9 +800,112 @@ function DuplicatesPanel({ groups, cutIds, onCut, onKeepOnly }: DuplicatesPanelP
               </div>
             ) : null)}
 
-            {/* ── Feature comparison table ── */}
-            <div className="overflow-x-auto">
-            <table className="w-full text-xs border-collapse" style={{ minWidth: 140 + n * 120 }}>
+            {/* ── MOBILE: сравнение по сервисам (каждый сервис — отдельный блок) ── */}
+            <div className="md:hidden divide-y divide-[#f0ece6] border-b border-[#f0ece6]">
+              {subs.map((s, i) => {
+                const entry = entries[i]
+                const isMax = i === 0
+                const isCut = cutIds.has(s.id)
+                const exclusiveUniq = uniqueAdvPerEntry[i].filter(f => f.key === 'exclusive')
+                const usage = usageLabel(daysSinceLastUse(s.last_used_at), lang)
+                return (
+                  <div key={s.id} className={`p-4 ${isCut ? 'bg-[#fff8f8]' : ''}`}>
+                    {/* header: имя + бейдж дороже/дешевле */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className={`text-[15px] font-bold leading-snug ${isCut ? 'text-[#8e8e93] line-through' : 'text-[#1a1a2e]'}`}>{s.name}</p>
+                        {entry && (
+                          <p className="text-[12px] text-[#8e8e93] leading-snug mt-0.5">{(lang === 'en' && entry.taglineEn) ? entry.taglineEn : entry.tagline}</p>
+                        )}
+                      </div>
+                      {n > 1 && (
+                        <span className={`text-[10px] font-bold rounded-full px-2 py-0.5 shrink-0 border ${
+                          isMax ? 'text-[#e5484d] bg-white border-[#fde7ea]' : 'text-[#6b6b80] bg-white border-[#e7e3dc]'
+                        }`}>
+                          {isMax ? strings.simulator.dupMore : strings.simulator.dupLess}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* бейджи: эксклюзив + семейный */}
+                    {(exclusiveUniq.length > 0 || entry?.familyPlan) && (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {exclusiveUniq.length > 0 && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#92400e] bg-[#fef3c7] border border-[#fde68a] rounded-full px-2 py-0.5">
+                            {exclusiveUniq[0].value}
+                          </span>
+                        )}
+                        {entry?.familyPlan && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[#5b43d4] bg-[#ede9fc] rounded-full px-2 py-0.5">
+                            {strings.simulator.familyBadge(entry.familyPlan.slots)}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* цена */}
+                    <p className="text-[18px] font-bold text-[#1a1a2e] mt-2">
+                      {fmtCurrency(getMonthlyAmount(s), s.currency)}
+                      <span className="text-[13px] font-normal text-[#8e8e93]"> {strings.simulator.perMonthSuffix}</span>
+                    </p>
+                    <p className="text-[11px] text-[#8e8e93] mb-3">
+                      {formatBillingCycle(s, lang)}
+                      {' · '}
+                      ≈{fmtCurrency(Math.ceil(getMonthlyAmount(s) / 30), s.currency)}{strings.simulator.dayPerDay}
+                    </p>
+
+                    {/* характеристики: label → значение */}
+                    <dl className="rounded-xl border border-[#f0ece6] overflow-hidden">
+                      <div className="flex items-start justify-between gap-3 px-3 py-2 bg-[#fafaf9]">
+                        <dt className="text-[12px] text-[#6b6b80] shrink-0">{strings.simulator.dupLastUsed}</dt>
+                        <dd className={`text-[12px] text-right ${usage.cls}`}>{usage.text}</dd>
+                      </div>
+                      {hasDb && featureKeys && featureKeys.map(({ key, label: fLabel }, rowIdx) => {
+                        const { bestIdx } = rowWinners(entries, key)
+                        const feat = entry?.features.find(f => f.key === key)
+                        const isBest = bestIdx.has(i)
+                        return (
+                          <div key={key} className={`flex items-start justify-between gap-3 px-3 py-2 ${rowIdx % 2 === 0 ? 'bg-white' : 'bg-[#fafaf9]'}`}>
+                            <dt className="text-[12px] text-[#6b6b80] shrink-0">{fLabel}</dt>
+                            <dd className={`text-[12px] text-right ${feat ? LEVEL_CLASS[feat.level] : 'text-[#8e8e93]'} ${isBest ? 'font-semibold' : ''}`}>
+                              {feat?.value ?? '—'}
+                            </dd>
+                          </div>
+                        )
+                      })}
+                    </dl>
+
+                    {/* действия */}
+                    <div className="flex gap-2 mt-3">
+                      <button
+                        type="button"
+                        onClick={() => onCut(s.id)}
+                        className={`flex-1 rounded-lg py-2 text-[12px] font-semibold border transition-colors ${
+                          isCut
+                            ? 'border-[#fca5a5] bg-[#fde7ea] text-[#e5484d] hover:bg-[#ffd5d7]'
+                            : 'border-[#e7e3dc] text-[#6b6b80] hover:border-[#e5484d] hover:text-[#e5484d] hover:bg-[#fff8f8]'
+                        }`}
+                      >
+                        {isCut ? strings.simulator.dupRestore : strings.simulator.dupDisable}
+                      </button>
+                      {n > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => onKeepOnly(s.id, groupIds)}
+                          className="flex-1 rounded-lg py-2 text-[12px] font-semibold border border-[#e7e3dc] text-[#6b6b80] hover:border-[#12b76a] hover:text-[#12b76a] hover:bg-[#eef8f0] transition-colors"
+                        >
+                          {strings.simulator.dupKeep}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* ── DESKTOP: таблица сравнения ── */}
+            <div className="hidden md:block overflow-x-auto">
+            <table className="w-full text-xs border-collapse">
               <tbody>
                 {/* Usage row — always first */}
                 <tr className="bg-[#fafaf9]">
