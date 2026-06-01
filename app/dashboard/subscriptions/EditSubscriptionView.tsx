@@ -254,8 +254,8 @@ export default function EditSubscriptionView({
             </p>
           ) : null}
 
-          <div className="flex flex-wrap items-center gap-3 rounded-[18px] border border-[#e7e3dc] bg-white px-4 py-3 shadow-[0_1px_3px_rgba(26,26,61,0.06)]">
-            <div className="flex min-w-0 flex-1 items-center gap-3">
+          <div className="flex flex-col gap-3 rounded-[18px] border border-[#e7e3dc] bg-white px-4 py-3 shadow-[0_1px_3px_rgba(26,26,61,0.06)] sm:flex-row sm:flex-wrap sm:items-center">
+            <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
               <PaymentServiceIcon
                 icon={icon}
                 categorySlug={categorySlug}
@@ -263,29 +263,42 @@ export default function EditSubscriptionView({
                 shape={viz.shape}
                 size={48}
               />
-              <div className="min-w-0">
-                <strong className="text-[1.1rem] text-[#1a1a2e]">{name || '—'}</strong>
-                <span className={`ml-2 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${catChipClass}`}>
-                  {categoryLabelRu(categorySlug)}
-                </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <strong className="text-[1.1rem] leading-tight text-[#1a1a2e]">{name || '—'}</strong>
+                  <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${catChipClass}`}>
+                    {categoryLabelRu(categorySlug)}
+                  </span>
+                </div>
+                {/* Meta line under the name — mobile only */}
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 text-[13px] sm:hidden">
+                  <span className="text-[#1a1a2e]">{stripAmount}</span>
+                  <span className="text-[#6b6b80]">·</span>
+                  <span className="text-[#6b6b80]">{stripDue}</span>
+                </div>
               </div>
+              {/* Status — top-right on mobile, inline on desktop */}
+              <span className={`shrink-0 rounded-full px-2.5 py-1 text-[12px] font-semibold sm:hidden ${STRIP_STATUS_CLASS[status]}`}>
+                {status === 'active' ? e.stripStatusActive : status === 'paused' ? e.stripStatusPaused : status === 'cancelled' ? e.stripStatusCancelled : e.stripStatusArchived}
+              </span>
             </div>
-            <div className="text-[13px] text-[#1a1a2e]">{stripAmount}</div>
-            <div className="text-[13px] text-[#6b6b80]">{stripDue}</div>
-            <span className={`ml-auto rounded-full px-2.5 py-1 text-[12px] font-semibold ${STRIP_STATUS_CLASS[status]}`}>
+            {/* Meta + status — desktop only */}
+            <div className="hidden text-[13px] text-[#1a1a2e] sm:block">{stripAmount}</div>
+            <div className="hidden text-[13px] text-[#6b6b80] sm:block">{stripDue}</div>
+            <span className={`hidden rounded-full px-2.5 py-1 text-[12px] font-semibold sm:ml-auto sm:inline-block ${STRIP_STATUS_CLASS[status]}`}>
               {status === 'active' ? e.stripStatusActive : status === 'paused' ? e.stripStatusPaused : status === 'cancelled' ? e.stripStatusCancelled : e.stripStatusArchived}
             </span>
             <div className="flex gap-2">
               <Link
                 href={backHref}
-                className="inline-flex h-10 items-center rounded-[10px] border border-[#e7e3dc] bg-white px-4 text-[13px] font-semibold text-[#1a1a2e] no-underline hover:bg-[#f8f6f2]"
+                className="inline-flex h-10 flex-1 items-center justify-center rounded-[10px] border border-[#e7e3dc] bg-white px-4 text-[13px] font-semibold text-[#1a1a2e] no-underline hover:bg-[#f8f6f2] sm:flex-none"
               >
                 {e.backButton}
               </Link>
               <button
                 type="submit"
                 form="edit-sub-form"
-                className="inline-flex h-10 items-center rounded-[10px] border-0 bg-[#0d9f6e] px-4 text-[13px] font-semibold text-white shadow-[0_2px_8px_rgba(13,159,110,0.35)] hover:brightness-105"
+                className="inline-flex h-10 flex-1 items-center justify-center rounded-[10px] border-0 bg-[#0d9f6e] px-4 text-[13px] font-semibold text-white shadow-[0_2px_8px_rgba(13,159,110,0.35)] hover:brightness-105 sm:flex-none"
               >
                 {e.saveButton}
               </button>
