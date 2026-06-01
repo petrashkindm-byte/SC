@@ -308,48 +308,51 @@ function AiDailyTipCard({ subs, dataFingerprint }: { subs: Subscription[]; dataF
 
 // ── Upcoming Row ──────────────────────────────────────────────
 
+function cycleTotalDays(sub: Subscription): number {
+  const interval = sub.billing_interval ?? 1
+  switch (sub.billing_cycle) {
+    case 'weekly':    return 7 * interval
+    case 'monthly':   return 30 * interval
+    case 'quarterly': return 90 * interval
+    case 'yearly':    return 365 * interval
+    case 'custom':    return sub.custom_interval_days ?? 30
+    default:          return 30
+  }
+}
+
 function UpcomingRow({ sub, isFirst, index }: { sub: Subscription; isFirst: boolean; index: number }) {
   const isDark = useDarkMode()
   const { lang, strings } = useLang()
   const up = strings.upcoming
-  const cycleStrings = strings.cycle
   const days = daysUntil(sub.next_charge_date)
   const iconDisplay = resolveSubscriptionIconDisplay(sub.notes, sub.icon, sub.category_slug)
   const presetColors = sub.card_color_preset
     ? CARD_COLOR_PRESETS.find(p => p.key === sub.card_color_preset) ?? null
     : null
 
-  let badge: { label: string; color: string; bg: string } | null = null
-  if (isDark) {
-    if (days <= 0)       badge = { label: up.today, color: '#f87171', bg: '#2a0808' }
-    else if (days === 1) badge = { label: up.tomorrow, color: '#f87171', bg: '#2a0808' }
-    else if (days <= 4)  badge = { label: up.days(days), color: '#fb923c', bg: '#2a1200' }
-    else if (days <= 7)  badge = { label: up.days(days), color: '#34d399', bg: '#0a2318' }
-  } else {
-    if (days <= 0)       badge = { label: up.today, color: '#d94851', bg: '#fde7ea' }
-    else if (days === 1) badge = { label: up.tomorrow, color: '#d94851', bg: '#fde7ea' }
-    else if (days <= 4)  badge = { label: up.days(days), color: '#c96a1a', bg: '#ffeadd' }
-    else if (days <= 7)  badge = { label: up.days(days), color: '#0f8f54', bg: '#e4f6ec' }
-  }
+  // Progress bar
+  const totalDays = cycleTotalDays(sub)
+  const pct = Math.min(100, Math.max(0, ((totalDays - days) / totalDays) * 100))
+  const urgent = days <= 3
+  const barColor = urgent
+    ? 'linear-gradient(to right, #f87171, #ef4444)'
+    : 'linear-gradient(to right, #c4b5f8, #8eecd6)'
+
+  const daysLabel = lang === 'en'
+    ? (days === 0 ? 'today' : `in ${days}d`)
+    : (days === 0 ? 'сегодня' : `через ${days} д.`)
 
   const dateLocale = lang === 'en' ? 'en-US' : 'ru-RU'
   const dateLabel = new Date(sub.next_charge_date).toLocaleDateString(dateLocale, { day: 'numeric', month: 'short' })
-  const CYCLE_LABEL: Record<string, string> = {
-    weekly: cycleStrings.weekly,
-    monthly: cycleStrings.monthly,
-    quarterly: cycleStrings.quarterly,
-    yearly: cycleStrings.yearly,
-    custom: cycleStrings.custom,
-  }
 
   return (
     <Link
       href={`/dashboard/subscriptions/${sub.id}`}
-      className={`su-slide-left grid items-center gap-x-3.5 py-4 pr-5 text-current no-underline transition-colors hover:bg-[rgba(91,67,212,0.04)] active:scale-[0.99] ${
+      className={`su-slide-left grid items-center gap-x-3.5 py-3.5 text-current no-underline transition-colors hover:bg-[rgba(91,67,212,0.04)] active:scale-[0.99] ${
         isFirst ? '' : 'border-t border-[#ececee]'
       }`}
       style={{
-        gridTemplateColumns: '48px 1fr minmax(88px,auto) auto',
+        gridTemplateColumns: '48px 1fr auto',
         paddingLeft: '20px',
         paddingRight: '20px',
         animationDelay: `${index * 80}ms`,
@@ -366,30 +369,36 @@ function UpcomingRow({ sub, isFirst, index }: { sub: Subscription; isFirst: bool
         className="flex-shrink-0"
       />
 
-      {/* Name + cycle */}
+      {/* Name + progress bar */}
       <div className="min-w-0">
-        <p className="text-[15px] font-semibold text-[#1a1a2e] truncate leading-snug">{sub.name}</p>
-        <p className="text-[13px] text-[#8e8e93] mt-0.5">{CYCLE_LABEL[sub.billing_cycle] ?? sub.billing_cycle}</p>
+        <p className="text-[15px] font-semibold text-[#1a1a2e] truncate leading-snug mb-1.5">{sub.name}</p>
+        {/* Bar meta */}
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[10px] text-[#8e8e93]">
+            {lang === 'en' ? 'next charge' : 'следующее списание'}
+          </span>
+          <span
+            className="text-[10px] font-semibold"
+            style={{ color: urgent ? '#ef4444' : '#5b43d4' }}
+          >
+            {daysLabel}
+          </span>
+        </div>
+        {/* Bar track */}
+        <div className="h-[3px] rounded-full overflow-hidden" style={{ background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(124,92,225,0.12)' }}>
+          <div
+            className="h-full rounded-full"
+            style={{ width: `${pct}%`, background: barColor }}
+          />
+        </div>
       </div>
 
       {/* Amount + date */}
-      <div className="text-right">
+      <div className="text-right shrink-0">
         <p className="text-[15px] font-semibold text-[#1a1a2e] tabular-nums leading-snug">
           {fmtCurrency(coerceNumber(sub.amount), sub.currency ?? 'RUB', 0)}
         </p>
         <p className="text-[13px] text-[#8e8e93] mt-0.5">{dateLabel}</p>
-      </div>
-
-      {/* Badge */}
-      <div className="flex justify-end">
-        {badge && (
-          <span
-            className="px-2.5 py-[5px] rounded-full text-xs font-semibold whitespace-nowrap leading-none"
-            style={{ background: badge.bg, color: badge.color }}
-          >
-            {badge.label}
-          </span>
-        )}
       </div>
     </Link>
   )
