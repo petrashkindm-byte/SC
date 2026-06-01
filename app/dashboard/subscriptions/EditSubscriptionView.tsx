@@ -64,7 +64,11 @@ export default function EditSubscriptionView({
   const toastShownRef = useRef(false)
   const [saveToast, setSaveToast] = useState(false)
 
-  const backHref = `/dashboard/subscriptions/${sub.id}`
+  // Если пришли из списка платежей — возвращаемся туда с авто-открытием панели
+  const fromPayments = searchParams.get('from') === 'payments'
+  const backHref = fromPayments
+    ? `/dashboard?tab=payments&openSub=${sub.id}`
+    : `/dashboard/subscriptions/${sub.id}`
 
   const initialTab = (() => {
     const t = searchParams.get('tab')
@@ -236,6 +240,7 @@ export default function EditSubscriptionView({
 
         <form id="edit-sub-form" action={updateSubscriptionFields} className="space-y-5">
           <input type="hidden" name="subscription_id" value={sub.id} />
+          <input type="hidden" name="from" value={fromPayments ? 'payments' : ''} />
           <input type="hidden" name="currency" value={currency} />
           <input type="hidden" name="first_charge_date" value={firstCharge} />
           <input type="hidden" name="icon" value={icon} />

@@ -258,7 +258,7 @@ function SubscriptionDetailPanel({
               </button>
             )}
             <Link
-              href={`/dashboard/subscriptions/${sub.id}/edit`}
+              href={`/dashboard/subscriptions/${sub.id}/edit?from=payments`}
               className="flex w-full items-center justify-center gap-2 rounded-xl border border-[rgba(91,67,212,0.2)] bg-[#f5f0ff] py-2.5 text-[14px] font-semibold text-[#5b43d4] hover:bg-[#ede6ff] transition-colors"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -350,7 +350,11 @@ export default function PaymentsTable({
   const [markingPaidId, setMarkingPaidId] = useState<string | null>(null)
   const [actionsOpenId, setActionsOpenId] = useState<string | null>(null)
   const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null)
-  const [detailSub, setDetailSub] = useState<Subscription | null>(null)
+  const [detailSub, setDetailSub] = useState<Subscription | null>(() => {
+    // Авто-открытие панели при возврате со страницы редактирования (?openSub=<id>)
+    const id = searchParams.get('openSub')
+    return id ? subs.find((s) => s.id === id) ?? null : null
+  })
   const [viewMode, setViewMode] = useState<'list' | 'grid'>(() => {
     if (typeof window === 'undefined') return 'list'
     const stored = localStorage.getItem('payments_view')
@@ -431,6 +435,7 @@ export default function PaymentsTable({
     else params.delete('q')
     params.set('sort', sortKey)
     params.set('dir', sortDir)
+    params.delete('openSub') // одноразовый параметр авто-открытия панели — убираем из URL
     const next = `/dashboard?${params.toString()}`
     if (next !== `/dashboard?${searchParams.toString()}`) router.replace(next, { scroll: false })
   }, [filter, search, sortKey, sortDir, router, searchParams])
@@ -439,7 +444,6 @@ export default function PaymentsTable({
     () => groupMonthlyByCurrency(effectiveSubs.filter((s) => s.status === 'active'), getMonthlyAmount),
     [effectiveSubs],
   )
-  const activeCount = useMemo(() => effectiveSubs.filter((s) => s.status === 'active').length, [effectiveSubs])
 
   // Stats
   const todayCount   = useMemo(() => effectiveSubs.filter((s) => s.status === 'active' && daysUntil(s.next_charge_date) === 0).length, [effectiveSubs])
@@ -521,7 +525,7 @@ export default function PaymentsTable({
   /** Пункты выпадающего меню строки/карточки — общие для списка и плитки */
   const rowMenuItems = (sub: Subscription, days: number) => (
     <>
-      <button type="button" onClick={() => { router.push(`/dashboard/subscriptions/${sub.id}/edit`); setActionsOpenId(null) }} className="block w-full rounded-lg px-3 py-2 text-left text-xs text-[#1a1a2e] hover:bg-[#f7f6fe]">{p.editButton}</button>
+      <button type="button" onClick={() => { router.push(`/dashboard/subscriptions/${sub.id}/edit?from=payments`); setActionsOpenId(null) }} className="block w-full rounded-lg px-3 py-2 text-left text-xs text-[#1a1a2e] hover:bg-[#f7f6fe]">{p.editButton}</button>
       {sub.status === 'active' && days <= 3 && (
         <button type="button" disabled={markingPaidId === sub.id} onClick={async (e) => { e.stopPropagation(); setMarkingPaidId(sub.id); try { await markAsPaid(sub.id) } finally { setMarkingPaidId(null); setActionsOpenId(null) } }} className="block w-full rounded-lg px-3 py-2 text-left text-xs text-[#0d9f6e] hover:bg-[#f0faf5] disabled:opacity-50">
           {markingPaidId === sub.id ? '…' : p.paidButton}
@@ -589,10 +593,7 @@ export default function PaymentsTable({
       {/* ── Header ──────────────────────────────────────────────────── */}
       <header className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="shrink-0">
-          <h1 className="m-0 mb-1 text-[1.75rem] font-bold tracking-[-0.03em] text-[#1a1a2e]">{p.title}</h1>
-          <p className="m-0 text-sm text-[#6b6b80] leading-snug">
-            {p.activeCount(activeCount)} · {p.perMonth}: {formatGroups(monthlyGroups)}
-          </p>
+          <h1 className="m-0 text-[1.75rem] font-bold tracking-[-0.03em] text-[#1a1a2e]">{p.title}</h1>
         </div>
         <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 lg:flex-1 lg:justify-end">
           <div className="flex items-center gap-2.5 flex-1 lg:flex-none">
