@@ -408,36 +408,39 @@ export default function PaymentsTable({
         </div>
       ) : null}
 
-      <header className="flex flex-wrap items-start justify-between gap-4 mb-6">
-        <div>
+      <header className="mb-6">
+        {/* Title */}
+        <div className="mb-3">
           <h1 className="m-0 mb-1 text-[1.75rem] font-bold tracking-[-0.03em] text-[#1a1a2e]">{p.title}</h1>
           <p className="m-0 text-sm text-[#6b6b80] leading-snug">
             {p.activeCount(activeCount)} · {p.perMonth}: {formatGroups(monthlyGroups)}
           </p>
         </div>
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <div className="flex items-center gap-2.5 bg-white border border-[rgba(26,26,61,0.08)] rounded-full pl-4 pr-4 min-w-[260px] max-w-[420px] h-11 shadow-[0_1px_3px_rgba(26,26,61,0.06),0_8px_24px_rgba(26,26,61,0.06)]">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 opacity-[0.45] text-[#1a1a2e]">
-              <circle cx="11" cy="11" r="7" />
-              <path d="M21 21l-4.3-4.3" />
-            </svg>
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={p.searchPlaceholder}
-              aria-label={p.searchAriaLabel}
-              className="flex-1 min-w-0 border-0 bg-transparent outline-none text-sm text-[#1a1a2e] placeholder:text-[#9a9aaf] font-[inherit]"
-            />
-          </div>
+        {/* Controls: search+bell row, then add button (mobile: stacked; desktop: inline) */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
+          <div className="flex items-center gap-2.5 flex-1">
+            <div className="flex items-center gap-2.5 bg-white border border-[rgba(26,26,61,0.08)] rounded-full pl-4 pr-4 flex-1 h-11 shadow-[0_1px_3px_rgba(26,26,61,0.06),0_8px_24px_rgba(26,26,61,0.06)]">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 opacity-[0.45] text-[#1a1a2e]">
+                <circle cx="11" cy="11" r="7" />
+                <path d="M21 21l-4.3-4.3" />
+              </svg>
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={p.searchPlaceholder}
+                aria-label={p.searchAriaLabel}
+                className="flex-1 min-w-0 border-0 bg-transparent outline-none text-sm text-[#1a1a2e] placeholder:text-[#9a9aaf] font-[inherit]"
+              />
+            </div>
 
-          <div className="relative" ref={notifRef}>
-            <button
-              type="button"
-              className="relative flex h-11 w-11 items-center justify-center rounded-xl border border-[rgba(26,26,61,0.08)] bg-white shadow-[0_1px_3px_rgba(26,26,61,0.06),0_8px_24px_rgba(26,26,61,0.06)] text-[#1a1a2e]"
-              aria-label={p.notifAriaLabel}
-              onClick={() => setNotifOpen((v) => !v)}
-            >
+            <div className="relative shrink-0" ref={notifRef}>
+              <button
+                type="button"
+                className="relative flex h-11 w-11 items-center justify-center rounded-xl border border-[rgba(26,26,61,0.08)] bg-white shadow-[0_1px_3px_rgba(26,26,61,0.06),0_8px_24px_rgba(26,26,61,0.06)] text-[#1a1a2e]"
+                aria-label={p.notifAriaLabel}
+                onClick={() => setNotifOpen((v) => !v)}
+              >
               {notifItems.length > 0 && (
                 <span className="absolute top-2.5 right-2.5 h-2 w-2 rounded-full bg-[#e5484d] ring-2 ring-white su-pulse-dot" />
               )}
@@ -497,19 +500,23 @@ export default function PaymentsTable({
                 </div>
               </div>
             ) : null}
+            </div>
           </div>
 
+          {/* Add button — full width on mobile, auto on desktop */}
           <button
             type="button"
             onClick={() => setAddModalOpen(true)}
-            className={`${actionButtonClass('primary')} gap-2 px-5`}
+            className={`${actionButtonClass('primary')} gap-2 px-5 w-full sm:w-auto justify-center`}
           >
             {p.addButton}
           </button>
         </div>
       </header>
 
-      <div className="mb-[18px] flex flex-wrap items-center gap-2">
+      {/* Filter chips — horizontal scroll on mobile, wrap on desktop */}
+      <div className="mb-[18px]">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] sm:flex-wrap sm:overflow-visible">
         {(['all', 'active', 'soon', 'paused', 'cancelled'] as const).map((key) => {
           const isActive = filter === key
           const labelMap: Record<PaymentsFilter, string> = {
@@ -524,7 +531,7 @@ export default function PaymentsTable({
               key={key}
               type="button"
               onClick={() => setFilter(key)}
-              className={`rounded-full px-4 py-2.5 text-[13px] font-medium transition-colors border ${
+              className={`shrink-0 rounded-full px-4 py-2.5 text-[13px] font-medium transition-colors border ${
                 isActive
                   ? 'border-[#0d9f6e] bg-[#0d9f6e] text-white shadow-[0_4px_14px_rgba(13,159,110,0.35)]'
                   : `border-[rgba(26,26,61,0.08)] bg-white text-[#6b6b80] ${FILTER_HOVER[key]}`
@@ -534,7 +541,29 @@ export default function PaymentsTable({
             </button>
           )
         })}
-        <div className="ml-auto flex items-center gap-2">
+          {/* Sort controls — hidden on mobile, inline on desktop */}
+          <div className="ml-auto hidden sm:flex items-center gap-2 shrink-0">
+            <select
+              value={sortKey}
+              onChange={(e) => setSortKey(e.target.value as PaymentsSortKey)}
+              className={`${actionButtonClass('ghost', 'sm')} font-normal`}
+              aria-label={p.sortLabel}
+            >
+              <option value="next_charge">{p.sortByDate}</option>
+              <option value="amount">{p.sortByAmount}</option>
+              <option value="name">{p.sortByName}</option>
+            </select>
+            <button
+              type="button"
+              onClick={() => setSortDir((v) => (v === 'asc' ? 'desc' : 'asc'))}
+              className={actionButtonClass('ghost', 'sm')}
+            >
+              {sortDir === 'asc' ? '↑' : '↓'}
+            </button>
+          </div>
+        </div>
+        {/* Sort controls — mobile only row */}
+        <div className="flex items-center justify-end gap-2 mt-2 sm:hidden">
           <select
             value={sortKey}
             onChange={(e) => setSortKey(e.target.value as PaymentsSortKey)}
