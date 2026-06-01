@@ -170,7 +170,7 @@ export default function DashboardSidebar({ displayName, paymentsCount }: Dashboa
     <aside className="w-[250px] shrink-0 bg-[#1a1a3d] text-white px-3 py-4 h-full flex flex-col overflow-y-auto">
       {/* Logo */}
       <div className="flex items-center gap-2 px-2 pb-4">
-        <Image src="/subcuro_ribbon_s_transparent.png" width={28} height={28} alt="Subcuro" />
+        <Image src="/subcuro_ribbon_s_transparent.png" width={28} height={28} alt="SubCuro" />
         <span style={{ fontFamily: 'Georgia, "Times New Roman", Times, serif', fontWeight: 800, fontSize: '22px', letterSpacing: '-0.7px' }}>SubCuro</span>
       </div>
 

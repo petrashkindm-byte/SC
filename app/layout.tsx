@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Subcuro — подписки в браузере",
+  title: "SubCuro — подписки в браузере",
   description:
-    "Те же данные, что в приложении Subcuro: активные подписки, расход в месяц и ближайшие списания.",
+    "Те же данные, что в приложении SubCuro: активные подписки, расход в месяц и ближайшие списания.",
   icons: {
     icon: [
       { url: "/favicon.png", type: "image/png" },
@@ -25,15 +25,15 @@ export const metadata: Metadata = {
     shortcut: "/favicon.png",
   },
   openGraph: {
-    title: "Subcuro — управление подписками",
+    title: "SubCuro — управление подписками",
     description: "Отслеживайте подписки, контролируйте расходы и экономьте с AI-советником.",
     type: "website",
     locale: "ru_RU",
-    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Subcuro" }],
+    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "SubCuro" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Subcuro — управление подписками",
+    title: "SubCuro — управление подписками",
     description: "Отслеживайте подписки, контролируйте расходы и экономьте с AI-советником.",
     images: ["/og-image.png"],
   },

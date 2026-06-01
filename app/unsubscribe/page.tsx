@@ -30,7 +30,7 @@ export default async function UnsubscribePage({ searchParams }: Props) {
   return (
     <main style={{ fontFamily: 'sans-serif', background: '#f8f6f2', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px' }}>
       <div style={{ maxWidth: 480, width: '100%', background: '#fff', borderRadius: 16, padding: 40, border: '1px solid #e7e3dc', textAlign: 'center' }}>
-        <p style={{ fontSize: 13, color: '#6b6b80', margin: '0 0 16px' }}>Subcuro</p>
+        <p style={{ fontSize: 13, color: '#6b6b80', margin: '0 0 16px' }}>SubCuro</p>
 
         {status === 'success' && (
           <>

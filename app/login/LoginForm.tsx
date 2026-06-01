@@ -36,7 +36,7 @@ export default function LoginForm() {
   return (
     <div className="w-full max-w-sm">
       <div className="mb-8 text-center">
-        <h1 className="text-2xl font-bold text-white">Subcuro</h1>
+        <h1 className="text-2xl font-bold text-white">SubCuro</h1>
         <p className="text-gray-400 mt-1 text-sm">Вход в аккаунт</p>
       </div>
 

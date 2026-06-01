@@ -6,7 +6,7 @@ export default function DashboardHeader() {
     <header className="border-b border-gray-800 px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
       <div className="flex items-center gap-5 min-w-0">
         <Link href="/dashboard" className="text-lg font-semibold tracking-tight text-white shrink-0">
-          Subcuro
+          SubCuro
         </Link>
         <nav className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-400">
           <Link href="/dashboard" className="hover:text-white transition-colors">
