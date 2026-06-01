@@ -395,6 +395,47 @@ function UpcomingRow({ sub, isFirst, index }: { sub: Subscription; isFirst: bool
   )
 }
 
+// ── Calendar helpers ──────────────────────────────────────────
+
+/**
+ * Returns the day-of-month on which a subscription charges in the given
+ * year/month, or null if it does not charge that month.
+ *
+ * Monthly  → same day every month (clamped to month's last day)
+ * Yearly   → only in the anniversary calendar month
+ * Quarterly→ every 3 months from the next_charge_date month
+ * Weekly/custom → only the specific month of next_charge_date
+ */
+function getChargeDayInMonth(
+  sub: Subscription,
+  year: number,
+  month: number,
+): number | null {
+  const nextDate = parseIsoDateLocal(sub.next_charge_date)
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const clamp = (d: number) => Math.min(d, daysInMonth)
+
+  if (sub.billing_cycle === 'monthly') {
+    return clamp(nextDate.getDate())
+  }
+
+  if (sub.billing_cycle === 'yearly') {
+    return nextDate.getMonth() === month ? clamp(nextDate.getDate()) : null
+  }
+
+  if (sub.billing_cycle === 'quarterly') {
+    const nextIdx = nextDate.getFullYear() * 12 + nextDate.getMonth()
+    const selIdx  = year * 12 + month
+    return (selIdx - nextIdx) % 3 === 0 ? clamp(nextDate.getDate()) : null
+  }
+
+  // weekly / custom: show only if next_charge_date falls in this exact month
+  if (nextDate.getFullYear() === year && nextDate.getMonth() === month) {
+    return nextDate.getDate()
+  }
+  return null
+}
+
 // ── Calendar ──────────────────────────────────────────────────
 
 function WriteoffCalendar({ subs }: { subs: Subscription[] }) {
@@ -410,26 +451,23 @@ function WriteoffCalendar({ subs }: { subs: Subscription[] }) {
   const chargeMap = useMemo(() => {
     const map = new Map<number, Subscription[]>()
     subs.forEach((sub) => {
-      const d = new Date(sub.next_charge_date)
-      if (d.getFullYear() === calYear && d.getMonth() === calMonth) {
-        const day = d.getDate()
-        if (!map.has(day)) map.set(day, [])
-        map.get(day)!.push(sub)
-      }
+      const day = getChargeDayInMonth(sub, calYear, calMonth)
+      if (day === null) return
+      if (!map.has(day)) map.set(day, [])
+      map.get(day)!.push(sub)
     })
     return map
   }, [subs, calMonth, calYear])
 
   const monthTotalGroups = useMemo(() => {
-    // Суммируем только те подписки, чья next_charge_date попадает в выбранный месяц —
+    // Суммируем все подписки, которые заряжаются в выбранном месяце —
     // та же логика, что у chargeMap, чтобы сумма совпадала с точками на календаре.
     const map = new Map<string, number>()
     subs.forEach((s) => {
-      const d = parseIsoDateLocal(s.next_charge_date)
-      if (d.getFullYear() === calYear && d.getMonth() === calMonth) {
-        const cur = (s.currency ?? 'RUB').toUpperCase()
-        map.set(cur, (map.get(cur) ?? 0) + coerceNumber(s.amount))
-      }
+      const day = getChargeDayInMonth(s, calYear, calMonth)
+      if (day === null) return
+      const cur = (s.currency ?? 'RUB').toUpperCase()
+      map.set(cur, (map.get(cur) ?? 0) + coerceNumber(s.amount))
     })
     return Array.from(map.entries())
       .sort(([, a], [, b]) => b - a)
@@ -602,7 +640,7 @@ export default function TodayView({
 
   const upcoming = useMemo(
     () => activeSubs
-      .filter(s => { const d = daysUntil(s.next_charge_date); return d >= 0 && d <= 30 })
+      .filter(s => { const d = daysUntil(s.next_charge_date); return d >= 0 && d <= 7 })
       .sort((a, b) => a.next_charge_date.localeCompare(b.next_charge_date)),
     [activeSubs],
   )

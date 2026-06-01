@@ -148,37 +148,126 @@ export default function DashboardScreenHeader({
       .slice(0, 6)
   }, [subs, dismissedIds])
 
+  const bellButton = (
+    <div ref={notifRef}>
+      <button
+        ref={bellRef}
+        type="button"
+        className="relative flex h-11 w-11 items-center justify-center rounded-xl border border-[rgba(26,26,61,0.08)] bg-white text-[#1a1a2e] shadow-[0_1px_3px_rgba(26,26,61,0.06),0_8px_24px_rgba(26,26,61,0.06)]"
+        aria-label={h.notifications}
+        onClick={() => {
+          if (bellRef.current) {
+            const r = bellRef.current.getBoundingClientRect()
+            setNotifPos({ top: r.bottom + 8, right: window.innerWidth - r.right })
+          }
+          setNotifOpen((v) => !v)
+        }}
+      >
+        {notifItems.length > 0 && (
+          <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-[#e5484d] ring-2 ring-white su-pulse-dot" />
+        )}
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" className={notifItems.length > 0 ? 'su-bell-ring' : ''}>
+          <path d="M18 8a6 6 0 10-12 0c0 7-3 7-3 7h18s-3 0-3-7M13.73 21a2 2 0 01-3.46 0" />
+        </svg>
+      </button>
+      {notifOpen && notifPos ? createPortal(
+        <div
+          ref={dropdownRef}
+          style={{ position: 'fixed', top: notifPos.top, right: notifPos.right, zIndex: 9999, width: 'min(360px, 92vw)' }}
+          className="rounded-2xl border border-[rgba(26,26,61,0.08)] bg-white shadow-[0_4px_6px_rgba(26,26,61,0.04),0_12px_32px_rgba(26,26,61,0.10)]"
+        >
+          <div className="px-4 pt-4 pb-2 flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#6b6b80]">{h.notificationsTitle}</span>
+            {notifItems.length > 0 && (
+              <span className="text-[11px] font-semibold text-[#5b43d4]">{h.thisWeek}</span>
+            )}
+          </div>
+          <div className="max-h-[320px] overflow-y-auto px-2 pb-2">
+            {notifItems.length === 0 ? (
+              <div className="flex flex-col items-center gap-1.5 py-8 text-center">
+                <span className="text-[28px]" aria-hidden>·</span>
+                <p className="text-[13px] text-[#6b6b80]">{h.noChargesThisWeek}</p>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {notifItems.map((s) => {
+                  const days = daysUntil(s.next_charge_date)
+                  const { badge } = urgencyStyle(days)
+                  const amount = getMonthlyAmount(s)
+                  return (
+                    <Link
+                      key={s.id}
+                      href={`/dashboard/subscriptions/${s.id}`}
+                      className="flex items-center gap-3 rounded-xl px-2.5 py-2.5 hover:bg-[#f8f7ff] transition-colors"
+                      onClick={() => { dismissNotif(s.id); setNotifOpen(false) }}
+                    >
+                      <PaymentServiceIcon
+                        icon={s.icon}
+                        categorySlug={s.category_slug}
+                        iconBg={resolveSubscriptionIconDisplay(s.notes, s.icon, s.category_slug).iconBg}
+                        size={36}
+                        shape="rounded"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[13px] font-semibold text-[#1a1a2e] truncate">{s.name}</p>
+                        <p className="text-[11px] text-[#6b6b80] mt-0.5">{formatDateShort(s.next_charge_date)}</p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <span className="text-[13px] font-semibold text-[#1a1a2e]">
+                          {fmtCurrency(amount, s.currency)}
+                        </span>
+                        <span className={`text-[10px] font-semibold rounded-full px-2 py-0.5 ${badge}`}>
+                          {dueRelativePhrase(days, strings)}
+                        </span>
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>,
+        document.body
+      ) : null}
+    </div>
+  )
+
+  if (greetingName) {
+    return (
+      <header className={className}>
+        <div className="flex items-start justify-between gap-3 w-full">
+          <div className="flex-1 min-w-0">
+            <h1 className="m-0 text-[1.75rem] font-bold tracking-[-0.03em] text-[#1a1a2e] leading-tight">
+              <span
+                style={{
+                  background: 'linear-gradient(90deg, #6b55f6 0%, #34d399 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                }}
+              >
+                {getGreeting(lang)}{','}
+              </span>
+              {' '}{greetingName}
+            </h1>
+            <div className="mt-1.5 flex items-baseline gap-2 flex-wrap">
+              <p className="m-0 text-[1.05rem] font-bold tracking-[-0.02em] text-[#1a1a2e]">{title}</p>
+              <p className="m-0 text-sm text-[#6b6b80] leading-snug">{headerDate(lang)}</p>
+            </div>
+          </div>
+          <div className="shrink-0 mt-0.5">{bellButton}</div>
+        </div>
+      </header>
+    )
+  }
+
   return (
     <header className={`flex flex-wrap gap-4 items-center justify-between ${className}`}>
-      {greetingName ? (
-        /* Greeting mode: one line, same size */
-        <h1 className="m-0 text-[1.75rem] font-bold tracking-[-0.03em] text-[#1a1a2e] leading-none">
-          <span
-            style={{
-              background: 'linear-gradient(90deg, #6b55f6 0%, #34d399 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-            }}
-          >
-            {getGreeting(lang)}{','}
-          </span>
-          {' '}{greetingName}
-        </h1>
-      ) : (
-        <div>
-          <h1 className="m-0 mb-1 text-[1.75rem] font-bold tracking-[-0.03em] text-[#1a1a2e]">{title}</h1>
-          <p className="m-0 text-sm text-[#6b6b80] leading-snug">{headerDate(lang)}</p>
-        </div>
-      )}
+      <div>
+        <h1 className="m-0 mb-1 text-[1.75rem] font-bold tracking-[-0.03em] text-[#1a1a2e]">{title}</h1>
+        <p className="m-0 text-sm text-[#6b6b80] leading-snug">{headerDate(lang)}</p>
+      </div>
       <div className="flex flex-wrap items-center gap-2.5">
-        {greetingName && (
-          /* Title + date pushed to far right, before the bell */
-          <div className="text-right mr-1">
-            <p className="m-0 mb-0.5 text-[1.75rem] font-bold tracking-[-0.03em] text-[#1a1a2e] leading-none">{title}</p>
-            <p className="m-0 text-sm text-[#6b6b80] leading-snug">{headerDate(lang)}</p>
-          </div>
-        )}
         {!hideSearch && (
           <div className="flex h-11 min-w-[260px] max-w-[420px] items-center gap-2.5 rounded-full border border-[rgba(26,26,61,0.08)] bg-white pl-4 pr-4 shadow-[0_1px_3px_rgba(26,26,61,0.06),0_8px_24px_rgba(26,26,61,0.06)]">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-[#1a1a2e] opacity-[0.45]">
@@ -198,89 +287,7 @@ export default function DashboardScreenHeader({
             />
           </div>
         )}
-
-        <div ref={notifRef}>
-          <button
-            ref={bellRef}
-            type="button"
-            className="relative flex h-11 w-11 items-center justify-center rounded-xl border border-[rgba(26,26,61,0.08)] bg-white text-[#1a1a2e] shadow-[0_1px_3px_rgba(26,26,61,0.06),0_8px_24px_rgba(26,26,61,0.06)]"
-            aria-label={h.notifications}
-            onClick={() => {
-              if (bellRef.current) {
-                const r = bellRef.current.getBoundingClientRect()
-                setNotifPos({ top: r.bottom + 8, right: window.innerWidth - r.right })
-              }
-              setNotifOpen((v) => !v)
-            }}
-          >
-            {notifItems.length > 0 && (
-              <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-[#e5484d] ring-2 ring-white su-pulse-dot" />
-            )}
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" className={notifItems.length > 0 ? 'su-bell-ring' : ''}>
-              <path d="M18 8a6 6 0 10-12 0c0 7-3 7-3 7h18s-3 0-3-7M13.73 21a2 2 0 01-3.46 0" />
-            </svg>
-          </button>
-          {notifOpen && notifPos ? createPortal(
-            <div
-              ref={dropdownRef}
-              style={{ position: 'fixed', top: notifPos.top, right: notifPos.right, zIndex: 9999, width: 'min(360px, 92vw)' }}
-              className="rounded-2xl border border-[rgba(26,26,61,0.08)] bg-white shadow-[0_4px_6px_rgba(26,26,61,0.04),0_12px_32px_rgba(26,26,61,0.10)]"
-            >
-              <div className="px-4 pt-4 pb-2 flex items-center justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-[#6b6b80]">{h.notificationsTitle}</span>
-                {notifItems.length > 0 && (
-                  <span className="text-[11px] font-semibold text-[#5b43d4]">{h.thisWeek}</span>
-                )}
-              </div>
-              <div className="max-h-[320px] overflow-y-auto px-2 pb-2">
-                {notifItems.length === 0 ? (
-                  <div className="flex flex-col items-center gap-1.5 py-8 text-center">
-                    <span className="text-[28px]" aria-hidden>·</span>
-                    <p className="text-[13px] text-[#6b6b80]">{h.noChargesThisWeek}</p>
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    {notifItems.map((s) => {
-                      const days = daysUntil(s.next_charge_date)
-                      const { badge } = urgencyStyle(days)
-                      const amount = getMonthlyAmount(s)
-                      return (
-                        <Link
-                          key={s.id}
-                          href={`/dashboard/subscriptions/${s.id}`}
-                          className="flex items-center gap-3 rounded-xl px-2.5 py-2.5 hover:bg-[#f8f7ff] transition-colors"
-                          onClick={() => { dismissNotif(s.id); setNotifOpen(false) }}
-                        >
-                          <PaymentServiceIcon
-                            icon={s.icon}
-                            categorySlug={s.category_slug}
-                            iconBg={resolveSubscriptionIconDisplay(s.notes, s.icon, s.category_slug).iconBg}
-                            size={36}
-                            shape="rounded"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[13px] font-semibold text-[#1a1a2e] truncate">{s.name}</p>
-                            <p className="text-[11px] text-[#6b6b80] mt-0.5">{formatDateShort(s.next_charge_date)}</p>
-                          </div>
-                          <div className="flex flex-col items-end gap-1 shrink-0">
-                            <span className="text-[13px] font-semibold text-[#1a1a2e]">
-                              {fmtCurrency(amount, s.currency)}
-                            </span>
-                            <span className={`text-[10px] font-semibold rounded-full px-2 py-0.5 ${badge}`}>
-                              {dueRelativePhrase(days, strings)}
-                            </span>
-                          </div>
-                        </Link>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>,
-            document.body
-          ) : null}
-        </div>
-
+        {bellButton}
         {!hideAddButton && (
           <Link
             href="/dashboard/subscriptions/new"
