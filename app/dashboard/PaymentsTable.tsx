@@ -129,7 +129,6 @@ function SubscriptionDetailPanel({
   sub,
   onClose,
   onMarkPaid,
-  onStatusChange,
   onDelete,
   markingPaidId,
   statusUpdatingId,
@@ -139,7 +138,6 @@ function SubscriptionDetailPanel({
   sub: Subscription
   onClose: () => void
   onMarkPaid: (id: string) => void
-  onStatusChange: (sub: Subscription, next: 'active' | 'paused' | 'cancelled') => void
   onDelete: (sub: Subscription) => void
   markingPaidId: string | null
   statusUpdatingId: string | null
@@ -248,7 +246,7 @@ function SubscriptionDetailPanel({
           </div>
 
           {/* Action buttons */}
-          <div className="mb-2 flex flex-col gap-2">
+          <div className="flex flex-col gap-2">
             {sub.status === 'active' && (
               <button
                 type="button"
@@ -269,42 +267,12 @@ function SubscriptionDetailPanel({
             <button
               type="button"
               disabled={statusUpdatingId === sub.id}
-              onClick={() => onStatusChange(sub, isPaused ? 'active' : 'paused')}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-[rgba(26,26,61,0.1)] bg-[#f4f4f7] py-2.5 text-[14px] font-semibold text-[#1a1a2e] hover:bg-[#ebebef] disabled:opacity-40 transition-colors"
-            >
-              {isPaused ? p.resumeAction : p.pauseAction}
-            </button>
-          </div>
-
-          <div className="mb-4 flex flex-col gap-2">
-            {sub.status !== 'cancelled' && (
-              <button
-                type="button"
-                disabled={statusUpdatingId === sub.id}
-                onClick={() => onStatusChange(sub, 'cancelled')}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-[rgba(229,72,77,0.22)] bg-transparent py-2.5 text-[14px] font-semibold text-[#e5484d] hover:bg-[#fde8ea] disabled:opacity-40 transition-colors"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
-                {p.detailCancelSub}
-              </button>
-            )}
-            <button
-              type="button"
-              disabled={statusUpdatingId === sub.id}
               onClick={() => onDelete(sub)}
               className="flex w-full items-center justify-center gap-2 rounded-xl border-0 bg-[#fde8ea] py-2.5 text-[14px] font-semibold text-[#c5384b] hover:bg-[#fbd5d9] disabled:opacity-40 transition-colors"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
               {p.detailDelete}
             </button>
-          </div>
-
-          {/* Privacy note */}
-          <div className="flex items-start gap-2 rounded-xl border border-[rgba(26,26,61,0.08)] bg-[#f7f7fb] p-3 text-[12px] leading-relaxed text-[#6b6b80]">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5b43d4" strokeWidth="2" className="mt-0.5 shrink-0">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-            </svg>
-            <span>{p.detailPrivacy}</span>
           </div>
         </div>
       </div>
@@ -601,7 +569,6 @@ export default function PaymentsTable({
           sub={detailSub}
           onClose={() => setDetailSub(null)}
           onMarkPaid={handleMarkPaid}
-          onStatusChange={(sub, next) => applyStatusAction(sub, next)}
           onDelete={handleDelete}
           markingPaidId={markingPaidId}
           statusUpdatingId={statusUpdatingId}
