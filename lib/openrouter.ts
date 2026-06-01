@@ -371,7 +371,7 @@ export async function analyzeSubscriptions(
   return completion(key, [
     { role: 'system', content: 'You are a helpful personal finance assistant.' },
     { role: 'user', content: prompt },
-  ], 900)
+  ], 3000)
 }
 
 export async function* analyzeSubscriptionsStream(
@@ -383,7 +383,7 @@ export async function* analyzeSubscriptionsStream(
   yield* completionStream(key, [
     { role: 'system', content: 'You are a helpful personal finance assistant.' },
     { role: 'user', content: buildAnalyzePrompt(subscriptions, lang) },
-  ], 900)
+  ], 3000)
 }
 
 function buildWhatIfPrompt(
@@ -465,7 +465,7 @@ export async function analyzeWhatIf(
   return completion(key, [
     { role: 'system', content: 'You are a helpful personal finance assistant.' },
     { role: 'user', content: prompt },
-  ], 400)
+  ], 1200)
 }
 
 export async function* analyzeWhatIfStream(
@@ -483,7 +483,7 @@ export async function* analyzeWhatIfStream(
   yield* completionStream(key, [
     { role: 'system', content: 'You are a helpful personal finance assistant.' },
     { role: 'user', content: prompt },
-  ], 400)
+  ], 1200)
 }
 
 export async function chatWithAI(
