@@ -364,9 +364,9 @@ function AiSection({
 
   return (
     <section className="space-y-3">
-      <div className="flex items-center gap-3">
-        <h2 className="text-sm font-semibold text-[#6b6b80] uppercase tracking-wide">{s.aiTitle}</h2>
-        <span className="text-xs text-[#8e8e93]">{s.aiSubtitle}</span>
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
+        <h2 className="text-sm font-semibold text-[#6b6b80] uppercase tracking-wide whitespace-nowrap">{s.aiTitle}</h2>
+        <span className="text-xs text-[#8e8e93] leading-snug">{s.aiSubtitle}</span>
       </div>
       {panels.map(({ key, open, setOpen, dot, label, content }) => (
         <div key={key} className="rounded-2xl overflow-hidden shadow-[0_1px_3px_rgba(26,26,61,0.06),0_8px_24px_rgba(26,26,61,0.06)]"
