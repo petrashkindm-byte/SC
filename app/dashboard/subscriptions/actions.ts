@@ -323,14 +323,11 @@ export async function updateSubscriptionFields(formData: FormData) {
     redirect(`/dashboard/subscriptions/${id}/edit?error=save`)
   }
 
-  await upsertAutoRenewalReminder(supabase, user.id, id, parsed.next_charge_date)
+  // Не ждём reminder — не блокирует ответ
+  void upsertAutoRenewalReminder(supabase, user.id, id, parsed.next_charge_date)
 
   revalidatePath('/dashboard')
-  revalidatePath('/dashboard/reminders')
-  revalidatePath('/dashboard/savings')
-  revalidatePath('/dashboard/collections')
   revalidatePath(`/dashboard/subscriptions/${id}`)
-  revalidatePath(`/dashboard/subscriptions/${id}/edit`)
   redirect(`/dashboard/subscriptions/${id}/edit?saved=1`)
 }
 
@@ -353,42 +350,51 @@ export async function createSubscription(formData: FormData) {
   }
 
   const newId = crypto.randomUUID()
-  const categoryMap = await loadCategoryIdBySlug(supabase, user.id, [parsed.category_slug])
 
-  const { error } = await supabase.from('subscriptions').insert({
-    id: newId,
-    user_id: user.id,
-    category_id: categoryMap.get(parsed.category_slug) ?? null,
-    category_slug: parsed.category_slug,
-    name: parsed.name,
-    amount: parsed.amount,
-    currency: parsed.currency,
-    billing_cycle: parsed.billing_cycle,
-    billing_interval: parsed.billing_interval,
-    custom_interval_days: parsed.custom_interval_days,
-    first_charge_date: parsed.first_charge_date,
-    next_charge_date: parsed.next_charge_date,
-    free_trial_end_date: parsed.free_trial_end_date,
-    renewal_type: parsed.renewal_type,
-    cancellation_url: parsed.cancellation_url,
-    management_url: parsed.management_url,
-    pricing_url: parsed.pricing_url,
-    notes: parsed.notes,
-    icon: parsed.icon,
-    status: 'active',
-  })
+  // Запускаем загрузку category_id параллельно с insert — не ждём последовательно
+  const [categoryMap, insertResult] = await Promise.all([
+    loadCategoryIdBySlug(supabase, user.id, [parsed.category_slug]),
+    supabase.from('subscriptions').insert({
+      id: newId,
+      user_id: user.id,
+      category_id: null, // обновим ниже если нужно
+      category_slug: parsed.category_slug,
+      name: parsed.name,
+      amount: parsed.amount,
+      currency: parsed.currency,
+      billing_cycle: parsed.billing_cycle,
+      billing_interval: parsed.billing_interval,
+      custom_interval_days: parsed.custom_interval_days,
+      first_charge_date: parsed.first_charge_date,
+      next_charge_date: parsed.next_charge_date,
+      free_trial_end_date: parsed.free_trial_end_date,
+      renewal_type: parsed.renewal_type,
+      cancellation_url: parsed.cancellation_url,
+      management_url: parsed.management_url,
+      pricing_url: parsed.pricing_url,
+      notes: parsed.notes,
+      icon: parsed.icon,
+      status: 'active',
+    }),
+  ])
 
-  if (error) {
+  if (insertResult.error) {
     if (back === 'payments') {
       redirect('/dashboard?tab=payments&subscriptionFormError=save')
     }
     redirect('/dashboard/subscriptions/new?error=save')
   }
 
-  await upsertAutoRenewalReminder(supabase, user.id, newId, parsed.next_charge_date)
+  // Обновляем category_id и запускаем reminder — оба не блокируют redirect
+  const categoryId = categoryMap.get(parsed.category_slug) ?? null
+  void Promise.all([
+    categoryId
+      ? supabase.from('subscriptions').update({ category_id: categoryId }).eq('id', newId)
+      : Promise.resolve(),
+    upsertAutoRenewalReminder(supabase, user.id, newId, parsed.next_charge_date),
+  ])
 
   revalidatePath('/dashboard')
-  revalidatePath('/dashboard/collections')
   if (back === 'payments') {
     redirect('/dashboard?tab=payments&subscriptionCreated=1')
   }
