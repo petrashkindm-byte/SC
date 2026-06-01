@@ -388,8 +388,18 @@ export default function PaymentsTable({
   const [actionsOpenId, setActionsOpenId] = useState<string | null>(null)
   const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null)
   const [detailSub, setDetailSub] = useState<Subscription | null>(null)
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>(() => {
+    if (typeof window === 'undefined') return 'list'
+    const stored = localStorage.getItem('payments_view')
+    return stored === 'grid' ? 'grid' : 'list'
+  })
   const notifRef = useRef<HTMLDivElement>(null)
   const actionsRef = useRef<HTMLButtonElement>(null)
+
+  const changeView = (mode: 'list' | 'grid') => {
+    setViewMode(mode)
+    try { localStorage.setItem('payments_view', mode) } catch {}
+  }
 
   const subscriptionCreated = searchParams.get('subscriptionCreated') === '1'
   const subscriptionFormError = searchParams.get('subscriptionFormError')
@@ -509,6 +519,30 @@ export default function PaymentsTable({
     try { await markAsPaid(id) } finally { setMarkingPaidId(null) }
   }
 
+  /** Пункты выпадающего меню строки/карточки — общие для списка и плитки */
+  const rowMenuItems = (sub: Subscription, days: number) => (
+    <>
+      <button type="button" onClick={() => { router.push(`/dashboard/subscriptions/${sub.id}/edit`); setActionsOpenId(null) }} className="block w-full rounded-lg px-3 py-2 text-left text-xs text-[#1a1a2e] hover:bg-[#f7f6fe]">{p.editButton}</button>
+      {sub.status === 'active' && days <= 3 && (
+        <button type="button" disabled={markingPaidId === sub.id} onClick={async (e) => { e.stopPropagation(); setMarkingPaidId(sub.id); try { await markAsPaid(sub.id) } finally { setMarkingPaidId(null); setActionsOpenId(null) } }} className="block w-full rounded-lg px-3 py-2 text-left text-xs text-[#0d9f6e] hover:bg-[#f0faf5] disabled:opacity-50">
+          {markingPaidId === sub.id ? '…' : p.paidButton}
+        </button>
+      )}
+      <div className="my-1 border-t border-[#f0ece6]" />
+      {sub.status !== 'paused'
+        ? <button type="button" disabled={statusUpdatingId === sub.id} onClick={(e) => { e.stopPropagation(); void applyStatusAction(sub, 'paused') }} className="block w-full rounded-lg px-3 py-2 text-left text-xs text-[#1a1a2e] hover:bg-[#f7f6fe] disabled:opacity-50">{p.pauseAction}</button>
+        : <button type="button" disabled={statusUpdatingId === sub.id} onClick={(e) => { e.stopPropagation(); void applyStatusAction(sub, 'active') }} className="block w-full rounded-lg px-3 py-2 text-left text-xs text-[#1a1a2e] hover:bg-[#f7f6fe] disabled:opacity-50">{p.resumeAction}</button>
+      }
+      {sub.status !== 'cancelled' && <button type="button" disabled={statusUpdatingId === sub.id} onClick={(e) => { e.stopPropagation(); void applyStatusAction(sub, 'cancelled') }} className="block w-full rounded-lg px-3 py-2 text-left text-xs text-[#c24f00] hover:bg-[#fff4eb] disabled:opacity-50">{p.cancelAction}</button>}
+      {sub.status !== 'archived' && <button type="button" disabled={statusUpdatingId === sub.id} onClick={(e) => { e.stopPropagation(); void applyStatusAction(sub, 'archived') }} className="block w-full rounded-lg px-3 py-2 text-left text-xs text-[#6b6b80] hover:bg-[#f6f6f8] disabled:opacity-50">{p.archiveAction}</button>}
+    </>
+  )
+
+  const dueColorClass = (st: StatusUi, days: number) =>
+    st.overdue ? 'text-[#e5484d] font-semibold' :
+    days === 0 ? 'text-[#e5484d] font-semibold' :
+    days <= 3  ? 'text-[#d97706] font-semibold' : ''
+
   // Category stats for collections grid
   const catStats = useMemo(() => {
     return MINI_CATS.map((cat) => {
@@ -619,6 +653,27 @@ export default function PaymentsTable({
                 </div>
               )}
             </div>
+          </div>
+          {/* View toggle — desktop only */}
+          <div className="hidden md:flex shrink-0 items-center gap-1 rounded-xl border border-[rgba(26,26,61,0.08)] bg-white p-1 shadow-[0_1px_3px_rgba(26,26,61,0.06)]">
+            <button
+              type="button"
+              onClick={() => changeView('grid')}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors ${viewMode === 'grid' ? 'bg-[#ede9fc] text-[#5b43d4]' : 'text-[#6b6b80] hover:text-[#1a1a2e]'}`}
+              aria-pressed={viewMode === 'grid'}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+              {p.viewGridLabel}
+            </button>
+            <button
+              type="button"
+              onClick={() => changeView('list')}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors ${viewMode === 'list' ? 'bg-[#ede9fc] text-[#5b43d4]' : 'text-[#6b6b80] hover:text-[#1a1a2e]'}`}
+              aria-pressed={viewMode === 'list'}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+              {p.viewListLabel}
+            </button>
           </div>
           <button type="button" onClick={() => setAddModalOpen(true)} className={`${actionButtonClass('primary')} gap-2 px-5 w-full sm:w-auto justify-center`}>{p.addButton}</button>
         </div>
@@ -731,99 +786,150 @@ export default function PaymentsTable({
         )}
       </div>
 
-      {/* ── Desktop card list ─────────────────────────────────────────── */}
-      <div className="hidden md:block overflow-hidden rounded-2xl border border-[rgba(26,26,61,0.08)] bg-white shadow-[0_1px_3px_rgba(26,26,61,0.06),0_8px_24px_rgba(26,26,61,0.06)]">
-        {sortedFiltered.length === 0 ? (
-          <div className="px-4 py-10 text-center text-[#6b6b80]">{emptyMessage(filter, Boolean(search.trim()), p)}</div>
-        ) : (
-          sortedFiltered.map((sub, idx) => {
-            const st = statusUi(sub, p)
-            const days = daysUntil(sub.next_charge_date)
-            const iconDisplay = resolveSubscriptionIconDisplay(sub.notes, sub.icon, sub.category_slug)
-            const rowColors = cardPresetColors(sub.card_color_preset ?? null)
-            const isSelected = detailSub?.id === sub.id
+      {/* ── Desktop: LIST (table) view ────────────────────────────────── */}
+      {viewMode === 'list' && (
+        <div className="hidden md:block overflow-x-auto rounded-2xl border border-[rgba(26,26,61,0.08)] bg-white shadow-[0_1px_3px_rgba(26,26,61,0.06),0_8px_24px_rgba(26,26,61,0.06)]">
+          {sortedFiltered.length === 0 ? (
+            <div className="px-4 py-10 text-center text-[#6b6b80]">{emptyMessage(filter, Boolean(search.trim()), p)}</div>
+          ) : (
+            <table className="w-full border-collapse text-[13px]">
+              <thead>
+                <tr>
+                  {[p.colService, p.colCategory, p.colAmount, p.colPeriodicity, p.colNextCharge, p.colStatus, ''].map((h, i) => (
+                    <th key={i} className={`border-b border-[rgba(26,26,61,0.06)] px-5 py-3.5 text-left text-[11px] font-semibold uppercase tracking-wider text-[#9a9aaf] ${i === 6 ? 'w-12' : ''}`}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {sortedFiltered.map((sub, idx) => {
+                  const st = statusUi(sub, p)
+                  const days = daysUntil(sub.next_charge_date)
+                  const iconDisplay = resolveSubscriptionIconDisplay(sub.notes, sub.icon, sub.category_slug)
+                  const rowColors = cardPresetColors(sub.card_color_preset ?? null)
+                  const isSelected = detailSub?.id === sub.id
+                  const dateColorClass = dueColorClass(st, days)
+                  return (
+                    <tr
+                      key={sub.id}
+                      className={`su-slide-left group cursor-pointer border-b border-[rgba(26,26,61,0.06)] transition-colors last:border-b-0 ${isSelected ? 'bg-[rgba(91,67,212,0.06)]' : 'hover:bg-[rgba(91,67,212,0.03)]'}`}
+                      style={{ animationDelay: `${idx * 30}ms` }}
+                      onClick={() => openRow(sub)}
+                    >
+                      <td className="px-5 py-3.5 align-middle" style={rowColors ? { borderLeft: `3px solid ${rowColors.swatch}` } : undefined}>
+                        <div className="flex min-w-0 items-center gap-3">
+                          <PaymentServiceIcon icon={sub.icon} categorySlug={sub.category_slug} iconBg={iconDisplay.iconBg} shape={iconDisplay.shape} size={40} title={sub.name} />
+                          <span className="truncate text-[14px] font-semibold text-[#1a1a2e] max-w-[200px]">{sub.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5 align-middle text-[13px] text-[#6b6b80]">{categoryLabel(sub.category_slug, lang)}</td>
+                      <td className="px-5 py-3.5 align-middle text-[14px] font-bold tabular-nums text-[#1a1a2e] whitespace-nowrap">{fmtCurrency(coerceNumber(sub.amount), sub.currency ?? 'RUB')}</td>
+                      <td className="px-5 py-3.5 align-middle text-[13px] text-[#6b6b80]">{cycleLabelConcept(sub, p)}</td>
+                      <td className="px-5 py-3.5 align-middle">
+                        {sub.status === 'cancelled' || sub.status === 'archived' ? (
+                          <span className="text-[13px] text-[#6b6b80]">—</span>
+                        ) : (
+                          <>
+                            <div className={`text-[13px] ${dateColorClass || 'text-[#1a1a2e]'}`}>{formatDateShort(sub.next_charge_date)}</div>
+                            <div className="mt-0.5 text-[11px] text-[#6b6b80]">{dueRelativePhrase(days, p)}</div>
+                          </>
+                        )}
+                      </td>
+                      <td className="px-5 py-3.5 align-middle"><StatusPill label={st.label} tone={st.tone} /></td>
+                      <td className="px-3 py-3.5 align-middle text-right" onClick={(e) => e.stopPropagation()}>
+                        <div className="relative inline-block">
+                          <button
+                            type="button"
+                            ref={actionsOpenId === sub.id ? actionsRef : undefined}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border-0 bg-transparent text-lg leading-none text-[#6b6b80] hover:bg-[rgba(26,26,61,0.06)] hover:text-[#5b43d4] transition-colors"
+                            aria-label={p.actionsAriaLabel}
+                            onClick={() => setActionsOpenId((v) => (v === sub.id ? null : sub.id))}
+                          >
+                            ⋯
+                          </button>
+                          <RowDropdownPortal open={actionsOpenId === sub.id} anchorRef={actionsRef} onClose={() => setActionsOpenId(null)}>
+                            {rowMenuItems(sub, days)}
+                          </RowDropdownPortal>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
 
-            const dateColorClass =
-              st.overdue  ? 'text-[#e5484d] font-semibold' :
-              days === 0  ? 'text-[#e5484d] font-semibold' :
-              days <= 3   ? 'text-[#d97706] font-semibold' : ''
-
-            return (
-              <div
-                key={sub.id}
-                className={`su-slide-left group flex items-center gap-4 px-5 py-3.5 border-b border-[rgba(26,26,61,0.06)] last:border-b-0 cursor-pointer transition-colors ${isSelected ? 'bg-[rgba(91,67,212,0.06)]' : 'hover:bg-[rgba(91,67,212,0.03)]'}`}
-                style={{
-                  animationDelay: `${idx * 35}ms`,
-                  ...(rowColors ? { borderLeft: `3px solid ${rowColors.swatch}`, paddingLeft: '18px' } : {}),
-                }}
-                onClick={() => openRow(sub)}
-              >
-                {/* Icon */}
-                <div className="shrink-0">
-                  <PaymentServiceIcon icon={sub.icon} categorySlug={sub.category_slug} iconBg={iconDisplay.iconBg} shape={iconDisplay.shape} size={40} title={sub.name} />
-                </div>
-
-                {/* Name + category */}
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-[14px] font-semibold text-[#1a1a2e] max-w-[220px] lg:max-w-[300px]">{sub.name}</div>
-                  <div className="mt-0.5 text-[12px] text-[#6b6b80]">{categoryLabel(sub.category_slug, lang)}</div>
-                </div>
-
-                {/* Amount + cycle */}
-                <div className="hidden lg:block shrink-0 text-right min-w-[90px]">
-                  <div className="text-[14px] font-bold tabular-nums text-[#1a1a2e]">{fmtCurrency(coerceNumber(sub.amount), sub.currency ?? 'RUB')}</div>
-                  <div className="mt-0.5 text-[11px] text-[#6b6b80]">{cycleLabelConcept(sub, p)}</div>
-                </div>
-
-                {/* Next charge */}
-                <div className="hidden sm:block shrink-0 min-w-[90px]">
-                  {sub.status === 'cancelled' || sub.status === 'archived' ? (
-                    <span className="text-[13px] text-[#6b6b80]">—</span>
-                  ) : (
-                    <>
-                      <div className={`text-[13px] ${dateColorClass || 'text-[#1a1a2e]'}`}>{formatDateShort(sub.next_charge_date)}</div>
-                      <div className="mt-0.5 text-[11px] text-[#6b6b80]">{dueRelativePhrase(days, p)}</div>
-                    </>
-                  )}
-                </div>
-
-                {/* Status pill */}
-                <div className="shrink-0">
-                  <StatusPill label={st.label} tone={st.tone} />
-                </div>
-
-                {/* Menu */}
-                <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    type="button"
-                    ref={actionsOpenId === sub.id ? actionsRef : undefined}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border-0 bg-transparent text-lg leading-none text-[#6b6b80] hover:bg-[rgba(26,26,61,0.06)] hover:text-[#5b43d4] transition-colors"
-                    aria-label={p.actionsAriaLabel}
-                    onClick={() => setActionsOpenId((v) => (v === sub.id ? null : sub.id))}
+      {/* ── Desktop: GRID (tile) view ─────────────────────────────────── */}
+      {viewMode === 'grid' && (
+        <div className="hidden md:block">
+          {sortedFiltered.length === 0 ? (
+            <div className="rounded-2xl border border-[rgba(26,26,61,0.08)] bg-white px-4 py-10 text-center text-[#6b6b80] shadow-[0_1px_3px_rgba(26,26,61,0.06),0_8px_24px_rgba(26,26,61,0.06)]">{emptyMessage(filter, Boolean(search.trim()), p)}</div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-4">
+              {sortedFiltered.map((sub, idx) => {
+                const st = statusUi(sub, p)
+                const days = daysUntil(sub.next_charge_date)
+                const iconDisplay = resolveSubscriptionIconDisplay(sub.notes, sub.icon, sub.category_slug)
+                const rowColors = cardPresetColors(sub.card_color_preset ?? null)
+                const isSelected = detailSub?.id === sub.id
+                const dateColorClass = dueColorClass(st, days)
+                return (
+                  <div
+                    key={sub.id}
+                    className={`su-slide-left group relative flex cursor-pointer flex-col rounded-2xl border bg-white p-4 shadow-[0_1px_3px_rgba(26,26,61,0.06),0_8px_24px_rgba(26,26,61,0.06)] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(26,26,61,0.12)] ${isSelected ? 'ring-2 ring-[#5b43d4]' : ''}`}
+                    style={{
+                      animationDelay: `${idx * 35}ms`,
+                      ...(rowColors ? { background: isDark ? `linear-gradient(135deg, ${rowColors.darkTint} 0%, #1c1c38 100%)` : `linear-gradient(135deg, ${rowColors.tint} 0%, #fff 100%)`, borderColor: rowColors.swatch } : { borderColor: 'rgba(26,26,61,0.08)' }),
+                    }}
+                    onClick={() => openRow(sub)}
                   >
-                    ⋯
-                  </button>
-                  <RowDropdownPortal open={actionsOpenId === sub.id} anchorRef={actionsRef} onClose={() => setActionsOpenId(null)}>
-                    <button type="button" onClick={() => { router.push(`/dashboard/subscriptions/${sub.id}/edit`); setActionsOpenId(null) }} className="block w-full rounded-lg px-3 py-2 text-left text-xs text-[#1a1a2e] hover:bg-[#f7f6fe]">{p.editButton}</button>
-                    {sub.status === 'active' && days <= 3 && (
-                      <button type="button" disabled={markingPaidId === sub.id} onClick={async (e) => { e.stopPropagation(); setMarkingPaidId(sub.id); try { await markAsPaid(sub.id) } finally { setMarkingPaidId(null); setActionsOpenId(null) } }} className="block w-full rounded-lg px-3 py-2 text-left text-xs text-[#0d9f6e] hover:bg-[#f0faf5] disabled:opacity-50">
-                        {markingPaidId === sub.id ? '…' : p.paidButton}
-                      </button>
-                    )}
-                    <div className="my-1 border-t border-[#f0ece6]" />
-                    {sub.status !== 'paused'
-                      ? <button type="button" disabled={statusUpdatingId === sub.id} onClick={(e) => { e.stopPropagation(); void applyStatusAction(sub, 'paused') }} className="block w-full rounded-lg px-3 py-2 text-left text-xs text-[#1a1a2e] hover:bg-[#f7f6fe] disabled:opacity-50">{p.pauseAction}</button>
-                      : <button type="button" disabled={statusUpdatingId === sub.id} onClick={(e) => { e.stopPropagation(); void applyStatusAction(sub, 'active') }} className="block w-full rounded-lg px-3 py-2 text-left text-xs text-[#1a1a2e] hover:bg-[#f7f6fe] disabled:opacity-50">{p.resumeAction}</button>
-                    }
-                    {sub.status !== 'cancelled' && <button type="button" disabled={statusUpdatingId === sub.id} onClick={(e) => { e.stopPropagation(); void applyStatusAction(sub, 'cancelled') }} className="block w-full rounded-lg px-3 py-2 text-left text-xs text-[#c24f00] hover:bg-[#fff4eb] disabled:opacity-50">{p.cancelAction}</button>}
-                    {sub.status !== 'archived' && <button type="button" disabled={statusUpdatingId === sub.id} onClick={(e) => { e.stopPropagation(); void applyStatusAction(sub, 'archived') }} className="block w-full rounded-lg px-3 py-2 text-left text-xs text-[#6b6b80] hover:bg-[#f6f6f8] disabled:opacity-50">{p.archiveAction}</button>}
-                  </RowDropdownPortal>
-                </div>
-              </div>
-            )
-          })
-        )}
-      </div>
+                    {/* Top: icon + menu */}
+                    <div className="mb-3 flex items-start justify-between">
+                      <PaymentServiceIcon icon={sub.icon} categorySlug={sub.category_slug} iconBg={iconDisplay.iconBg} shape={iconDisplay.shape} size={46} title={sub.name} />
+                      <div className="relative" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          ref={actionsOpenId === sub.id ? actionsRef : undefined}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg border-0 bg-transparent text-lg leading-none text-[#6b6b80] hover:bg-[rgba(26,26,61,0.06)] hover:text-[#5b43d4] transition-colors"
+                          aria-label={p.actionsAriaLabel}
+                          onClick={() => setActionsOpenId((v) => (v === sub.id ? null : sub.id))}
+                        >
+                          ⋯
+                        </button>
+                        <RowDropdownPortal open={actionsOpenId === sub.id} anchorRef={actionsRef} onClose={() => setActionsOpenId(null)}>
+                          {rowMenuItems(sub, days)}
+                        </RowDropdownPortal>
+                      </div>
+                    </div>
+
+                    {/* Name + category */}
+                    <div className="truncate text-[15px] font-bold text-[#1a1a2e]">{sub.name}</div>
+                    <div className="mt-0.5 text-[12px] text-[#6b6b80]">{categoryLabel(sub.category_slug, lang)}</div>
+
+                    {/* Amount */}
+                    <div className="mt-3">
+                      <span className="text-[1.05rem] font-extrabold tabular-nums text-[#1a1a2e]">{fmtCurrency(coerceNumber(sub.amount), sub.currency ?? 'RUB')}</span>
+                      <span className="ml-1.5 text-[12px] text-[#6b6b80]">{cycleLabelConcept(sub, p).toLowerCase()}</span>
+                    </div>
+
+                    {/* Next charge + status */}
+                    <div className="mt-3 border-t border-[rgba(26,26,61,0.06)] pt-3">
+                      <div className="text-[11px] text-[#9a9aaf]">{p.colNextCharge}</div>
+                      {sub.status === 'cancelled' || sub.status === 'archived' ? (
+                        <div className="mt-0.5 text-[13px] text-[#6b6b80]">—</div>
+                      ) : (
+                        <div className={`mt-0.5 text-[13px] ${dateColorClass || 'text-[#1a1a2e]'}`}>{formatDateShort(sub.next_charge_date)} · {dueRelativePhrase(days, p)}</div>
+                      )}
+                      <div className="mt-2"><StatusPill label={st.label} tone={st.tone} /></div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Collections grid ─────────────────────────────────────────── */}
       <section className="mt-5" aria-labelledby="payments-collections-title">
