@@ -694,7 +694,8 @@ function DuplicatesPanel({ groups, cutIds, onCut, onKeepOnly }: DuplicatesPanelP
             {/* ── Service cards header ── */}
             <div className="px-4 pt-4 pb-3 border-b border-[#f0ece6]">
               <p className="text-[11px] font-bold text-[#6b6b80] uppercase tracking-wider mb-3">{label}</p>
-              <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${n}, 1fr)` }}>
+              <div className="overflow-x-auto -mx-1 px-1">
+              <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${n}, minmax(150px, 1fr))` }}>
                 {subs.map((s, i) => {
                   const entry = entries[i]
                   const isMax = i === 0
@@ -775,6 +776,7 @@ function DuplicatesPanel({ groups, cutIds, onCut, onKeepOnly }: DuplicatesPanelP
                   )
                 })}
               </div>
+              </div>
             </div>
 
             {/* Уведомление о нераспознанных сервисах */}
@@ -797,7 +799,8 @@ function DuplicatesPanel({ groups, cutIds, onCut, onKeepOnly }: DuplicatesPanelP
             ) : null)}
 
             {/* ── Feature comparison table ── */}
-            <table className="w-full text-xs border-collapse">
+            <div className="overflow-x-auto">
+            <table className="w-full text-xs border-collapse" style={{ minWidth: 140 + n * 120 }}>
               <tbody>
                 {/* Usage row — always first */}
                 <tr className="bg-[#fafaf9]">
@@ -843,6 +846,7 @@ function DuplicatesPanel({ groups, cutIds, onCut, onKeepOnly }: DuplicatesPanelP
                 })}
               </tbody>
             </table>
+            </div>
 
             {/* ── Умная рекомендация ── */}
             {(() => {
