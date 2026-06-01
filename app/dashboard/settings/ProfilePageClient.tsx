@@ -464,6 +464,24 @@ export default function ProfilePageClient({
         </div>
       </section>
 
+      {/* Settings link — mobile only (desktop has sidebar link) */}
+      <a
+        href="/dashboard/settings"
+        className="mt-4 flex w-full items-center gap-3.5 rounded-2xl border border-[rgba(26,26,61,0.08)] bg-white px-4 py-3.5 shadow-[0_1px_3px_rgba(26,26,61,0.06)] hover:bg-[#f8f7ff] transition-colors no-underline md:hidden"
+      >
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#ede9fc] text-[#5b43d4]">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </span>
+        <div className="min-w-0 flex-1">
+          <strong className="block text-sm text-[#1a1a2e]">Настройки</strong>
+          <span className="text-xs text-[#6b6b80]">Уведомления, напоминания, безопасность</span>
+        </div>
+        <span className="text-lg text-[#8e8e93]">›</span>
+      </a>
+
       <button
         type="button"
         className="mt-4 w-full rounded-2xl border border-[rgba(26,26,61,0.08)] bg-white py-3.5 text-center text-sm font-semibold text-[#e5484d] shadow-[0_1px_3px_rgba(26,26,61,0.06)] hover:bg-[#fdecec]"
