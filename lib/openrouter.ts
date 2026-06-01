@@ -422,7 +422,7 @@ Rules:
 
   return `You are a personal finance assistant helping the user trim their subscriptions.
 
-GOAL: Cancel the MINIMUM number of subscriptions so the remaining total is as close to ${budgetLimit} ${currency}/month as possible — ideally between ${Math.round(budgetLimit * 0.85)} and ${budgetLimit} ${currency}/month. Do NOT cancel more than necessary. The user wants to keep as many services as possible.
+GOAL: Cancel the MINIMUM number of subscriptions so the remaining total is as close to ${budgetLimit} ${currency}/month as possible. Do NOT cancel more than necessary.
 
 Current total: ${totalMonthly} ${currency}/month.
 Budget limit: ${budgetLimit} ${currency}/month.
@@ -431,20 +431,24 @@ Need to cut: ~${overage} ${currency}/month.
 Their subscriptions:
 ${subsBlock}
 
-Strategy:
-1. First cancel subscriptions that are rarely/never used (last_used = null or long ago).
-2. If still over budget, cancel the most expensive low-value ones.
-3. STOP cancelling once the remaining total is at or below ${budgetLimit} ${currency}/month.
-4. List what to CANCEL and what to KEEP, with the remaining monthly sum.
-5. The resulting total should be as close to ${budgetLimit} as possible, not much lower.
+IMPORTANT — do the arithmetic step by step BEFORE writing your response:
+1. Pick subscriptions to cancel (start with unused/low-value ones).
+2. Add up ONLY the amounts of the subscriptions you chose to cancel. Call this CANCEL_SUM.
+3. Remaining = ${totalMonthly} − CANCEL_SUM. Check: is Remaining ≤ ${budgetLimit}? If not, pick more to cancel and repeat.
+4. Verify: the sum of every subscription in your "К сохранению" list must equal Remaining.
+5. NEVER put a subscription in "К сохранению" if its individual amount alone exceeds ${budgetLimit}.
 
-Rules:
-- Be direct, reference actual amounts
-- Keep response under 200 words
-- Respond in ${lang}
-- YOU MUST respond ONLY in ${lang}. Do not use English if lang is Russian.
-- No markdown, plain text with line breaks between sections
-- End with: "Итого: X ${currency}/мес" (or "Total: X ${currency}/mo" in English)`
+Output format (plain text, ${lang}, no markdown):
+К отмене — отменить:
+[numbered list: Name — Amount ${currency}/мес, one per line]
+
+Общая сумма к отмене: CANCEL_SUM ${currency}/мес
+Остаток: ${totalMonthly} − CANCEL_SUM = Remaining ${currency}/мес
+
+К сохранению — оставить:
+[numbered list: Name — Amount ${currency}/мес, one per line]
+
+Итого: Remaining ${currency}/мес`
 }
 
 export async function analyzeWhatIf(
