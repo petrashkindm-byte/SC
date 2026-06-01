@@ -17,6 +17,13 @@ export const metadata: Metadata = {
   title: "Subcuro — подписки в браузере",
   description:
     "Те же данные, что в приложении Subcuro: активные подписки, расход в месяц и ближайшие списания.",
+  icons: {
+    icon: [
+      { url: "/favicon.png", type: "image/png" },
+    ],
+    apple: "/apple-touch-icon.png",
+    shortcut: "/favicon.png",
+  },
   openGraph: {
     title: "Subcuro — управление подписками",
     description: "Отслеживайте подписки, контролируйте расходы и экономьте с AI-советником.",
