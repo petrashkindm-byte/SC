@@ -34,7 +34,8 @@ function projectByMonth(subs: Subscription[]): MonthBar[] {
       if (sub.billing_cycle === 'yearly') {
         const nextCharge = new Date(sub.next_charge_date)
         if (nextCharge.getFullYear() === d.getFullYear() && nextCharge.getMonth() === d.getMonth()) {
-          map.set(cur, (map.get(cur) ?? 0) + amount * sub.billing_interval)
+          // Реальное списание — это сумма одного платежа (amount), независимо от интервала
+          map.set(cur, (map.get(cur) ?? 0) + amount)
           hasAnnual = true
         }
       } else {

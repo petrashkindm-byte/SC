@@ -4,13 +4,15 @@ import type { Subscription } from '@/lib/supabase/types'
 /** Нормализованная сумма подписки в месяц (shared, используется повсюду). */
 export function getMonthlyAmount(sub: Subscription): number {
   const amount = coerceNumber(sub.amount)
+  // billing_interval = «каждые N циклов», поэтому месячный эквивалент делится на интервал
+  const interval = Math.max(1, sub.billing_interval || 1)
   switch (sub.billing_cycle) {
-    case 'weekly':   return amount * sub.billing_interval * 4.33
-    case 'monthly':  return amount * sub.billing_interval
-    case 'quarterly': return (amount * sub.billing_interval) / 3
-    case 'yearly':   return (amount * sub.billing_interval) / 12
-    case 'custom':   return sub.custom_interval_days ? (amount / sub.custom_interval_days) * 30 : amount
-    default:         return amount
+    case 'weekly':    return (amount * 4.33) / interval
+    case 'monthly':   return amount / interval
+    case 'quarterly': return amount / (3 * interval)
+    case 'yearly':    return amount / (12 * interval)
+    case 'custom':    return sub.custom_interval_days ? (amount / sub.custom_interval_days) * 30 : amount
+    default:          return amount
   }
 }
 
