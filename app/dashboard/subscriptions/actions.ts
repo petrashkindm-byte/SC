@@ -22,9 +22,19 @@ import type {
   RenewalType,
   SubscriptionStatus,
 } from '@/lib/supabase/types'
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { logSavingsAction, toMonthlyAmount } from '@/lib/savings-history'
+import { dashboardCacheTag } from '@/lib/dashboard-cache'
+
+/** Сбрасывает кэш дашборда для конкретного пользователя */
+function revalidateDashboard(userId: string) {
+  revalidateTag(dashboardCacheTag(userId), 'default')
+  revalidatePath('/dashboard')
+  revalidatePath('/dashboard/reminders')
+  revalidatePath('/dashboard/savings')
+  revalidatePath('/dashboard/collections')
+}
 
 const CATEGORY_SLUGS: CategorySlug[] = [
   'entertainment',
@@ -246,10 +256,7 @@ export async function updateSubscriptionStatus(
 
   if (error) throw new Error(error.message)
 
-  revalidatePath('/dashboard')
-  revalidatePath('/dashboard/reminders')
-  revalidatePath('/dashboard/savings')
-  revalidatePath('/dashboard/collections')
+  revalidateDashboard(user.id)
   revalidatePath(`/dashboard/subscriptions/${subscriptionId}`)
   revalidatePath(`/dashboard/subscriptions/${subscriptionId}/edit`)
 }
@@ -326,7 +333,7 @@ export async function updateSubscriptionFields(formData: FormData) {
   // Не ждём reminder — не блокирует ответ
   void upsertAutoRenewalReminder(supabase, user.id, id, parsed.next_charge_date)
 
-  revalidatePath('/dashboard')
+  revalidateDashboard(user.id)
   revalidatePath(`/dashboard/subscriptions/${id}`)
 
   // Пришли из списка платежей — возвращаемся туда с авто-открытием панели (1 клик)
@@ -400,7 +407,7 @@ export async function createSubscription(formData: FormData) {
     upsertAutoRenewalReminder(supabase, user.id, newId, parsed.next_charge_date),
   ])
 
-  revalidatePath('/dashboard')
+  revalidateDashboard(user.id)
   if (back === 'payments') {
     redirect('/dashboard?tab=payments&subscriptionCreated=1')
   }
@@ -445,10 +452,7 @@ export async function markAsPaid(subscriptionId: string) {
 
   if (error) throw new Error(error.message)
 
-  revalidatePath('/dashboard')
-  revalidatePath('/dashboard/reminders')
-  revalidatePath('/dashboard/savings')
-  revalidatePath('/dashboard/collections')
+  revalidateDashboard(user.id)
   revalidatePath(`/dashboard/subscriptions/${subscriptionId}`)
 }
 
@@ -468,8 +472,7 @@ export async function archiveSubscription(subscriptionId: string) {
 
   if (error) throw new Error(error.message)
 
-  revalidatePath('/dashboard')
-  revalidatePath('/dashboard/collections')
+  revalidateDashboard(user.id)
   revalidatePath(`/dashboard/subscriptions/${subscriptionId}`)
   revalidatePath(`/dashboard/subscriptions/${subscriptionId}/edit`)
 }
@@ -487,8 +490,8 @@ export async function markLastUsed(subscriptionId: string) {
 
   if (error) throw new Error(error.message)
 
+  revalidateDashboard(user.id)
   revalidatePath(`/dashboard/subscriptions/${subscriptionId}`)
-  revalidatePath('/dashboard')
 }
 
 export async function deleteSubscription(subscriptionId: string) {
@@ -504,6 +507,5 @@ export async function deleteSubscription(subscriptionId: string) {
 
   if (error) throw new Error(error.message)
 
-  revalidatePath('/dashboard')
-  revalidatePath('/dashboard/collections')
+  revalidateDashboard(user.id)
 }

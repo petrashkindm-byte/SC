@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import DashboardSidebar from './DashboardSidebar'
 import MobileBottomNav from './MobileBottomNav'
 import { LangProvider } from '@/lib/LangContext'
+import { getCachedDashboardData } from '@/lib/dashboard-cache'
 
 export default async function DashboardLayout({
   children,
@@ -10,20 +11,21 @@ export default async function DashboardLayout({
   children: React.ReactNode
 }) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+
+  // Auth + profile in parallel — profile is small (1 row)
+  const [{ data: { user } }, ] = await Promise.all([
+    supabase.auth.getUser(),
+  ])
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('full_name')
-    .eq('id', user.id)
-    .maybeSingle()
+  // Use cached subs (same cache as page.tsx) — no extra query for the badge count
+  const [profileResult, { subs }] = await Promise.all([
+    supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
+    getCachedDashboardData(user.id),
+  ])
 
-  const { count: paymentsCount } = await supabase
-    .from('subscriptions')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', user.id)
-    .neq('status', 'archived')
+  const profile = profileResult.data
+  const paymentsCount = subs.filter((s) => s.status !== 'archived').length
 
   const profileRow = profile as { full_name?: string | null } | null
   const metadata = (user.user_metadata ?? {}) as Record<string, unknown>
