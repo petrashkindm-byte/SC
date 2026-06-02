@@ -292,8 +292,7 @@ function EfficiencyTable({
   subs: Subscription[]
   monthlyGroups: CurrencyGroup[]
 }) {
-  const isDark = useDarkMode()
-  const { strings } = useLang()
+  const { lang, strings } = useLang()
   const a = strings.analytics
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -305,37 +304,13 @@ function EfficiencyTable({
     const totalSpent = estimateTotalSpent(sub, daysSinceStart)
     const monthly = getMonthlyAmount(sub)
     const iconDisplay = resolveSubscriptionIconDisplay(sub.notes, sub.icon, sub.category_slug)
-
-    const daysAgo = sub.last_used_at
-      ? (() => {
-          const d = new Date(sub.last_used_at)
-          d.setHours(0, 0, 0, 0)
-          return Math.max(0, Math.round((today.getTime() - d.getTime()) / 86400000))
-        })()
-      : null
-    const rating = getRating(daysAgo)
-
-    return { sub, monthly, totalSpent, monthsSinceStart, daysAgo, rating, iconDisplay, currency: sub.currency ?? 'RUB' }
+    return { sub, monthly, totalSpent, monthsSinceStart, iconDisplay, currency: sub.currency ?? 'RUB' }
   })
-
-  const badCount = rows.filter((r) => r.rating === 'bad' || r.rating === 'never').length
 
   return (
     <div className="rounded-2xl border border-[#e7e3dc] bg-white overflow-hidden shadow-[0_1px_3px_rgba(26,26,61,0.06),0_8px_24px_rgba(26,26,61,0.06)]">
-      <div className="px-5 py-4 border-b border-[#f0ece6] flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-[15px] font-semibold text-[#1a1a2e]">{a.efficiencyTitle}</h2>
-          <p className="text-xs text-[#8e8e93] mt-0.5">
-            {a.efficiencySubtitle}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {badCount > 0 && (
-            <span className="su-badge-pulse text-xs font-semibold px-2.5 py-1 rounded-full bg-[#fde7ea] text-[#d94851]">
-              {a.efficiencyUnused(badCount)}
-            </span>
-          )}
-        </div>
+      <div className="px-5 py-4 border-b border-[#f0ece6]">
+        <h2 className="text-[15px] font-semibold text-[#1a1a2e]">{a.efficiencyTitle}</h2>
       </div>
 
       <div className="overflow-x-auto">
@@ -343,80 +318,63 @@ function EfficiencyTable({
           <thead>
             <tr className="border-b border-[#f0ece6] text-[#6b6b80] text-xs uppercase tracking-wide">
               <th className="text-left px-5 py-3 font-medium">{a.effColService}</th>
+              <th className="text-left px-4 py-3 font-medium">{a.effColCategory}</th>
               <th className="text-right px-4 py-3 font-medium">{a.effColPerMonth}</th>
-              <th className="text-right px-4 py-3 font-medium">{a.effColTotalSpent}</th>
-              <th className="text-center px-5 py-3 font-medium">{a.effColLastUsed}</th>
+              <th className="text-right px-5 py-3 font-medium">{a.effColTotalSpent}</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map(({ sub, monthly, totalSpent, monthsSinceStart, daysAgo, rating, iconDisplay, currency }, idx) => {
-              const style = (isDark ? RATING_STYLE.dark : RATING_STYLE.light)[rating]
-              return (
-                <tr
-                  key={sub.id}
-                  className="su-fade-up-row border-t border-[#f0ece6] hover:bg-[#f8f6f2] transition-colors"
-                  style={{ animationDelay: `${idx * 80}ms` }}
-                >
-                  <td className="px-5 py-3">
-                    <Link href={`/dashboard/subscriptions/${sub.id}`} className="flex items-center gap-2.5 hover:text-[#5b43d4] min-w-0">
-                      <PaymentServiceIcon
-                        icon={sub.icon}
-                        categorySlug={sub.category_slug}
-                        iconBg={iconDisplay.iconBg}
-                        shape={iconDisplay.shape}
-                        size={30}
-                        className="shrink-0"
-                      />
-                      <span className="font-medium text-[#1a1a2e] truncate">{sub.name}</span>
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3 text-right font-semibold text-[#1a1a2e] tabular-nums whitespace-nowrap">
-                    {fmtCurrency(monthly, currency, 0)}
-                  </td>
-                  <td className="px-4 py-3 text-right tabular-nums text-xs whitespace-nowrap">
-                    {totalSpent > 0 ? (
-                      <span>
-                        <span className="font-medium text-[#1a1a2e]">≈ {fmtCurrency(totalSpent, currency, 0)}</span>
-                        {monthsSinceStart > 0 && (
-                          <span className="block text-[11px] text-[#8e8e93] mt-0.5">{a.effSpentFor(monthsSinceStart)}</span>
-                        )}
-                      </span>
-                    ) : (
-                      <span className="text-[#8e8e93]">—</span>
-                    )}
-                  </td>
-                  <td className="px-5 py-3 text-center">
-                    <span
-                      className="inline-block text-[11px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap"
-                      style={{ background: style.bg, color: style.color }}
-                    >
-                      {ratingLabel(daysAgo, a)}
+            {rows.map(({ sub, monthly, totalSpent, monthsSinceStart, iconDisplay, currency }, idx) => (
+              <tr
+                key={sub.id}
+                className="su-fade-up-row border-t border-[#f0ece6] hover:bg-[#f8f6f2] transition-colors"
+                style={{ animationDelay: `${idx * 80}ms` }}
+              >
+                <td className="px-5 py-3">
+                  <Link href={`/dashboard?tab=payments&openSub=${sub.id}`} className="flex items-center gap-2.5 hover:text-[#5b43d4] min-w-0">
+                    <PaymentServiceIcon
+                      icon={sub.icon}
+                      categorySlug={sub.category_slug}
+                      iconBg={iconDisplay.iconBg}
+                      shape={iconDisplay.shape}
+                      size={30}
+                      className="shrink-0"
+                    />
+                    <span className="font-medium text-[#1a1a2e] truncate">{sub.name}</span>
+                  </Link>
+                </td>
+                <td className="px-4 py-3 text-[#6b6b80] text-[13px] whitespace-nowrap">
+                  {categoryLabel(sub.category_slug, lang)}
+                </td>
+                <td className="px-4 py-3 text-right font-semibold text-[#1a1a2e] tabular-nums whitespace-nowrap">
+                  {fmtCurrency(monthly, currency, 0)}
+                </td>
+                <td className="px-5 py-3 text-right tabular-nums text-xs whitespace-nowrap">
+                  {totalSpent > 0 ? (
+                    <span>
+                      <span className="font-medium text-[#1a1a2e]">≈ {fmtCurrency(totalSpent, currency, 0)}</span>
+                      {monthsSinceStart > 0 && (
+                        <span className="block text-[11px] text-[#8e8e93] mt-0.5">{a.effSpentFor(monthsSinceStart)}</span>
+                      )}
                     </span>
-                  </td>
-                </tr>
-              )
-            })}
+                  ) : (
+                    <span className="text-[#8e8e93]">—</span>
+                  )}
+                </td>
+              </tr>
+            ))}
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-[#e7e3dc] bg-[#f8f6f2]">
               <td className="px-5 py-3 text-sm font-semibold text-[#1a1a2e]" colSpan={3}>
                 {a.effTotal}
               </td>
-              <td className="px-5 py-3 text-center font-bold text-[#5b43d4] tabular-nums text-sm whitespace-nowrap">
+              <td className="px-5 py-3 text-right font-bold text-[#5b43d4] tabular-nums text-sm whitespace-nowrap">
                 {formatGroups(monthlyGroups)}
               </td>
             </tr>
           </tfoot>
         </table>
-      </div>
-
-      <div className="px-5 py-3 border-t border-[#f0ece6] bg-[#faf9ff]">
-        <p className="text-xs text-[#8e8e93] leading-relaxed">
-          {a.effFooter}{' '}
-          <Link href="/dashboard?tab=payments" className="text-[#5b43d4] font-medium hover:underline">
-            {a.effFooterLink}
-          </Link>
-        </p>
       </div>
     </div>
   )
