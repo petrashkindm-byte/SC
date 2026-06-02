@@ -224,7 +224,8 @@ function AiDailyTipCard({ subs, dataFingerprint }: { subs: Subscription[]; dataF
           : 'linear-gradient(to bottom, #f7f4ff, #ffffff)',
       }}
     >
-      <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-2">
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3">
         <div className="flex items-center gap-2.5 min-w-0">
           <span className="inline-flex items-center gap-1.5 text-[11px] font-bold rounded-full px-2.5 py-1 bg-white/90 border border-[#e0d8fc] text-[#5b43d4] shrink-0">
             <AiBadgeStar />
@@ -234,18 +235,19 @@ function AiDailyTipCard({ subs, dataFingerprint }: { subs: Subscription[]; dataF
             {ai.title}
           </h2>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Link href="/dashboard/savings" className="su-arrow-link text-[13px] font-medium text-[#5b43d4] hover:text-[#4b36b6] hidden sm:inline">
-            {ai.simulatorLink}
-          </Link>
-        </div>
+        {/* Simulator — styled pill button */}
+        <Link
+          href="/dashboard/savings"
+          className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-[#c9bef8] bg-white/80 px-3.5 py-1.5 text-[12px] font-semibold text-[#5b43d4] hover:bg-[#ede9fc] hover:border-[#a891f5] transition-colors shrink-0 backdrop-blur-sm"
+        >
+          {ai.simulatorLink}
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </Link>
       </div>
 
       <div className="px-5 pb-5">
         {subs.length === 0 && (
-          <p className={`text-sm leading-relaxed ${bodyMuted}`}>
-            {ai.addSubsHint}
-          </p>
+          <p className={`text-sm leading-relaxed ${bodyMuted}`}>{ai.addSubsHint}</p>
         )}
 
         {subs.length > 0 && loading && !tip && (
@@ -260,44 +262,53 @@ function AiDailyTipCard({ subs, dataFingerprint }: { subs: Subscription[]; dataF
         {error && (
           <div className="rounded-xl bg-[#fdecec] border border-[#f3c5c7] px-4 py-3 text-sm text-[#e5484d] mb-2">
             {error}
-            <button type="button" onClick={onRefresh} className="block mt-2 text-xs font-medium text-[#5b43d4]">
-              {ai.retry}
-            </button>
+            <button type="button" onClick={onRefresh} className="block mt-2 text-xs font-medium text-[#5b43d4]">{ai.retry}</button>
           </div>
         )}
 
         {tip && (
-          <div className="space-y-3 pt-1">
+          <div className="space-y-3.5 pt-0.5">
+            {/* Savings badge — prominent */}
             {tip.savings_rub != null && tip.savings_rub > 0 && (
-              <p className="text-xs font-semibold text-[#12b76a]">
-                {ai.upTo(fmtCurrency(tip.savings_rub, subs[0]?.currency ?? 'RUB', 0))}
-              </p>
+              <div className="inline-flex items-center gap-2 rounded-2xl bg-[#dcfce7] border border-[#a7f3d0] px-3.5 py-2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round" aria-hidden><path d="M12 20V4M5 13l7 7 7-7"/></svg>
+                <span className="text-[14px] font-bold text-[#0d9f6e] tabular-nums">
+                  {ai.upTo(fmtCurrency(tip.savings_rub, subs[0]?.currency ?? 'RUB', 0))}
+                </span>
+              </div>
             )}
-            <p className={`text-[15px] leading-snug font-medium ${tipBodyClass}`}>{tip.text}</p>
 
-            <div className="flex flex-wrap items-center gap-2 pt-1">
+            {/* Tip text */}
+            <p className={`text-[15px] leading-relaxed ${tipBodyClass}`}>{tip.text}</p>
+
+            {/* Action buttons — clear hierarchy */}
+            <div className="flex flex-wrap items-center gap-2.5 pt-0.5">
+              {/* Primary: Подробнее */}
               <Link
                 href={tipDetailHref(tip)}
-                className={`inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold ${actionButtonClass('secondary')}`}
+                className="inline-flex items-center gap-2 rounded-xl bg-[#5b43d4] px-5 py-2.5 text-[13px] font-semibold text-white shadow-[0_3px_10px_rgba(91,67,212,0.35)] hover:bg-[#4b36b6] hover:shadow-[0_4px_14px_rgba(91,67,212,0.42)] transition-all active:scale-[0.97]"
               >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
                 {ai.details}
               </Link>
+              {/* Secondary: Спросить ИИ о другом */}
               <button
                 type="button"
                 onClick={onRefresh}
                 disabled={loading}
-                className={`inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold border transition-all disabled:opacity-50 ${
+                className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-semibold border transition-all disabled:opacity-50 active:scale-[0.97] ${
                   isDark
-                    ? 'border-[rgba(91,67,212,0.4)] bg-[rgba(91,67,212,0.08)] text-[#ece8ff] hover:bg-[rgba(91,67,212,0.18)] hover:border-[#7c68e8]'
-                    : 'border-[#dcd6ce] bg-white text-[#1a1a2e] hover:bg-[rgba(91,67,212,0.07)] hover:border-[#5b43d4] hover:text-[#5b43d4]'
+                    ? 'border-[rgba(91,67,212,0.4)] bg-[rgba(91,67,212,0.08)] text-[#c4baff] hover:bg-[rgba(91,67,212,0.18)]'
+                    : 'border-[#e0d8fc] bg-white/90 text-[#5b43d4] hover:bg-[#ede9fc] hover:border-[#c9bef8]'
                 }`}
               >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden className={loading ? 'animate-spin' : ''}><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
                 {ai.askOther}
               </button>
             </div>
 
             {loading && tip && (
-              <p className={`text-xs ${bodyMuted}`}>{ai.updating}</p>
+              <p className={`text-[11px] ${bodyMuted}`}>{ai.updating}</p>
             )}
           </div>
         )}
@@ -850,8 +861,12 @@ export default function TodayView({
         <article className="rounded-2xl border border-[#e7e3dc] bg-white shadow-[0_1px_3px_rgba(26,26,61,0.06),0_8px_24px_rgba(26,26,61,0.06)] overflow-hidden">
           <div className="flex items-center justify-between px-5 pt-5 pb-3.5 border-b border-[#f0ece6]">
             <h2 className="text-[17px] font-bold text-[#1a1a2e] tracking-[-0.02em]">{tod.upcomingCharges}</h2>
-            <Link href="/dashboard?tab=payments" className="su-arrow-link text-sm font-medium text-[#5b43d4] hover:text-[#4b36b6]">
+            <Link
+              href="/dashboard?tab=payments"
+              className="inline-flex items-center gap-1 rounded-full border border-[#e0d8fc] bg-[#f7f4ff] px-3 py-1.5 text-[12px] font-semibold text-[#5b43d4] hover:bg-[#ede9fc] hover:border-[#c9bef8] transition-colors"
+            >
               {tod.viewAll}
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden><path d="M5 12h14M13 6l6 6-6 6"/></svg>
             </Link>
           </div>
           <div className="pb-2">
