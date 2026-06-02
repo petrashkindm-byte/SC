@@ -865,7 +865,6 @@ export default function TodayView({
               className="inline-flex items-center gap-1 rounded-full border border-[#e0d8fc] bg-[#f7f4ff] px-3 py-1.5 text-[12px] font-semibold text-[#5b43d4] hover:bg-[#ede9fc] hover:border-[#c9bef8] transition-colors"
             >
               {tod.viewAll}
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden><path d="M5 12h14M13 6l6 6-6 6"/></svg>
             </Link>
           </div>
           <div className="pb-2">
