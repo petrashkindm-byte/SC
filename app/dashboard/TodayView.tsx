@@ -241,7 +241,6 @@ function AiDailyTipCard({ subs, dataFingerprint }: { subs: Subscription[]; dataF
           className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-[#c9bef8] bg-white/80 px-3.5 py-1.5 text-[12px] font-semibold text-[#5b43d4] hover:bg-[#ede9fc] hover:border-[#a891f5] transition-colors shrink-0 backdrop-blur-sm"
         >
           {ai.simulatorLink}
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5 12h14M13 6l6 6-6 6"/></svg>
         </Link>
       </div>
 
