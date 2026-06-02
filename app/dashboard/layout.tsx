@@ -1,8 +1,10 @@
+import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import DashboardSidebar from './DashboardSidebar'
 import MobileBottomNav from './MobileBottomNav'
 import { LangProvider } from '@/lib/LangContext'
+import { TabProvider } from './TabContext'
 import { getCachedDashboardData } from '@/lib/dashboard-cache'
 
 export default async function DashboardLayout({
@@ -49,16 +51,21 @@ export default async function DashboardLayout({
 
   return (
     <LangProvider>
-      <div className="h-screen flex overflow-hidden bg-background text-foreground">
-        <div className="relative z-0 hidden md:flex md:shrink-0">
-          <DashboardSidebar
-            displayName={displayName}
-            paymentsCount={paymentsCount ?? 0}
-          />
-        </div>
-        <div className="relative z-10 flex-1 min-w-0 overflow-y-auto pb-20 md:pb-0">{children}</div>
-        <MobileBottomNav />
-      </div>
+      {/* TabProvider needs Suspense because it uses useSearchParams */}
+      <Suspense fallback={null}>
+        <TabProvider>
+          <div className="h-screen flex overflow-hidden bg-background text-foreground">
+            <div className="relative z-0 hidden md:flex md:shrink-0">
+              <DashboardSidebar
+                displayName={displayName}
+                paymentsCount={paymentsCount}
+              />
+            </div>
+            <div className="relative z-10 flex-1 min-w-0 overflow-y-auto pb-20 md:pb-0">{children}</div>
+            <MobileBottomNav />
+          </div>
+        </TabProvider>
+      </Suspense>
     </LangProvider>
   )
 }

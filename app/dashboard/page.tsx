@@ -49,7 +49,6 @@ export default async function DashboardPage({
       <div className="max-w-[1180px]">
         <DashboardClient
           subs={subs}
-          tab={tab}
           paymentsFilter={paymentsFilter}
           priceAlerts={alerts}
           paymentEvents={paymentEvents}

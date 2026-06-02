@@ -7,14 +7,12 @@ import AnalyticsView from './AnalyticsView'
 import PaymentsTable, { type PaymentsFilter } from './PaymentsTable'
 import TodayView from './TodayView'
 import { actionButtonClass } from './ui/action-button'
-
-type DashboardTab = 'today' | 'payments' | 'analytics'
+import { useTabContext } from './TabContext'
 
 type Props = {
   subs: Subscription[]
   priceAlerts?: PriceAlert[]
   paymentEvents?: SubscriptionPayment[]
-  tab?: DashboardTab
   paymentsFilter?: PaymentsFilter
   userName?: string
 }
@@ -23,7 +21,6 @@ export default function DashboardClient({
   subs: allSubs,
   priceAlerts = [],
   paymentEvents = [],
-  tab: dashTab = 'today',
   paymentsFilter = 'all',
   userName = '',
 }: Props) {
@@ -31,6 +28,9 @@ export default function DashboardClient({
     () => allSubs.find(s => s.status === 'active')?.currency ?? allSubs[0]?.currency ?? 'RUB',
     [allSubs],
   )
+
+  // Tab comes from client-side context — switching is instant, no server round-trip
+  const { tab: dashTab } = useTabContext()
 
   // Tab routing
   if (dashTab === 'payments')

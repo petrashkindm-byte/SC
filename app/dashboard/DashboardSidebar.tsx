@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useRef } from 'react'
 import { useLang } from '@/lib/LangContext'
+import { useTabContext, type DashboardTab } from './TabContext'
 
 // ── Per-route color config ────────────────────────────────────
 const NAV_COLORS: Record<string, { color: string; bg: string; ripple: string }> = {
@@ -92,6 +93,9 @@ export default function DashboardSidebar({ displayName, paymentsCount }: Dashboa
   const searchParams = useSearchParams()
   const router = useRouter()
   const { strings } = useLang()
+  const { tab: contextTab, setTab } = useTabContext()
+
+  const TAB_IDS = new Set(['today', 'payments', 'analytics'] as const)
   const nav = strings.nav
 
   // ── Animation refs ────────────────────────────────────────────
@@ -164,7 +168,8 @@ export default function DashboardSidebar({ displayName, paymentsCount }: Dashboa
     window.location.href = '/logout'
   }
 
-  const dashboardTab = searchParams.get('tab') ?? 'today'
+  // Use context tab for the three main tabs (instant client-side switching)
+  const dashboardTab = pathname === '/dashboard' ? contextTab : (searchParams.get('tab') ?? 'today')
 
   return (
     <aside className="w-[250px] shrink-0 bg-[#1a1a3d] text-white px-3 py-4 h-full flex flex-col overflow-y-auto">
@@ -198,6 +203,7 @@ export default function DashboardSidebar({ displayName, paymentsCount }: Dashboa
           else if (id === 'today' || id === 'payments' || id === 'analytics')
             active = pathname === '/dashboard' && dashboardTab === id
 
+          const isTabItem = TAB_IDS.has(id as DashboardTab)
           const cfg        = NAV_COLORS[id] ?? { color: '#fff', bg: 'rgba(255,255,255,0.08)', ripple: 'rgba(255,255,255,0.15)' }
           const iconColor  = active ? cfg.color : 'rgba(255,255,255,0.7)'
           const labelColor = active ? cfg.color : 'rgba(255,255,255,0.8)'
@@ -208,10 +214,17 @@ export default function DashboardSidebar({ displayName, paymentsCount }: Dashboa
               key={id}
               ref={el => { itemRefs.current[id] = el }}
               className="relative overflow-hidden rounded-xl"
-              onClick={() => triggerAnim(id)}
+              onClick={() => {
+                triggerAnim(id)
+                // Tab items (today/payments/analytics) switch client-side — no server round-trip
+                if (isTabItem && pathname === '/dashboard') {
+                  setTab(id as DashboardTab)
+                }
+              }}
             >
               <Link
                 href={itHref}
+                onClick={isTabItem && pathname === '/dashboard' ? (e) => e.preventDefault() : undefined}
                 className="flex items-center gap-3 px-3 py-3 text-sm w-full"
                 style={{
                   background: active ? cfg.bg : 'transparent',
