@@ -939,14 +939,6 @@ export default function PaymentsTable({
                   const rowColors = cardPresetColors(sub.card_color_preset ?? null)
                   const isSelected = detailSub?.id === sub.id
                   const dateColorClass = dueColorClass(st, days)
-                  const cyclePct = sub.status === 'active'
-                    ? Math.min(100, Math.max(0, ((cycleTotalDays(sub) - Math.max(0, days)) / cycleTotalDays(sub)) * 100))
-                    : 0
-                  const barColor = days <= 0
-                    ? 'linear-gradient(to right, #f87171, #ef4444)'
-                    : days <= 3
-                    ? 'linear-gradient(to right, #fb923c, #f59e0b)'
-                    : 'linear-gradient(to right, #c4b5f8, #8eecd6)'
                   return (
                     <tr
                       key={sub.id}
@@ -966,14 +958,7 @@ export default function PaymentsTable({
                       <td className="px-5 py-3.5 align-middle" style={rowColors ? { borderLeft: `3px solid ${rowColors.swatch}` } : undefined}>
                         <div className="flex min-w-0 items-center gap-3">
                           <PaymentServiceIcon icon={sub.icon} categorySlug={sub.category_slug} iconBg={iconDisplay.iconBg} shape={iconDisplay.shape} size={40} title={sub.name} />
-                          <div className="min-w-0 flex-1">
-                            <span className="truncate block text-[14px] font-semibold text-[#1a1a2e] max-w-[200px]">{sub.name}</span>
-                            {sub.status === 'active' && (
-                              <div className="mt-1 h-[2px] w-full max-w-[160px] overflow-hidden rounded-full" style={{ background: 'rgba(124,92,225,0.1)' }}>
-                                <div className="h-full rounded-full" style={{ width: `${cyclePct}%`, background: barColor }} />
-                              </div>
-                            )}
-                          </div>
+                          <span className="truncate text-[14px] font-semibold text-[#1a1a2e] max-w-[200px]">{sub.name}</span>
                         </div>
                       </td>
                       <td className="px-5 py-3.5 align-middle text-[13px] text-[#6b6b80]">{categoryLabel(sub.category_slug, lang)}</td>
