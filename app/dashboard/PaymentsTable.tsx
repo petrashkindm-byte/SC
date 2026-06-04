@@ -17,6 +17,7 @@ import StatusPill from './ui/StatusPill'
 import { actionButtonClass } from './ui/action-button'
 import { useDarkMode } from '@/lib/hooks/use-dark-mode'
 import { useLang } from '@/lib/LangContext'
+import { lookupManagementUrl } from '@/lib/service-catalog'
 
 export type PaymentsFilter = 'all' | 'active' | 'soon' | 'overdue' | 'paused' | 'cancelled'
 type PaymentsSortKey = 'next_charge' | 'amount' | 'name'
@@ -267,9 +268,9 @@ function SubscriptionDetailPanel({
                 {markingPaidId === sub.id ? p.updatingLabel : p.detailMarkPaid}
               </button>
             )}
-            {sub.management_url && (
+            {(sub.management_url || lookupManagementUrl(sub.name)) && (
               <a
-                href={sub.management_url}
+                href={(sub.management_url || lookupManagementUrl(sub.name))!}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#e5e7eb] bg-[#f8f9fa] py-2.5 text-[14px] font-semibold text-[#1b2a4a] hover:bg-[#eef0f2] transition-colors"

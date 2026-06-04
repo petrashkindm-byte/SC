@@ -114,6 +114,13 @@ export const SERVICE_CATALOG: ServiceEntry[] = [
   ...(rawCatalog as ServiceEntry[]),
 ]
 
+/** Точный поиск management_url по названию сервиса (case-insensitive, trim).
+ *  Используется как fallback когда поле не заполнено в БД. */
+export function lookupManagementUrl(name: string): string | null {
+  const n = name.trim().toLowerCase()
+  return SERVICE_CATALOG.find((e) => e.name.trim().toLowerCase() === n)?.management_url ?? null
+}
+
 /** Поиск по каталогу — возвращает до 6 совпадений */
 export function searchCatalog(query: string): ServiceEntry[] {
   const q = query.trim().toLowerCase()

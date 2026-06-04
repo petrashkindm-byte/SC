@@ -14,6 +14,7 @@ import PaymentServiceIcon from '@/app/dashboard/PaymentServiceIcon'
 import { PAYMENT_ICON_PRESETS, resolvePaymentIconIdForDisplay } from '@/lib/payment-icon-presets'
 import { setSubscriptionReminderKind } from '@/app/dashboard/reminders/actions'
 import { deleteSubscription, updateSubscriptionFields } from './actions'
+import { lookupManagementUrl } from '@/lib/service-catalog'
 
 const CURRENCIES = ['RUB', 'USD', 'EUR'] as const
 
@@ -101,7 +102,7 @@ export default function EditSubscriptionView({
   )
   const [viz, setViz] = useState<SubcuroEditViz>(initialViz)
   const [notes, setNotes] = useState(initialUserNotes)
-  const [manageUrl, setManageUrl] = useState(sub.management_url ?? '')
+  const [manageUrl, setManageUrl] = useState(sub.management_url ?? lookupManagementUrl(sub.name) ?? '')
   const [cancelUrl, setCancelUrl] = useState(sub.cancellation_url ?? '')
   const [pricingUrl, setPricingUrl] = useState(sub.pricing_url ?? '')
 

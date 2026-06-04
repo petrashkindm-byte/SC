@@ -10,6 +10,7 @@ import { notFound, redirect } from 'next/navigation'
 import PaymentServiceIcon from '@/app/dashboard/PaymentServiceIcon'
 import { resolveSubscriptionIconDisplay } from '@/lib/subscription-icon-background'
 import { parseNotesAndViz, CARD_COLOR_PRESETS } from '@/lib/subscription-viz-notes'
+import { lookupManagementUrl } from '@/lib/service-catalog'
 import SubscriptionDangerZone from './SubscriptionDangerZone'
 import SubscriptionStatusActions from './SubscriptionStatusActions'
 import MarkUsedTodayButton from './MarkUsedTodayButton'
@@ -91,6 +92,7 @@ export default async function SubscriptionDetailPage({
     maximumFractionDigits: 0,
   }).format(amount)
   const badge = nextChargeBadge(sub)
+  const managementUrl = sub.management_url ?? lookupManagementUrl(sub.name)
 
   return (
     <main className="px-4 sm:px-6 py-6">
@@ -155,9 +157,9 @@ export default async function SubscriptionDetailPage({
         {/* Action buttons */}
         <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-[#f0ece6]">
           <MarkUsedTodayButton subscriptionId={sub.id} lastUsedAt={sub.last_used_at ?? null} />
-          {sub.management_url && (
+          {managementUrl && (
             <a
-              href={sub.management_url}
+              href={managementUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 rounded-xl border border-[#e5e7eb] bg-[#f8f9fa] px-4 py-2.5 text-sm font-medium text-[#1b2a4a] hover:bg-[#eef0f2] transition-colors"
