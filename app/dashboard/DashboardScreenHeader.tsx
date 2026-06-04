@@ -6,7 +6,8 @@ import { createPortal } from 'react-dom'
 import type { ReactNode } from 'react'
 import type { Subscription } from '@/lib/supabase/types'
 import { actionButtonClass } from './ui/action-button'
-import { fmtCurrency, getMonthlyAmount } from '@/lib/currency'
+import { fmtCurrency, groupMonthlyByCurrency, formatGroups } from '@/lib/currency'
+import { coerceNumber } from '@/lib/coerce-number'
 import PaymentServiceIcon from './PaymentServiceIcon'
 import { resolveSubscriptionIconDisplay } from '@/lib/subscription-icon-background'
 import { useLang } from '@/lib/LangContext'
@@ -61,11 +62,14 @@ function dueRelativePhrase(days: number, strings: ReturnType<typeof useLang>['st
   return strings.due.inDays(days)
 }
 
-function urgencyStyle(days: number): { badge: string; dot: string } {
-  if (days <= 0) return { badge: 'bg-[#fee2e2] text-[#b91c1c]', dot: 'bg-[#ef4444]' }
-  if (days === 1) return { badge: 'bg-[#ffedd5] text-[#c2410c]', dot: 'bg-[#f97316]' }
-  if (days <= 3) return { badge: 'bg-[#fef3c7] text-[#b45309]', dot: 'bg-[#f59e0b]' }
-  return { badge: 'bg-[#f1f0ff] text-[#5b43d4]', dot: 'bg-[#8b8bc0]' }
+type NotifBadge = { label: string; bg: string; fg: string; border: string | null; dot: string | null; pulse: boolean }
+function notifBadgeInfo(days: number, badgeOverdue: string, badgeToday: string, badgeTomorrow: string, badgeInDays: (n: number) => string): NotifBadge {
+  if (days < 0)   return { label: badgeOverdue,        bg: '#FEE2E2', fg: '#DC2626', border: '#DC2626', dot: '#DC2626', pulse: true }
+  if (days === 0) return { label: badgeToday,          bg: '#FEF3C7', fg: '#D97706', border: '#F59E0B', dot: '#F59E0B', pulse: false }
+  if (days === 1) return { label: badgeTomorrow,       bg: '#FEF3C7', fg: '#D97706', border: '#F59E0B', dot: '#F59E0B', pulse: false }
+  if (days <= 3)  return { label: badgeInDays(days),   bg: '#FFEDD5', fg: '#EA580C', border: '#FB923C', dot: '#FB923C', pulse: false }
+  if (days <= 7)  return { label: badgeInDays(days),   bg: '#EDE9FE', fg: '#7C3AED', border: '#8B5CF6', dot: '#8B5CF6', pulse: false }
+  return            { label: badgeInDays(days),   bg: '#F3F4F6', fg: '#6B7280', border: null,      dot: null,      pulse: false }
 }
 
 
@@ -102,8 +106,10 @@ export default function DashboardScreenHeader({
 }: Props) {
   const { lang, strings } = useLang()
   const h = strings.header
+  const p = strings.payments
   const resolvedPlaceholder = searchPlaceholder ?? h.searchPlaceholder
   const [notifOpen, setNotifOpen] = useState(false)
+  const [notifTab, setNotifTab] = useState<'all' | 'soon' | 'overdue'>('all')
   const [notifPos, setNotifPos] = useState<{ top: number; right: number } | null>(null)
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set())
 
@@ -141,12 +147,24 @@ export default function DashboardScreenHeader({
     return () => document.removeEventListener('click', onDoc)
   }, [notifOpen])
 
-  const notifItems = useMemo(() => {
-    return subs
-      .filter((s) => s.status === 'active' && daysUntil(s.next_charge_date) >= 0 && daysUntil(s.next_charge_date) <= 7 && !dismissedIds.has(s.id))
-      .sort((a, b) => daysUntil(a.next_charge_date) - daysUntil(b.next_charge_date))
-      .slice(0, 6)
-  }, [subs, dismissedIds])
+  const notifItems = useMemo(() => subs
+    .filter((s) => s.status === 'active' && daysUntil(s.next_charge_date) <= 7 && !dismissedIds.has(s.id))
+    .sort((a, b) => daysUntil(a.next_charge_date) - daysUntil(b.next_charge_date)),
+    [subs, dismissedIds])
+
+  const tabFilteredNotifs = useMemo(() => notifItems.filter((s) => {
+    const d = daysUntil(s.next_charge_date)
+    if (notifTab === 'soon') return d >= 0
+    if (notifTab === 'overdue') return d < 0
+    return true
+  }), [notifItems, notifTab])
+
+  const visibleNotifs = useMemo(() => tabFilteredNotifs.slice(0, 8), [tabFilteredNotifs])
+
+  const notifSummaryText = useMemo(() => {
+    const groups = groupMonthlyByCurrency(notifItems, (s) => coerceNumber(s.amount))
+    return p.notifSummary(notifItems.length, formatGroups(groups))
+  }, [notifItems, p])
 
   const bellButton = (
     <div ref={notifRef}>
@@ -173,58 +191,89 @@ export default function DashboardScreenHeader({
       {notifOpen && notifPos ? createPortal(
         <div
           ref={dropdownRef}
-          style={{ position: 'fixed', top: notifPos.top, right: notifPos.right, zIndex: 9999, width: 'min(360px, 92vw)' }}
-          className="rounded-2xl border border-[rgba(26,26,61,0.08)] bg-white shadow-[0_4px_6px_rgba(26,26,61,0.04),0_12px_32px_rgba(26,26,61,0.10)]"
+          style={{ position: 'fixed', top: notifPos.top, right: notifPos.right, zIndex: 9999, width: 'min(380px, 92vw)' }}
+          className="su-notif-panel overflow-hidden rounded-2xl border border-[rgba(26,26,61,0.08)] bg-white shadow-[0_4px_6px_rgba(26,26,61,0.04),0_12px_32px_rgba(26,26,61,0.12)]"
         >
-          <div className="px-4 pt-4 pb-2 flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#6b6b80]">{h.notificationsTitle}</span>
+          {/* Header */}
+          <div className="px-4 pt-4 pb-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[16px] font-bold text-[#1B2A4A]">{p.notifTitle}</span>
+              {notifItems.length > 0 && (
+                <div className="flex items-center gap-0.5 rounded-full bg-[#f3f4f6] p-0.5">
+                  {([['all', p.filterAll], ['soon', p.notifTabSoon], ['overdue', p.notifBadgeOverdue]] as const).map(([key, label]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setNotifTab(key)}
+                      className="rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors"
+                      style={notifTab === key ? { background: '#7BAE7F', color: '#fff' } : { color: '#6B7280' }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             {notifItems.length > 0 && (
-              <span className="text-[11px] font-semibold text-[#5b43d4]">{h.thisWeek}</span>
+              <p className="mt-1.5 text-[12px] text-[#6B7280]">{notifSummaryText}</p>
             )}
           </div>
-          <div className="max-h-[320px] overflow-y-auto px-2 pb-2">
-            {notifItems.length === 0 ? (
-              <div className="flex flex-col items-center gap-1.5 py-8 text-center">
-                <span className="text-[28px]" aria-hidden>·</span>
-                <p className="text-[13px] text-[#6b6b80]">{h.noChargesThisWeek}</p>
+
+          {/* Cards */}
+          <div className="max-h-[340px] overflow-y-auto px-3 pb-1">
+            {visibleNotifs.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 py-10 text-center">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 8a6 6 0 10-12 0c0 7-3 7-3 7h18s-3 0-3-7M13.73 21a2 2 0 01-3.46 0"/>
+                </svg>
+                <p className="text-[14px] font-semibold text-[#1B2A4A]">{p.notifNone}</p>
+                <p className="text-[12px] text-[#9CA3AF]">{p.notifEmptySub}</p>
               </div>
             ) : (
-              <div className="space-y-1">
-                {notifItems.map((s) => {
+              <div className="flex flex-col gap-2 pt-1 pb-1">
+                {visibleNotifs.map((s, i) => {
                   const days = daysUntil(s.next_charge_date)
-                  const { badge } = urgencyStyle(days)
-                  const amount = getMonthlyAmount(s)
+                  const b = notifBadgeInfo(days, p.notifBadgeOverdue, p.notifBadgeToday, p.notifBadgeTomorrow, p.notifBadgeInDays)
+                  const disp = resolveSubscriptionIconDisplay(s.notes, s.icon, s.category_slug)
                   return (
                     <Link
                       key={s.id}
                       href={`/dashboard/subscriptions/${s.id}`}
-                      className="flex items-center gap-3 rounded-xl px-2.5 py-2.5 hover:bg-[#f8f7ff] transition-colors"
                       onClick={() => { dismissNotif(s.id); setNotifOpen(false) }}
+                      className="su-fade-up-row flex items-center gap-3 rounded-[12px] bg-white px-[14px] py-3 no-underline shadow-[0_1px_4px_rgba(0,0,0,0.06)] transition-all duration-150 hover:-translate-y-px hover:shadow-[0_4px_12px_rgba(0,0,0,0.10)]"
+                      style={{ borderLeft: `3px solid ${b.border ?? 'transparent'}`, animationDelay: `${i * 30}ms` }}
                     >
-                      <PaymentServiceIcon
-                        icon={s.icon}
-                        categorySlug={s.category_slug}
-                        iconBg={resolveSubscriptionIconDisplay(s.notes, s.icon, s.category_slug).iconBg}
-                        size={36}
-                        shape="rounded"
-                      />
+                      <span className="shrink-0" style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.12))' }}>
+                        <PaymentServiceIcon icon={s.icon} categorySlug={s.category_slug} iconBg={disp.iconBg} shape={disp.shape} size={44} title={s.name} />
+                      </span>
                       <div className="min-w-0 flex-1">
-                        <p className="text-[13px] font-semibold text-[#1a1a2e] truncate">{s.name}</p>
-                        <p className="text-[11px] text-[#6b6b80] mt-0.5">{formatDateShort(s.next_charge_date)}</p>
+                        <p className="truncate text-[14px] font-semibold text-[#1B2A4A]">{s.name}</p>
+                        <div className="mt-0.5 flex items-center justify-between gap-2">
+                          <span className="text-[12px] text-[#6B7280]">{formatDateShort(s.next_charge_date)}</span>
+                          <span className="text-[14px] font-semibold text-[#1B2A4A]">{fmtCurrency(coerceNumber(s.amount), s.currency ?? 'RUB')}</span>
+                        </div>
                       </div>
-                      <div className="flex flex-col items-end gap-1 shrink-0">
-                        <span className="text-[13px] font-semibold text-[#1a1a2e]">
-                          {fmtCurrency(amount, s.currency)}
-                        </span>
-                        <span className={`text-[10px] font-semibold rounded-full px-2 py-0.5 ${badge}`}>
-                          {dueRelativePhrase(days, strings)}
-                        </span>
-                      </div>
+                      <span className="ml-1 inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ background: b.bg, color: b.fg }}>
+                        {b.dot && <span className={`inline-block h-1.5 w-1.5 rounded-full ${b.pulse ? 'su-pulse-dot' : ''}`} style={{ background: b.dot }} />}
+                        {b.label}
+                      </span>
                     </Link>
                   )
                 })}
               </div>
             )}
+          </div>
+
+          {/* Footer */}
+          <div className="border-t border-[rgba(26,26,61,0.06)] px-4 py-2.5 text-center">
+            <Link
+              href={notifTab === 'overdue' ? '/dashboard?tab=payments&paymentsFilter=overdue' : notifTab === 'soon' ? '/dashboard?tab=payments&paymentsFilter=soon' : '/dashboard?tab=payments'}
+              onClick={() => setNotifOpen(false)}
+              className="su-arrow-link text-[13px] font-semibold no-underline"
+              style={{ color: '#7BAE7F' }}
+            >
+              {p.notifShowAll}<span aria-hidden>→</span>
+            </Link>
           </div>
         </div>,
         document.body
