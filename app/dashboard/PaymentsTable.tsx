@@ -717,16 +717,21 @@ export default function PaymentsTable({
                     )}
                   </div>
 
-                  {/* Footer: jump to full payments list */}
+                  {/* Footer: apply filter and close panel */}
                   <div className="border-t border-[rgba(26,26,61,0.06)] px-4 py-2.5 text-center">
-                    <Link
-                      href={notifTab === 'overdue' ? '/dashboard?tab=payments&paymentsFilter=overdue' : notifTab === 'soon' ? '/dashboard?tab=payments&paymentsFilter=soon' : '/dashboard?tab=payments'}
-                      onClick={() => setNotifOpen(false)}
-                      className="su-arrow-link text-[13px] font-semibold no-underline"
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNotifOpen(false)
+                        if (notifTab === 'overdue') setFilter('overdue')
+                        else if (notifTab === 'soon') setFilter('soon')
+                        else setFilter('all')
+                      }}
+                      className="su-arrow-link text-[13px] font-semibold"
                       style={{ color: '#7BAE7F' }}
                     >
                       {p.notifShowAll}<span aria-hidden>→</span>
-                    </Link>
+                    </button>
                   </div>
                 </div>
               )}
