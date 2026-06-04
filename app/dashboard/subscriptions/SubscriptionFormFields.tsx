@@ -405,6 +405,9 @@ export default function SubscriptionFormFields({
                 className={inputCls}
                 placeholder="https://..."
               />
+              <p className="mt-1 text-xs text-[#9b9bab]">
+                Необязательно · Откроется при нажатии «Управление подпиской»
+              </p>
             </div>
 
             {/* Icon */}

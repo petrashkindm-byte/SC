@@ -228,7 +228,23 @@ export const t = {
       notifAriaLabel: 'Уведомления',
       notifTitle: 'Уведомления',
       notifThisWeek: 'На этой неделе',
-      notifNone: 'Нет списаний на этой неделе',
+      notifNone: 'Нет предстоящих платежей',
+      notifEmptySub: 'Все подписки оплачены вовремя ✓',
+      notifTabSoon: 'Скоро',
+      notifBadgeOverdue: 'Просрочено',
+      notifBadgeToday: 'Сегодня',
+      notifBadgeTomorrow: 'Завтра',
+      notifBadgeInDays: (n: number) => `Через ${n} дн.`,
+      notifShowAll: 'Показать все',
+      notifSummary: (n: number, sum: string) => {
+        const mod10 = n % 10
+        const mod100 = n % 100
+        const word =
+          mod10 === 1 && mod100 !== 11 ? 'предстоящий платёж'
+          : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? 'предстоящих платежа'
+          : 'предстоящих платежей'
+        return `${n} ${word} на сумму ${sum}`
+      },
       addButton: '+ Добавить',
       filterAll: 'Все',
       filterActive: 'Активные',
@@ -313,6 +329,7 @@ export const t = {
       detailReminderLabel: 'Напоминание',
       detailReminderVal: 'За 3 дня до списания',
       detailMarkPaid: 'Оплачено',
+      detailManage: 'Управление подпиской',
       detailCancelSub: 'Отменить подписку',
       detailDelete: 'Удалить',
       detailDeleteConfirm: 'Удалить подписку навсегда? Это действие необратимо.',
@@ -534,6 +551,7 @@ export const t = {
       fieldPricingUrl: 'Страница с тарифами',
       fieldPricingUrlHint: 'Публичная страница с ценами — система будет отслеживать изменение цены',
       fieldManageUrl: 'Ссылка на управление',
+      fieldManageUrlHint: 'Необязательно · Откроется при нажатии «Управление подпиской»',
       fieldCancelUrl: 'Ссылка на отмену',
       fieldNotes: 'Заметки',
       notesPlaceholder: 'Заметка…',
@@ -801,7 +819,15 @@ export const t = {
       notifAriaLabel: 'Notifications',
       notifTitle: 'Notifications',
       notifThisWeek: 'This week',
-      notifNone: 'No charges this week',
+      notifNone: 'No upcoming payments',
+      notifEmptySub: 'All subscriptions paid on time ✓',
+      notifTabSoon: 'Soon',
+      notifBadgeOverdue: 'Overdue',
+      notifBadgeToday: 'Today',
+      notifBadgeTomorrow: 'Tomorrow',
+      notifBadgeInDays: (n: number) => `In ${n} days`,
+      notifShowAll: 'Show all',
+      notifSummary: (n: number, sum: string) => `${n} upcoming ${n === 1 ? 'payment' : 'payments'} · ${sum}`,
       addButton: '+ Add',
       filterAll: 'All',
       filterActive: 'Active',
@@ -886,6 +912,7 @@ export const t = {
       detailReminderLabel: 'Reminder',
       detailReminderVal: '3 days before charge',
       detailMarkPaid: 'Paid',
+      detailManage: 'Manage subscription',
       detailCancelSub: 'Cancel subscription',
       detailDelete: 'Delete',
       detailDeleteConfirm: 'Delete subscription permanently? This cannot be undone.',
@@ -1107,6 +1134,7 @@ export const t = {
       fieldPricingUrl: 'Pricing page',
       fieldPricingUrlHint: 'Public pricing page — the system will track price changes',
       fieldManageUrl: 'Management link',
+      fieldManageUrlHint: 'Optional · Opens when you click "Manage subscription"',
       fieldCancelUrl: 'Cancellation link',
       fieldNotes: 'Notes',
       notesPlaceholder: 'Note…',

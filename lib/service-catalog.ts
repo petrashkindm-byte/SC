@@ -22,7 +22,7 @@ const EXTRA_ENTRIES: ServiceEntry[] = [
   { name: 'Теле2', icon: 'wifi', category_slug: 'utilities', billing_cycle: 'monthly', amount: 600, currency: 'RUB', cancellation_url: 'https://tele2.ru/personal', management_url: 'https://tele2.ru/personal', pricing_url: 'https://tele2.ru/tariffs', aliases: ['tele2', 'tele 2', 't2'] },
   { name: 'Ростелеком', icon: 'wifi', category_slug: 'utilities', billing_cycle: 'monthly', amount: 500, currency: 'RUB', cancellation_url: 'https://lk.rt.ru', management_url: 'https://lk.rt.ru', pricing_url: 'https://rostelecom.ru', aliases: ['rostelecom', 'ртк'] },
   { name: 'МТС', icon: 'wifi', category_slug: 'utilities', billing_cycle: 'monthly', amount: 700, currency: 'RUB', cancellation_url: 'https://mts.ru/personal', management_url: 'https://mts.ru/personal', pricing_url: 'https://mts.ru/tariffs', aliases: ['mts', 'мтс тариф'] },
-  { name: 'МегаФон', icon: 'wifi', category_slug: 'utilities', billing_cycle: 'monthly', amount: 650, currency: 'RUB', cancellation_url: 'https://megafon.ru/services', management_url: 'https://megafon.ru/services', pricing_url: 'https://megafon.ru/tariffs', aliases: ['megafon', 'мегафон тариф'] },
+  { name: 'МегаФон', icon: 'wifi', category_slug: 'utilities', billing_cycle: 'monthly', amount: 650, currency: 'RUB', cancellation_url: 'https://megafon.ru/services', management_url: 'https://lk.megafon.ru/subscriptions', pricing_url: 'https://megafon.ru/tariffs', aliases: ['megafon', 'мегафон тариф'] },
   { name: 'Билайн', icon: 'wifi', category_slug: 'utilities', billing_cycle: 'monthly', amount: 600, currency: 'RUB', cancellation_url: 'https://beeline.ru/customers/products', management_url: 'https://beeline.ru/customers/products', pricing_url: 'https://beeline.ru/tariffs', aliases: ['beeline', 'билайн тариф'] },
   { name: 'Yota', icon: 'wifi', category_slug: 'utilities', billing_cycle: 'monthly', amount: 400, currency: 'RUB', cancellation_url: 'https://yota.ru/content/b2c/main/lk', management_url: 'https://yota.ru/content/b2c/main/lk', pricing_url: 'https://yota.ru/tariffs', aliases: ['йота', 'yota mobile'] },
   { name: 'Тинькофф Мобайл', icon: 'wifi', category_slug: 'utilities', billing_cycle: 'monthly', amount: 350, currency: 'RUB', cancellation_url: 'https://tinkoff.ru/mobile-operator', management_url: 'https://tinkoff.ru/mobile-operator', pricing_url: 'https://tinkoff.ru/mobile-operator/tariffs', aliases: ['tinkoff mobile', 'тмобайл', 'т-мобайл'] },
@@ -66,6 +66,7 @@ const EXTRA_ENTRIES: ServiceEntry[] = [
   { name: 'Freeletics', icon: 'fitness', category_slug: 'health', billing_cycle: 'monthly', amount: 900, currency: 'RUB', cancellation_url: 'https://freeletics.com/r/subscriptions', management_url: 'https://freeletics.com/r/subscriptions', pricing_url: 'https://freeletics.com/coach', aliases: ['фрилилетикс', 'free letics'] },
   { name: 'VSCO', icon: 'camera', category_slug: 'productivity', billing_cycle: 'yearly', amount: 2000, currency: 'RUB', cancellation_url: 'https://vsco.co/settings', management_url: 'https://vsco.co/settings', pricing_url: 'https://vsco.co/about/membership', aliases: ['вско', 'vsco pro', 'vsco membership'] },
   { name: 'Zepp Health', icon: 'fitness', category_slug: 'health', billing_cycle: 'monthly', amount: 299, currency: 'RUB', cancellation_url: 'https://account.zepp.com/account', management_url: 'https://account.zepp.com/account', pricing_url: 'https://zepp.com/health', aliases: ['zepp', 'amazfit health', 'zepp life'] },
+  { name: 'FitStars', icon: 'fitness', category_slug: 'health', billing_cycle: 'monthly', amount: 999, currency: 'RUB', cancellation_url: 'https://fitstars.ru/profile/subscription', management_url: 'https://fitstars.ru/profile/subscription', pricing_url: 'https://fitstars.ru', aliases: ['фитстарс', 'fit stars'] },
 
   // ── Игры ─────────────────────────────────────────────────────────────────
   { name: 'Xbox PC Game Pass', icon: 'game', category_slug: 'entertainment', billing_cycle: 'monthly', amount: 499, currency: 'RUB', cancellation_url: 'https://account.microsoft.com/services', management_url: 'https://account.microsoft.com/services', pricing_url: 'https://xbox.com/game-pass/pc-game-pass', aliases: ['game pass pc', 'gamepass pc', 'xbox pc'] },
@@ -151,8 +152,18 @@ export function searchCatalog(query: string): ServiceEntry[] {
     if (score > 0) scored.push({ entry, score })
   }
 
-  return scored
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 6)
-    .map((s) => s.entry)
+  // Дедупликация по name (case-insensitive, trim): даже если оба источника
+  // (EXTRA_ENTRIES и rawCatalog) вернут одинаковое название, в выдачу попадёт
+  // только первое — с наибольшим score, а при равенстве курируемое, т.к.
+  // EXTRA_ENTRIES идут первыми в SERVICE_CATALOG.
+  const seen = new Set<string>()
+  const result: ServiceEntry[] = []
+  for (const { entry } of scored.sort((a, b) => b.score - a.score)) {
+    const key = entry.name.trim().toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    result.push(entry)
+    if (result.length >= 6) break
+  }
+  return result
 }

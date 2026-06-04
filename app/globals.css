@@ -52,6 +52,13 @@
 }
 .su-fade-up-row { animation: su-fade-up-row 0.4s ease-out both; }
 
+/* Notifications: panel fade-in + slide-down on open */
+@keyframes su-notif-panel {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.su-notif-panel { animation: su-notif-panel 0.2s ease-out both; }
+
 /* Analytics: badge gentle pulse */
 @keyframes su-badge-pulse {
   0%, 100% { transform: scale(1); }

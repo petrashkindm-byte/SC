@@ -160,12 +160,12 @@ export default async function SubscriptionDetailPage({
               href={sub.management_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-xl border border-[rgba(91,67,212,0.25)] bg-[#f7f4ff] px-4 py-2.5 text-sm font-medium text-[#5b43d4] hover:bg-[#ede8fc] transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-[#e5e7eb] bg-[#f8f9fa] px-4 py-2.5 text-sm font-medium text-[#1b2a4a] hover:bg-[#eef0f2] transition-colors"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
               </svg>
-              Открыть управление
+              Управление подпиской
             </a>
           )}
           <Link

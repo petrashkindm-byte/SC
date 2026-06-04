@@ -11,17 +11,6 @@
     "pricing_url": "https://plus.yandex.ru"
   },
   {
-    "name": "Яндекс Музыка",
-    "icon": "music",
-    "category_slug": "entertainment",
-    "billing_cycle": "monthly",
-    "amount": 219,
-    "currency": "RUB",
-    "cancellation_url": "https://music.yandex.ru/settings",
-    "management_url": "https://music.yandex.ru/settings",
-    "pricing_url": "https://music.yandex.ru"
-  },
-  {
     "name": "Яндекс 360 10 ГБ",
     "icon": "cloud",
     "category_slug": "utilities",

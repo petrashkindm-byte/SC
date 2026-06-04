@@ -667,6 +667,7 @@ export default function EditSubscriptionView({
                       placeholder="https://…"
                       className="w-full rounded-[10px] border border-[#dcd6ce] bg-white px-3 py-2.5 text-sm outline-none"
                     />
+                    <p className="mt-1 text-[11px] text-[#9b9bab]">{e.fieldManageUrlHint}</p>
                   </div>
                   <div>
                     <label htmlFor="edit-link-cancel" className="mb-1 block text-[13px] text-[#6b6b80]">
