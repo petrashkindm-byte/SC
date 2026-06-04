@@ -269,17 +269,22 @@ function SubscriptionDetailPanel({
                 {markingPaidId === sub.id ? p.updatingLabel : p.detailMarkPaid}
               </button>
             )}
-            {(sub.management_url || lookupManagementUrl(sub.name)) && (
-              <a
-                href={(sub.management_url || lookupManagementUrl(sub.name))!}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#e5e7eb] bg-[#f8f9fa] py-2.5 text-[14px] font-semibold text-[#1b2a4a] hover:bg-[#eef0f2] transition-colors"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                {p.detailManage}
-              </a>
-            )}
+            {(() => {
+              const mgmtUrl = sub.management_url || lookupManagementUrl(sub.name)
+              const icon = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              return mgmtUrl ? (
+                <a href={mgmtUrl} target="_blank" rel="noopener noreferrer"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#e5e7eb] bg-[#f8f9fa] py-2.5 text-[14px] font-semibold text-[#1b2a4a] hover:bg-[#eef0f2] transition-colors">
+                  {icon}{p.detailManage}
+                </a>
+              ) : (
+                <button type="button"
+                  onClick={() => toast('info', p.detailManage, p.toastNoMgmtUrl)}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#e5e7eb] bg-[#f9fafb] py-2.5 text-[14px] font-semibold text-[#9ca3af] transition-colors hover:bg-[#f3f4f6]">
+                  {icon}{p.detailManage}
+                </button>
+              )
+            })()}
             <Link
               href={`/dashboard/subscriptions/${sub.id}/edit?from=payments`}
               className="flex w-full items-center justify-center gap-2 rounded-xl border border-[rgba(91,67,212,0.2)] bg-[#f5f0ff] py-2.5 text-[14px] font-semibold text-[#5b43d4] hover:bg-[#ede6ff] transition-colors"
