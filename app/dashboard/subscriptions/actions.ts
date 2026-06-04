@@ -339,7 +339,7 @@ export async function updateSubscriptionFields(formData: FormData) {
   // Пришли из списка платежей — возвращаемся туда с авто-открытием панели (1 клик)
   const from = String(formData.get('from') ?? '')
   if (from === 'payments') {
-    redirect(`/dashboard?tab=payments&openSub=${id}`)
+    redirect(`/dashboard?tab=payments&openSub=${id}&subscriptionSaved=1`)
   }
   redirect(`/dashboard/subscriptions/${id}/edit?saved=1`)
 }

@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { SubscriptionStatus } from '@/lib/supabase/types'
 import { updateSubscriptionStatus } from '../actions'
+import { toast } from '@/app/dashboard/ui/toast'
 
 type Props = {
   subscriptionId: string
@@ -15,14 +16,23 @@ export default function SubscriptionStatusActions({ subscriptionId, status }: Pr
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
+  const STATUS_TOAST: Record<string, [string, string]> = {
+    active: ['Подписка активна', 'Отслеживание возобновлено'],
+    paused: ['Подписка на паузе', 'Временно приостановлена'],
+    cancelled: ['Подписка отменена', 'Отмечена как неактивная'],
+  }
+
   function run(next: 'active' | 'paused' | 'cancelled') {
     setError(null)
     startTransition(async () => {
       try {
         await updateSubscriptionStatus(subscriptionId, next)
+        const [title, sub] = STATUS_TOAST[next] ?? ['Статус обновлён', '']
+        toast('success', title, sub)
         router.refresh()
       } catch {
         setError('Не удалось обновить статус')
+        toast('error', 'Не удалось обновить статус')
       }
     })
   }

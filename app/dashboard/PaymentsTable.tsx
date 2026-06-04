@@ -18,6 +18,7 @@ import { actionButtonClass } from './ui/action-button'
 import { useDarkMode } from '@/lib/hooks/use-dark-mode'
 import { useLang } from '@/lib/LangContext'
 import { lookupManagementUrl } from '@/lib/service-catalog'
+import { toast } from './ui/toast'
 
 export type PaymentsFilter = 'all' | 'active' | 'soon' | 'overdue' | 'paused' | 'cancelled'
 type PaymentsSortKey = 'next_charge' | 'amount' | 'name'
@@ -398,6 +399,13 @@ export default function PaymentsTable({
 
   const clearPaymentFlash = () => router.replace('/dashboard?tab=payments')
 
+  // Toast при возврате с формы редактирования
+  const subscriptionSaved = searchParams.get('subscriptionSaved') === '1'
+  useEffect(() => {
+    if (subscriptionSaved) toast('success', p.toastSaved, p.toastSavedSub)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   useEffect(() => {
     if (!notifOpen) return
     const onDoc = (e: MouseEvent) => {
@@ -443,7 +451,8 @@ export default function PaymentsTable({
     else params.delete('q')
     params.set('sort', sortKey)
     params.set('dir', sortDir)
-    params.delete('openSub') // одноразовый параметр авто-открытия панели — убираем из URL
+    params.delete('openSub')         // одноразовый параметр авто-открытия панели
+    params.delete('subscriptionSaved') // одноразовый сигнал успешного сохранения
     const next = `/dashboard?${params.toString()}`
     if (next !== `/dashboard?${searchParams.toString()}`) router.replace(next, { scroll: false })
   }, [filter, search, sortKey, sortDir, router, searchParams])
@@ -539,23 +548,27 @@ export default function PaymentsTable({
 
   const handleMarkPaid = async (id: string) => {
     setMarkingPaidId(id)
-    try { await markAsPaid(id) } finally { setMarkingPaidId(null) }
+    try {
+      await markAsPaid(id)
+      toast('success', p.toastPaid, p.toastPaidSub)
+    } finally { setMarkingPaidId(null) }
   }
 
   const handleDelete = async (sub: Subscription) => {
     if (!window.confirm(p.detailDeleteConfirm)) return
-    // Оптимистично убираем строку и закрываем панель/меню
     setOptimisticRemoved((prev) => new Set(prev).add(sub.id))
     if (detailSub?.id === sub.id) setDetailSub(null)
     setActionsOpenId(null)
     try {
       await deleteSubscription(sub.id)
+      toast('info', p.toastDeleted, p.toastDeletedSub)
     } catch {
       setOptimisticRemoved((prev) => {
         const copy = new Set(prev)
         copy.delete(sub.id)
         return copy
       })
+      toast('error', 'Не удалось удалить', 'Попробуйте ещё раз')
     }
   }
 

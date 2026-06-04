@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { SubscriptionStatus } from '@/lib/supabase/types'
 import { archiveSubscription, deleteSubscription } from '../actions'
+import { toast } from '@/app/dashboard/ui/toast'
 
 type Props = {
   subscriptionId: string
@@ -21,9 +22,11 @@ export default function SubscriptionDangerZone({ subscriptionId, status }: Props
     startTransition(async () => {
       try {
         await archiveSubscription(subscriptionId)
+        toast('info', 'Подписка в архиве', 'Её можно восстановить в любой момент')
         router.refresh()
       } catch {
         setError('Не удалось отправить в архив')
+        toast('error', 'Не удалось архивировать')
       }
     })
   }
@@ -40,10 +43,12 @@ export default function SubscriptionDangerZone({ subscriptionId, status }: Props
     startTransition(async () => {
       try {
         await deleteSubscription(subscriptionId)
+        toast('info', 'Подписка удалена', 'Запись безвозвратно удалена')
         router.push('/dashboard')
         router.refresh()
       } catch {
         setError('Не удалось удалить')
+        toast('error', 'Не удалось удалить')
       }
     })
   }

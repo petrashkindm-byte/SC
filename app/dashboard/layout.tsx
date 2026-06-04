@@ -6,6 +6,7 @@ import MobileBottomNav from './MobileBottomNav'
 import { LangProvider } from '@/lib/LangContext'
 import { TabProvider } from './TabContext'
 import { getCachedDashboardData } from '@/lib/dashboard-cache'
+import AppToast from './ui/AppToast'
 
 export default async function DashboardLayout({
   children,
@@ -63,6 +64,7 @@ export default async function DashboardLayout({
             </div>
             <div className="relative z-10 flex-1 min-w-0 overflow-y-auto pb-20 md:pb-0">{children}</div>
             <MobileBottomNav />
+            <AppToast />
           </div>
         </TabProvider>
       </Suspense>
