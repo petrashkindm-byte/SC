@@ -34,7 +34,11 @@ function subscribeToTabChange(onStoreChange: () => void) {
 }
 
 export function TabProvider({ children }: { children: ReactNode }) {
-  const tab = useSyncExternalStore(subscribeToTabChange, readCurrentTab, () => 'today')
+  const tab: DashboardTab = useSyncExternalStore(
+    subscribeToTabChange,
+    readCurrentTab,
+    () => 'today' as DashboardTab,
+  )
 
   const setTab = (t: DashboardTab) => {
     // Update URL for back/forward support — history.replaceState bypasses the

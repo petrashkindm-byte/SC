@@ -1597,6 +1597,7 @@ function ReminderCard({
   }
   const [completing, setCompleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [renderNowTs] = useState(() => Date.now())
 
   const daysAgo = Math.floor((renderNowTs - plan.createdAt.getTime()) / 86_400_000)
 

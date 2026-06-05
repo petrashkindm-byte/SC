@@ -715,7 +715,6 @@ export default function TodayView({
         subs={activeSubs}
         hideSearch
         hideAddButton
-        compact
         greetingName={userName}
       />
 

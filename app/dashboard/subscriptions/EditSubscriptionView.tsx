@@ -31,7 +31,6 @@ type Props = {
   subscription: Subscription
   initialViz: SubcuroEditViz
   userNotes: string
-  displayName: string
   reminderFlags: { renewal: boolean; trial: boolean; price: boolean }
   error: string | null
 }
