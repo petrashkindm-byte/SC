@@ -114,7 +114,12 @@ export default function DashboardScreenHeader({
   const [notifOpen, setNotifOpen] = useState(false)
   const [notifTab, setNotifTab] = useState<'all' | 'soon' | 'overdue'>('all')
   const [notifPos, setNotifPos] = useState<{ top: number; right: number } | null>(null)
-  const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => readDismissedIds())
+  // Start empty on server, load from localStorage after hydration
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    setDismissedIds(readDismissedIds())
+  }, [])
   const notifRef = useRef<HTMLDivElement>(null)
   const bellRef = useRef<HTMLButtonElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)

@@ -45,11 +45,15 @@ const LangContext = createContext<LangContextValue>({
 })
 
 export function LangProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Lang>(() => readLang())
+  // Always start with 'ru' on both server and client to avoid hydration mismatch.
+  // After mount, read the real preference from localStorage.
+  const [lang, setLangState] = useState<Lang>('ru')
 
   useEffect(() => {
-    document.documentElement.lang = lang
-  }, [lang])
+    const saved = readLang()
+    if (saved !== 'ru') setLangState(saved)
+    document.documentElement.lang = saved
+  }, [])
 
   const setLang = (next: Lang) => {
     setLangState(next)

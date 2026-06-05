@@ -161,11 +161,19 @@ export default function ProfilePageClient({
   const [toast, setToast] = useState<string | null>(saved ? p.savedToast : null)
   const [toastWarn, setToastWarn] = useState(false)
   const [accountOpen, setAccountOpen] = useState(Boolean(pwdOk))
-  const [theme, setTheme] = useState<ThemePref>(() => loadTheme())
+  // Start with 'system' on server, sync from localStorage after hydration
+  const [theme, setTheme] = useState<ThemePref>('system')
   const [pending, startTransition] = useTransition()
   const [cur, setCur] = useState(() =>
     ['RUB', 'USD', 'EUR'].includes(baseCurrency.toUpperCase()) ? baseCurrency.toUpperCase() : 'RUB',
   )
+
+  useEffect(() => {
+    // Load saved theme from localStorage after hydration and apply it
+    const saved = loadTheme()
+    setTheme(saved)
+    applyTheme(saved)
+  }, [])
 
   useEffect(() => {
     applyTheme(theme)
