@@ -229,14 +229,13 @@ export default function AuthLanding() {
   // The button fills the overlay div, so user clicks go through to Google's popup.
   useEffect(() => {
     if (!gisRendered || !gisContainerRef.current) return
-    // Use parent element width (the relative-positioned div wrapping our button)
-    const parentWidth = gisContainerRef.current.parentElement?.offsetWidth ?? 340
+    // Render at large width — overflow:hidden on container clips it to button width
     window.google?.accounts?.id?.renderButton(gisContainerRef.current, {
       theme: 'outline',
       size: 'large',
       text: 'signin_with',
       shape: 'rectangular',
-      width: String(parentWidth),
+      width: '1000',
     })
   }, [gisRendered])
 
