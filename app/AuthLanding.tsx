@@ -1,7 +1,7 @@
 'use client'
 
 import {
-  AUTH_ERROR_STORAGE_KEY,
+  consumeStoredAuthError,
   flushHashAuthErrorToStorage,
   mapAuthError,
   readHashAuthError,
@@ -10,7 +10,7 @@ import { createClient } from '@/lib/supabase/client'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 // Google Identity Services type stubs
 declare global {
@@ -25,13 +25,6 @@ type AuthTab = 'login' | 'register'
 
 function normalizeEmail(value: string): string {
   return value.trim().toLowerCase()
-}
-
-function readInitialAuthError(): string | null {
-  if (typeof window === 'undefined') return null
-  const stored = sessionStorage.getItem(AUTH_ERROR_STORAGE_KEY)
-  if (stored) return stored
-  return readHashAuthError()
 }
 
 export default function AuthLanding() {
@@ -51,7 +44,7 @@ export default function AuthLanding() {
   const [lastName, setLastName] = useState('')
 
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(() => readInitialAuthError())
+  const [error, setError] = useState<string | null>(() => consumeStoredAuthError())
   const [done, setDone] = useState(false)
   const [resetDone, setResetDone] = useState<string | null>(null)
   const [newPassword, setNewPassword] = useState('')
@@ -63,14 +56,14 @@ export default function AuthLanding() {
   // true когда Supabase обнаруживает PASSWORD_RECOVERY из хэш-токена в URL
   const [hashRecoveryMode, setHashRecoveryMode] = useState(false)
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return
+  useLayoutEffect(() => {
+    const stored = consumeStoredAuthError()
     const hashMessage = readHashAuthError()
-    if (hashMessage) {
+    const message = stored ?? hashMessage
+    if (message) {
+      setError(message)
       flushHashAuthErrorToStorage()
-      return
     }
-    sessionStorage.removeItem(AUTH_ERROR_STORAGE_KEY)
   }, [])
 
   useEffect(() => {
