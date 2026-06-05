@@ -158,7 +158,7 @@ export default async function SubscriptionDetailPage({
         {/* Action buttons */}
         <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-[#f0ece6]">
           <MarkUsedTodayButton subscriptionId={sub.id} lastUsedAt={sub.last_used_at ?? null} />
-          <ManagementButton url={managementUrl} editHref={`/dashboard/subscriptions/${sub.id}/edit`} />
+          <ManagementButton url={managementUrl} />
           <Link
             href={`/dashboard/subscriptions/${sub.id}/edit`}
             className="inline-flex items-center gap-1.5 rounded-xl border border-[#e7e3dc] bg-white px-4 py-2.5 text-sm font-medium text-[#1a1a2e] hover:bg-[#f8f6f2] transition-colors"

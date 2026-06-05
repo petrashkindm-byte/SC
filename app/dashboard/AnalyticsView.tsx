@@ -1,15 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
-import { useDarkMode } from '@/lib/hooks/use-dark-mode'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { coerceNumber } from '@/lib/coerce-number'
-import { categoryLabel, formatBillingCycle } from '@/lib/subscription-labels'
+import { categoryLabel } from '@/lib/subscription-labels'
 import type { Subscription } from '@/lib/supabase/types'
 import { resolveSubscriptionIconDisplay } from '@/lib/subscription-icon-background'
 import PaymentServiceIcon from './PaymentServiceIcon'
 import { fmtCurrency, groupMonthlyByCurrency, formatGroups, getMonthlyAmount, type CurrencyGroup } from '@/lib/currency'
-import CurrencyAmount from './CurrencyAmount'
 import { useLang } from '@/lib/LangContext'
 
 type MonthBar = { label: string; groups: CurrencyGroup[]; hasAnnual: boolean; isCurrentMonth: boolean }
@@ -52,15 +50,19 @@ function projectByMonth(subs: Subscription[]): MonthBar[] {
 
 // ── Counter-up hook ──────────────────────────────────────────
 function useCountUp(target: number, duration = 900): number {
-  const [value, setValue] = useState(0)
+  const [value, setValue] = useState(target)
+  const previousTargetRef = useRef(target)
   useEffect(() => {
-    if (target === 0) { setValue(0); return }
+    const from = previousTargetRef.current
+    if (from === target) return
+
+    previousTargetRef.current = target
     let raf: number
-    const start = Date.now()
-    const tick = () => {
-      const t = Math.min((Date.now() - start) / duration, 1)
+    const start = performance.now()
+    const tick = (now: number) => {
+      const t = Math.min((now - start) / duration, 1)
       const eased = 1 - Math.pow(1 - t, 3)
-      setValue(Math.round(eased * target))
+      setValue(Math.round(from + (target - from) * eased))
       if (t < 1) raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
@@ -237,41 +239,6 @@ function BarChart({
     </div>
   )
 }
-
-// ── Efficiency rating ────────────────────────────────────────
-
-type Rating = 'good' | 'warn' | 'bad' | 'never'
-
-function getRating(daysAgo: number | null): Rating {
-  if (daysAgo === null) return 'never'
-  if (daysAgo <= 7)  return 'good'
-  if (daysAgo <= 30) return 'warn'
-  return 'bad'
-}
-
-import type { t as tType } from '@/lib/translations'
-type AnalyticsStrings = typeof tType['ru']['analytics'] | typeof tType['en']['analytics']
-
-function ratingLabel(daysAgo: number | null, a: AnalyticsStrings): string {
-  if (daysAgo === null) return a.effNever
-  if (daysAgo === 0) return a.effToday
-  return a.effDaysAgo(daysAgo)
-}
-
-const RATING_STYLE = {
-  light: {
-    good:  { bg: '#e8faf0', color: '#0d9f6e' },
-    warn:  { bg: '#fff4eb', color: '#b35a00' },
-    bad:   { bg: '#fde7ea', color: '#d94851' },
-    never: { bg: '#f4f5f8', color: '#6b6b80' },
-  },
-  dark: {
-    good:  { bg: '#0a2318', color: '#34d399' },
-    warn:  { bg: '#2a1200', color: '#fbbf24' },
-    bad:   { bg: '#2a0808', color: '#f87171' },
-    never: { bg: '#252548', color: '#9b98b0' },
-  },
-} satisfies Record<'light' | 'dark', Record<Rating, { bg: string; color: string }>>
 
 function estimateTotalSpent(sub: Subscription, daysSinceStart: number): number {
   const amount = coerceNumber(sub.amount)

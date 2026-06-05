@@ -53,35 +53,12 @@ export default async function EditSubscriptionPage({
     trial: rems?.some((r) => r.type === 'trial_end') ?? false,
     price: rems?.some((r) => r.type === 'price_check') ?? false,
   }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('full_name')
-    .eq('id', user.id)
-    .maybeSingle()
-
-  const profileRow = profile as { full_name?: string | null } | null
-  const metadata = (user.user_metadata ?? {}) as Record<string, unknown>
-  const metadataNameParts = [metadata.first_name, metadata.last_name]
-    .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
-    .map((part) => part.trim())
-    .join(' ')
-  const displayName =
-    profileRow?.full_name?.trim() ||
-    (typeof metadata.full_name === 'string' ? metadata.full_name.trim() : null) ||
-    (typeof metadata.name === 'string' ? metadata.name.trim() : null) ||
-    metadataNameParts ||
-    (typeof metadata.given_name === 'string' ? metadata.given_name.trim() : null) ||
-    user.email?.split('@')[0] ||
-    'Пользователь'
-
   return (
     <Suspense fallback={<div className="min-h-screen bg-[#f5f0e8]" />}>
       <EditSubscriptionView
         subscription={sub}
         initialViz={viz}
         userNotes={userNotes}
-        displayName={displayName}
         reminderFlags={reminderFlags}
         error={errorMsg}
       />

@@ -55,13 +55,6 @@ function formatDateShort(iso: string) {
   }
 }
 
-function dueRelativePhrase(days: number, strings: ReturnType<typeof useLang>['strings']): string {
-  if (days < 0) return strings.due.overdue(Math.abs(days))
-  if (days === 0) return strings.due.today
-  if (days === 1) return strings.due.tomorrow
-  return strings.due.inDays(days)
-}
-
 type NotifBadge = { label: string; bg: string; fg: string; border: string | null; dot: string | null; pulse: boolean }
 function notifBadgeInfo(days: number, badgeOverdue: string, badgeToday: string, badgeTomorrow: string, badgeInDays: (n: number) => string): NotifBadge {
   if (days < 0)   return { label: badgeOverdue,        bg: '#FEE2E2', fg: '#DC2626', border: '#DC2626', dot: '#DC2626', pulse: true }
@@ -70,6 +63,19 @@ function notifBadgeInfo(days: number, badgeOverdue: string, badgeToday: string, 
   if (days <= 3)  return { label: badgeInDays(days),   bg: '#FFEDD5', fg: '#EA580C', border: '#FB923C', dot: '#FB923C', pulse: false }
   if (days <= 7)  return { label: badgeInDays(days),   bg: '#EDE9FE', fg: '#7C3AED', border: '#8B5CF6', dot: '#8B5CF6', pulse: false }
   return            { label: badgeInDays(days),   bg: '#F3F4F6', fg: '#6B7280', border: null,      dot: null,      pulse: false }
+}
+
+function readDismissedIds(): Set<string> {
+  if (typeof window === 'undefined') return new Set()
+  try {
+    const raw = localStorage.getItem('notif_dismissed')
+    if (!raw) return new Set()
+    const { date, ids } = JSON.parse(raw) as { date?: string; ids?: string[] }
+    if (date !== new Date().toDateString() || !Array.isArray(ids)) return new Set()
+    return new Set(ids)
+  } catch {
+    return new Set()
+  }
 }
 
 
@@ -85,8 +91,6 @@ type Props = {
   trailingActions?: ReactNode
   hideSearch?: boolean
   hideAddButton?: boolean
-  /** Прижимает правые элементы к заголовку вместо justify-between */
-  compact?: boolean
   greetingName?: string
 }
 
@@ -101,7 +105,6 @@ export default function DashboardScreenHeader({
   trailingActions,
   hideSearch = false,
   hideAddButton = false,
-  compact = false,
   greetingName,
 }: Props) {
   const { lang, strings } = useLang()
@@ -111,17 +114,7 @@ export default function DashboardScreenHeader({
   const [notifOpen, setNotifOpen] = useState(false)
   const [notifTab, setNotifTab] = useState<'all' | 'soon' | 'overdue'>('all')
   const [notifPos, setNotifPos] = useState<{ top: number; right: number } | null>(null)
-  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set())
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem('notif_dismissed')
-      if (!raw) return
-      const { date, ids } = JSON.parse(raw)
-      if (date !== new Date().toDateString()) return
-      setDismissedIds(new Set(ids as string[]))
-    } catch { /* ignore */ }
-  }, [])
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => readDismissedIds())
   const notifRef = useRef<HTMLDivElement>(null)
   const bellRef = useRef<HTMLButtonElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)

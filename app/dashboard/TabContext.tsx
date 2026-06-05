@@ -1,7 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { createContext, useContext, useSyncExternalStore, type ReactNode } from 'react'
 
 export type DashboardTab = 'today' | 'payments' | 'analytics'
 
@@ -18,19 +17,26 @@ type TabCtxValue = {
 
 const TabCtx = createContext<TabCtxValue>({ tab: 'today', setTab: () => {} })
 
-export function TabProvider({ children }: { children: ReactNode }) {
-  const searchParams = useSearchParams()
-  const [tab, setTabState] = useState<DashboardTab>(() => parseTab(searchParams.get('tab')))
+function readCurrentTab(): DashboardTab {
+  if (typeof window === 'undefined') return 'today'
+  return parseTab(new URL(window.location.href).searchParams.get('tab'))
+}
 
-  // Sync when URL changes externally (e.g. openSub navigation from Today view,
-  // or browser back/forward)
-  useEffect(() => {
-    const incoming = parseTab(searchParams.get('tab'))
-    setTabState(incoming)
-  }, [searchParams])
+function subscribeToTabChange(onStoreChange: () => void) {
+  if (typeof window === 'undefined') return () => {}
+
+  window.addEventListener('popstate', onStoreChange)
+  window.addEventListener('subcuro:tab-change', onStoreChange)
+  return () => {
+    window.removeEventListener('popstate', onStoreChange)
+    window.removeEventListener('subcuro:tab-change', onStoreChange)
+  }
+}
+
+export function TabProvider({ children }: { children: ReactNode }) {
+  const tab = useSyncExternalStore(subscribeToTabChange, readCurrentTab, () => 'today')
 
   const setTab = (t: DashboardTab) => {
-    setTabState(t)
     // Update URL for back/forward support — history.replaceState bypasses the
     // Next.js router so no server round-trip is triggered.
     const url = new URL(window.location.href)
@@ -38,6 +44,7 @@ export function TabProvider({ children }: { children: ReactNode }) {
     // Remove openSub when manually switching tabs (avoids stale panel on re-open)
     url.searchParams.delete('openSub')
     window.history.replaceState(null, '', url.toString())
+    window.dispatchEvent(new Event('subcuro:tab-change'))
   }
 
   return <TabCtx.Provider value={{ tab, setTab }}>{children}</TabCtx.Provider>

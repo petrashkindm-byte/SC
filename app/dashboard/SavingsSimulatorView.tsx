@@ -5,9 +5,8 @@ import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { categoryLabel, formatBillingCycle } from '@/lib/subscription-labels'
 import type { Subscription } from '@/lib/supabase/types'
-import { fmtCurrency, groupMonthlyByCurrency, formatGroups, getMonthlyAmount, type CurrencyGroup } from '@/lib/currency'
+import { fmtCurrency, groupMonthlyByCurrency, getMonthlyAmount, type CurrencyGroup } from '@/lib/currency'
 import { findServiceEntry, inferTypeFromName, getServicesByType, getServiceDisplayName, getUniqueAdvantages, TYPE_FEATURE_KEYS, type ServiceEntry, type ServiceType } from '@/lib/service-comparison-db'
-import CurrencyAmount from './CurrencyAmount'
 import { actionButtonClass } from './ui/action-button'
 import { useLang } from '@/lib/LangContext'
 import { useDarkMode } from '@/lib/hooks/use-dark-mode'
@@ -29,9 +28,9 @@ function useAnimatedValue(target: number, duration = 400): number {
     if (from === target) { prevRef.current = target; return }
     prevRef.current = target
     let raf: number
-    const start = Date.now()
-    const tick = () => {
-      const t = Math.min((Date.now() - start) / duration, 1)
+    const start = performance.now()
+    const tick = (now: number) => {
+      const t = Math.min((now - start) / duration, 1)
       const eased = 1 - Math.pow(1 - t, 3)
       setValue(Math.round(from + (target - from) * eased))
       if (t < 1) raf = requestAnimationFrame(tick)
@@ -125,7 +124,7 @@ function AiSection({
       }
       return { ok: true }
     },
-    [],
+    [s.aiEmptyError, s.aiStoppedByUser],
   )
 
   const runAnalyze = useCallback(async () => {
@@ -152,7 +151,7 @@ function AiSection({
       setAnalyzeLoading(false)
       setStreamingMode((prev) => (prev === 'analyze' ? null : prev))
     }
-  }, [readTextStream, selectedIds])
+  }, [readTextStream, s.aiNetworkError, selectedIds])
 
   const runWhatIf = useCallback(async () => {
     activeControllerRef.current?.abort()
@@ -177,7 +176,7 @@ function AiSection({
       setWhatIfLoading(false)
       setStreamingMode((prev) => (prev === 'whatif' ? null : prev))
     }
-  }, [budget, currency, readTextStream, selectedIds])
+  }, [budget, currency, readTextStream, s.aiNetworkError, selectedIds])
 
   const sendChat = useCallback(async () => {
     const text = chatInput.trim()
@@ -219,7 +218,7 @@ function AiSection({
       setChatLoading(false)
       setStreamingMode((prev) => (prev === 'chat' ? null : prev))
     }
-  }, [chatInput, chatMessages, chatLoading, readTextStream])
+  }, [chatInput, chatMessages, chatLoading, readTextStream, s.aiNoAnswerError])
 
   const panels = [
     {
@@ -1599,7 +1598,7 @@ function ReminderCard({
   const [completing, setCompleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const daysAgo = Math.floor((Date.now() - plan.createdAt.getTime()) / 86_400_000)
+  const daysAgo = Math.floor((renderNowTs - plan.createdAt.getTime()) / 86_400_000)
 
   const handleDone = async () => {
     setCompleting(true)
@@ -1698,15 +1697,11 @@ export default function SavingsSimulatorView({
   initialOpenChat?: boolean
   initialChatQuery?: string | null
 }) {
+  const [renderNowTs] = useState(() => Date.now())
   const { lang, strings } = useLang()
   const s = strings.simulator
   const active = useMemo(() => subs.filter((s) => s.status === 'active'), [subs])
   const primaryCurrency = active[0]?.currency ?? subs[0]?.currency ?? 'RUB'
-
-  const monthlyGroups = useMemo(
-    () => groupMonthlyByCurrency(active, getMonthlyAmount),
-    [active],
-  )
 
   const [cutIds, setCutIds] = useState<Set<string>>(() => new Set())
   const [activeScenarioKey, setActiveScenarioKey] = useState<string | null>(null)
@@ -1761,14 +1756,14 @@ export default function SavingsSimulatorView({
     const cutoff = 14 * 24 * 60 * 60 * 1000 // 14 дней в мс
     return plannedActions
       .filter(plan =>
-        Date.now() - plan.createdAt.getTime() > cutoff &&
+        renderNowTs - plan.createdAt.getTime() > cutoff &&
         !dismissedReminderIds.has(plan.id),
       )
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime()) // старые первыми
       .slice(0, 3) // не более трёх карточек сразу
-  }, [plannedActions, dismissedReminderIds])
+  }, [plannedActions, dismissedReminderIds, renderNowTs])
 
-  const toggleCut = (id: string) => {
+  const toggleCut = useCallback((id: string) => {
     setActiveScenarioKey(null)
     setCutIds((prev) => {
       const next = new Set(prev)
@@ -1776,7 +1771,7 @@ export default function SavingsSimulatorView({
       else next.add(id)
       return next
     })
-  }
+  }, [])
 
   const applyScenario = (scenario: Scenario) => {
     if (scenario.isInformational) {

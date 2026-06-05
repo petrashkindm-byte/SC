@@ -10,7 +10,7 @@ const ICON = (
   </svg>
 )
 
-export default function ManagementButton({ url, editHref }: { url: string | null; editHref: string }) {
+export default function ManagementButton({ url }: { url: string | null }) {
   if (url) {
     return (
       <a

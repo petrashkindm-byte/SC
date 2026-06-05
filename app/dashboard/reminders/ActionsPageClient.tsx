@@ -130,7 +130,7 @@ export default function ActionsPageClient({
       )
     }
     return list
-  }, [active, search])
+  }, [active, lang, search])
 
   const urgent = useMemo(() => shown.filter((s) => s.status === 'active' && daysUntil(s.next_charge_date) <= 3).length, [shown])
   const week = useMemo(

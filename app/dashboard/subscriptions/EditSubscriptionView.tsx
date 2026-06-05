@@ -54,7 +54,6 @@ export default function EditSubscriptionView({
   subscription: sub,
   initialViz,
   userNotes: initialUserNotes,
-  displayName,
   reminderFlags: initialReminderFlags,
   error,
 }: Props) {
@@ -116,13 +115,6 @@ export default function EditSubscriptionView({
 
   const renewalType: 'auto_renew' | 'manual' =
     repeatYes && autopayEnabled ? 'auto_renew' : 'manual'
-
-  const initials = useMemo(() => {
-    const parts = displayName.trim().split(/\s+/).filter(Boolean)
-    const a = parts[0]?.[0] ?? '?'
-    const b = parts[1]?.[0] ?? ''
-    return (a + b).toUpperCase().slice(0, 2)
-  }, [displayName])
 
   useEffect(() => {
     if (searchParams.get('saved') !== '1') {

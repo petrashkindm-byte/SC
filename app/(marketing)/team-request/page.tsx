@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Image from 'next/image'
+import Link from 'next/link'
 import TeamRequestForm from './TeamRequestForm'
 import '../team-request.css'
 
@@ -14,12 +15,12 @@ export default function TeamRequestPage() {
       {/* ── Sidebar ── */}
       <aside className="tr-aside">
         <div className="tr-aside-inner">
-          <a href="/#pricing" className="tr-back" aria-label="Назад к тарифам">
+          <Link href="/#pricing" className="tr-back" aria-label="Назад к тарифам">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             К тарифам
-          </a>
+          </Link>
 
           <div className="tr-brand">
             <Image src="/subcuro_ribbon_s_transparent.png" width={36} height={36} alt="" />
@@ -50,7 +51,7 @@ export default function TeamRequestPage() {
           <p className="tr-foot">
             Нажимая кнопку, вы соглашаетесь с обработкой данных для связи по заявке.{' '}
             Личный вход для себя —{' '}
-            <a href="/auth?tab=register" className="tr-foot-link">зарегистрироваться</a>.
+            <Link href="/auth?tab=register" className="tr-foot-link">зарегистрироваться</Link>.
           </p>
         </div>
       </main>

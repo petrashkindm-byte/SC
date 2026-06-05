@@ -8,12 +8,10 @@ import type { PriceAlert, Subscription, SubscriptionPayment } from '@/lib/supaba
 import { coerceNumber } from '@/lib/coerce-number'
 import { resolveSubscriptionIconDisplay } from '@/lib/subscription-icon-background'
 import PaymentServiceIcon from './PaymentServiceIcon'
-import CurrencyAmount from './CurrencyAmount'
 import { fmtCurrency, groupMonthlyByCurrency, formatGroups, getMonthlyAmount } from '@/lib/currency'
 import DashboardScreenHeader from './DashboardScreenHeader'
 import { estimateSavingsGroups } from '@/lib/savings-estimate'
 import { parseIsoDateLocal } from '@/lib/billing-engine'
-import { actionButtonClass } from './ui/action-button'
 import { CARD_COLOR_PRESETS } from '@/lib/subscription-viz-notes'
 import type { DailyTipResult } from '@/lib/ai/types'
 import { useLang } from '@/lib/LangContext'
@@ -21,15 +19,19 @@ import { useLang } from '@/lib/LangContext'
 // ── Helpers ──────────────────────────────────────────────────
 
 function useCountUp(target: number, duration = 900): number {
-  const [value, setValue] = useState(0)
+  const [value, setValue] = useState(target)
+  const previousTargetRef = useRef(target)
   useEffect(() => {
-    if (target === 0) { setValue(0); return }
+    const from = previousTargetRef.current
+    if (from === target) return
+
+    previousTargetRef.current = target
     let raf: number
-    const start = Date.now()
-    const tick = () => {
-      const t = Math.min((Date.now() - start) / duration, 1)
+    const start = performance.now()
+    const tick = (now: number) => {
+      const t = Math.min((now - start) / duration, 1)
       const eased = 1 - Math.pow(1 - t, 3)
-      setValue(Math.round(eased * target))
+      setValue(Math.round(from + (target - from) * eased))
       if (t < 1) raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
@@ -195,7 +197,7 @@ function AiDailyTipCard({ subs, dataFingerprint }: { subs: Subscription[]; dataF
         setLoading(false)
       }
     },
-    [dataFingerprint, lang, subs],
+    [ai.errorInvalid, ai.errorNetwork, ai.errorRequest, dataFingerprint, lang, subs],
   )
 
   useEffect(() => {
@@ -332,8 +334,7 @@ function cycleTotalDays(sub: Subscription): number {
 
 function UpcomingRow({ sub, isFirst, index }: { sub: Subscription; isFirst: boolean; index: number }) {
   const isDark = useDarkMode()
-  const { lang, strings } = useLang()
-  const up = strings.upcoming
+  const { lang } = useLang()
   const days = daysUntil(sub.next_charge_date)
   const iconDisplay = resolveSubscriptionIconDisplay(sub.notes, sub.icon, sub.category_slug)
   const presetColors = sub.card_color_preset
@@ -459,7 +460,7 @@ function getChargeDayInMonth(
 
 function WriteoffCalendar({ subs }: { subs: Subscription[] }) {
   const isDark = useDarkMode()
-  const { lang, strings } = useLang()
+  const { strings } = useLang()
   const cal = strings.calendar
   const tod = strings.today
   const now = new Date()
@@ -616,6 +617,7 @@ export default function TodayView({
   paymentEvents?: SubscriptionPayment[]
   userName?: string
 }) {
+  const [renderNowTs] = useState(() => Date.now())
   const { strings } = useLang()
   const tod = strings.today
   const activeSubs = useMemo(() => allSubs.filter(s => s.status === 'active'), [allSubs])
@@ -696,11 +698,11 @@ export default function TodayView({
   const annualSwitchItems = savingsEstimate.annualSwitchItems
   const flaggedSubs = useMemo(() => activeSubs.filter(s => {
     const staleDays = s.last_used_at
-      ? Math.round((Date.now() - new Date(s.last_used_at).getTime()) / 86400000)
+      ? Math.round((renderNowTs - new Date(s.last_used_at).getTime()) / 86400000)
       : null
     if (staleDays !== null && staleDays >= 30) return true
     return Boolean(s.price_increase_flag || s.annual_renewal_at_risk)
-  }), [activeSubs])
+  }), [activeSubs, renderNowTs])
   const flaggedSavingsGroups = useMemo(
     () => groupMonthlyByCurrency(flaggedSubs, getMonthlyAmount),
     [flaggedSubs],

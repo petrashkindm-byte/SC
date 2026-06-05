@@ -30,15 +30,13 @@ function ToastIcon({ type }: { type: ToastItem['type'] }) {
 
 export default function AppToast() {
   const [toasts, setToasts] = useState<ToastItem[]>([])
-  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    setMounted(true)
     _registerSetter(setToasts)
     return () => _registerSetter(() => {})
   }, [])
 
-  if (!mounted || toasts.length === 0) return null
+  if (typeof document === 'undefined' || toasts.length === 0) return null
 
   return createPortal(
     <div

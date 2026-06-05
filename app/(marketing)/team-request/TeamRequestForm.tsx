@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState } from 'react'
 
 export default function TeamRequestForm() {
@@ -25,9 +26,9 @@ export default function TeamRequestForm() {
         <p style={{ fontSize: 14, color: '#6b7280', lineHeight: 1.6, maxWidth: 360, margin: '0 auto 28px' }}>
           Мы получили вашу заявку и свяжемся в ближайшие рабочие дни. Спасибо!
         </p>
-        <a href="/#pricing" style={{ fontSize: 14, fontWeight: 600, color: '#7c3aed', textDecoration: 'none' }}>
+        <Link href="/#pricing" style={{ fontSize: 14, fontWeight: 600, color: '#7c3aed', textDecoration: 'none' }}>
           ← Вернуться к тарифам
-        </a>
+        </Link>
       </div>
     )
   }

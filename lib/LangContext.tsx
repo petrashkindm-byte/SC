@@ -45,14 +45,11 @@ const LangContext = createContext<LangContextValue>({
 })
 
 export function LangProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Lang>('ru')
+  const [lang, setLangState] = useState<Lang>(() => readLang())
 
-  // Hydrate from localStorage after mount to avoid SSR mismatch
   useEffect(() => {
-    const stored = readLang()
-    setLangState(stored)
-    document.documentElement.lang = stored
-  }, [])
+    document.documentElement.lang = lang
+  }, [lang])
 
   const setLang = (next: Lang) => {
     setLangState(next)

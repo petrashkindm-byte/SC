@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { useRef } from 'react'
 import { useLang } from '@/lib/LangContext'
 import { useTabContext, type DashboardTab } from './TabContext'
@@ -89,9 +89,9 @@ type DashboardSidebarProps = {
 }
 
 export default function DashboardSidebar({ displayName, paymentsCount }: DashboardSidebarProps) {
+  void displayName
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const router = useRouter()
   const { strings } = useLang()
   const { tab: contextTab, setTab } = useTabContext()
 

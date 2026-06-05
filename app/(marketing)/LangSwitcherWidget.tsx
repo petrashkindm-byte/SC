@@ -1,16 +1,16 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 export default function LangSwitcherWidget() {
-  const [lang, setLang] = useState<'ru' | 'en'>('ru')
-
-  useEffect(() => {
+  const [lang, setLang] = useState<'ru' | 'en'>(() => {
     try {
-      const saved = (localStorage.getItem('landingLang') as 'ru' | 'en' | null) ?? 'ru'
-      setLang(saved)
-    } catch { /* ignore */ }
-  }, [])
+      const saved = localStorage.getItem('landingLang')
+      return saved === 'en' ? 'en' : 'ru'
+    } catch {
+      return 'ru'
+    }
+  })
 
   const toggle = (next: 'ru' | 'en') => {
     setLang(next)

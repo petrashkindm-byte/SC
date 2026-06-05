@@ -74,18 +74,6 @@ function cardPresetColors(preset: string | null): { tint: string; darkTint: stri
   return found ? { tint: found.tint, darkTint: found.darkTint, swatch: found.swatch } : null
 }
 
-function cycleTotalDays(sub: Subscription): number {
-  const interval = sub.billing_interval ?? 1
-  switch (sub.billing_cycle) {
-    case 'weekly':    return 7 * interval
-    case 'monthly':   return 30 * interval
-    case 'quarterly': return 90 * interval
-    case 'yearly':    return 365 * interval
-    case 'custom':    return sub.custom_interval_days ?? 30
-    default:          return 30
-  }
-}
-
 type StatusUi = { label: string; tone: 'primary' | 'warning' | 'danger' | 'neutral'; overdue: boolean }
 
 function statusUi(sub: Subscription, p: PaymentsStrings): StatusUi {

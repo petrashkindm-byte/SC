@@ -1,5 +1,7 @@
 'use client'
 
+import { useState } from 'react'
+
 import type { SavingsAction } from '@/lib/savings-history'
 import type { DbPlannedAction, PlannedActionType } from './savings/actions'
 
@@ -43,6 +45,7 @@ export default function ActionTimeline({
   initialPlannedActions: DbPlannedAction[]
   recentSavingsActions: SavingsAction[]
 }) {
+  const [renderNowTs] = useState(() => Date.now())
   const items: TimelineItem[] = [
     ...recentSavingsActions.map(a => ({
       kind: 'completed' as const,
@@ -62,7 +65,7 @@ export default function ActionTimeline({
     <section className="mt-10">
       <h2 className="text-base font-semibold text-neutral-800 mb-3">Лента действий</h2>
       <ul className="space-y-2">
-        {items.map((item, i) => {
+        {items.map((item) => {
           if (item.kind === 'completed') {
             const a = item.action
             return (
@@ -89,7 +92,7 @@ export default function ActionTimeline({
           }
 
           const a = item.action
-          const daysAgo = Math.floor((Date.now() - a.createdAt.getTime()) / 86_400_000)
+          const daysAgo = Math.floor((renderNowTs - a.createdAt.getTime()) / 86_400_000)
           const isOverdue = daysAgo >= 14
           return (
             <li

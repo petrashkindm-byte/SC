@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import LandingInteractions from './LandingInteractions'
 import LangSwitcherWidget from './LangSwitcherWidget'
 
@@ -208,10 +209,10 @@ export default function LandingPage() {
         <div id="siteNavInner">
 
           {/* Logo */}
-          <a href="/" className="nav-logo" aria-label="SubCuro — главная">
+          <Link href="/" className="nav-logo" aria-label="SubCuro — главная">
             <img src="/subcuro_ribbon_s_transparent.png" alt="SubCuro" className="nav-logo-img" />
             <span className="nav-logo-text">SubCuro</span>
-          </a>
+          </Link>
 
           {/* Center nav links */}
           <div className="nav-center">

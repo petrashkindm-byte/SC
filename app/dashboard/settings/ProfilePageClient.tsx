@@ -13,7 +13,6 @@ import type { Subscription } from '@/lib/supabase/types'
 import {
   deleteMyDataAction,
   setBaseCurrency,
-  signOutAction,
   updateFullName,
 } from './actions'
 import PasswordChangeForm from '@/app/dashboard/profile/PasswordChangeForm'
@@ -162,18 +161,15 @@ export default function ProfilePageClient({
   const [toast, setToast] = useState<string | null>(saved ? p.savedToast : null)
   const [toastWarn, setToastWarn] = useState(false)
   const [accountOpen, setAccountOpen] = useState(Boolean(pwdOk))
-  const [theme, setTheme] = useState<ThemePref>('system')
+  const [theme, setTheme] = useState<ThemePref>(() => loadTheme())
   const [pending, startTransition] = useTransition()
   const [cur, setCur] = useState(() =>
     ['RUB', 'USD', 'EUR'].includes(baseCurrency.toUpperCase()) ? baseCurrency.toUpperCase() : 'RUB',
   )
 
-  // Hydrate theme from localStorage after mount (avoids SSR/client mismatch)
   useEffect(() => {
-    const stored = loadTheme()
-    setTheme(stored)
-    applyTheme(stored)
-  }, [])
+    applyTheme(theme)
+  }, [theme])
 
   useEffect(() => {
     if (!toast) return
