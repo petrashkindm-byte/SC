@@ -771,7 +771,7 @@ export default function AuthLanding() {
         .auth-divider { display: flex; align-items: center; gap: 16px; margin: 12px 0; color: #9ca3af; font-size: 13px; }
         .auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: rgba(15,11,56,.1); }
         .auth-social { display: flex; flex-direction: column; gap: 8px; }
-        .auth-social-btn { height: 42px; border: 1px solid rgba(15,11,56,.1); border-radius: 12px; background: #fff; font: inherit; font-size: 14px; font-weight: 600; color: #374151; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .auth-social-btn { width: 100%; height: 42px; border: 1px solid rgba(15,11,56,.1); border-radius: 12px; background: #fff; font: inherit; font-size: 14px; font-weight: 600; color: #374151; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; }
         .auth-footnote { margin-top: 12px; text-align: center; font-size: 12px; color: #6b7280; display: flex; align-items: center; justify-content: center; gap: 8px; }
         .auth-footnote svg { color: #9ca3af; flex-shrink: 0; }
         .auth-footnote--legal { display: block; line-height: 1.55; }
