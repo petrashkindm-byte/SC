@@ -19,10 +19,12 @@ export const metadata: Metadata = {
     "Те же данные, что в приложении SubCuro: активные подписки, расход в месяц и ближайшие списания.",
   icons: {
     icon: [
-      { url: "/favicon.png", type: "image/png" },
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon-32x32.png", type: "image/png", sizes: "32x32" },
+      { url: "/favicon-16x16.png", type: "image/png", sizes: "16x16" },
     ],
     apple: "/apple-touch-icon.png",
-    shortcut: "/favicon.png",
+    shortcut: "/favicon.ico",
   },
   openGraph: {
     title: "SubCuro — управление подписками",
