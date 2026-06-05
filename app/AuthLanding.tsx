@@ -652,7 +652,7 @@ export default function AuthLanding() {
                 {/* Our styled Google button — always visible.
                     When GIS is ready, an invisible GIS iframe overlays it so clicks
                     go through GIS (popup, no supabase.co redirect). */}
-                <div style={{ position: 'relative' }}>
+                <div style={{ position: 'relative', width: '100%' }}>
                   <button
                     type="button"
                     className="auth-social-btn"
