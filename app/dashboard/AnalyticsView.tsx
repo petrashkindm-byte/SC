@@ -163,7 +163,7 @@ function BarChart({
                     <p className="text-[10px] text-white/50 mt-1.5 leading-snug">
                       {bar.hasAnnual
                         ? a.tooltipReal
-                        : a.tooltipAvg(fmtCurrency(avgMonthly, avgCurrency, 0), avgCurrency)}
+                        : a.tooltipAvg(fmtCurrency(avgMonthly, avgCurrency, 0))}
                     </p>
                   </div>
                   <div className="w-2.5 h-2.5 bg-[#1a1a2e] rotate-45 mx-auto -mt-[5px]" />
