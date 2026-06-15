@@ -89,6 +89,7 @@ export const t = {
     profile: {
       title: 'Профиль',
       account: 'АККАУНТ',
+      vkAccount: 'Вход через VK ID',
       active: '● Активный',
       appearance: 'ВНЕШНИЙ ВИД',
       theme: 'Тема приложения',
@@ -751,6 +752,7 @@ export const t = {
     profile: {
       title: 'Profile',
       account: 'ACCOUNT',
+      vkAccount: 'Signed in with VK ID',
       active: '● Active',
       appearance: 'APPEARANCE',
       theme: 'App theme',

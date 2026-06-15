@@ -65,11 +65,14 @@ export default async function ProfilePage({
     metadataDisplayNameCandidates.find((value) => typeof value === 'string' && value.trim().length > 0)?.trim() ??
     'Пользователь'
 
+  const isSyntheticVkEmail = /^vk\d+@users\.subcuro\.app$/.test(user.email ?? '')
+
   return (
     <main className="max-w-[1180px] px-6 py-6 pb-8">
       <ProfilePageClient
         displayName={displayName}
-        email={user.email ?? null}
+        email={isSyntheticVkEmail ? null : user.email ?? null}
+        isVkAccount={isSyntheticVkEmail}
         fullName={profileRow?.full_name ?? null}
         baseCurrency={base_currency}
         subs={subs}

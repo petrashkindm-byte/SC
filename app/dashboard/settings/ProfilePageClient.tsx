@@ -135,6 +135,7 @@ const rowIconBase = 'flex h-11 w-11 shrink-0 items-center justify-center rounded
 type Props = {
   displayName: string
   email: string | null
+  isVkAccount?: boolean
   fullName: string | null
   baseCurrency: string
   subs: Subscription[]
@@ -147,6 +148,7 @@ type Props = {
 export default function ProfilePageClient({
   displayName,
   email,
+  isVkAccount,
   fullName,
   baseCurrency,
   subs,
@@ -255,7 +257,7 @@ export default function ProfilePageClient({
     window.location.href = '/logout'
   }
 
-  const emailLine = email ?? '—'
+  const emailLine = email ?? (isVkAccount ? p.vkAccount : '—')
 
   return (
     <>
