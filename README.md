@@ -41,17 +41,19 @@ Authorization Code + PKCE флоу (Supabase не поддерживает их 
 ### VK ID
 
 1. Зарегистрировать приложение на https://id.vk.com/about/business/go (тип Web)
-2. Callback URL: `https://subcuro.app/auth/oauth/vk`
+2. Базовый домен: `subcuro.app`, доверенный Redirect URL: `https://subcuro.app/auth/oauth/vk`
 3. Добавить в `.env`:
    ```
    VK_CLIENT_ID=
-   VK_CLIENT_SECRET=
    ```
 
-Эндпоинты VK ID берутся динамически через OIDC discovery
-(`https://id.vk.com/.well-known/openid-configuration`) — если VK поменяет API,
-проверьте `app/auth/oauth/vk/route.ts` (особенно маппинг полей `userinfo` и
-обработку `device_id`).
+Эндпоинты VK ID (Authorization Code + PKCE) фиксированные:
+`https://id.vk.ru/authorize`, `https://id.vk.ru/oauth2/auth`,
+`https://id.vk.ru/oauth2/user_info` — OIDC discovery
+(`id.vk.com/.well-known/openid-configuration`) у VK не существует (404),
+поэтому захардкожены в `app/auth/oauth/vk/route.ts`. `client_secret` в
+PKCE-флоу не используется. `device_id` приходит в query callback'а от VK
+и передаётся обратно в token endpoint.
 
 ### Supabase
 

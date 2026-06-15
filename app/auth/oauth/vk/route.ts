@@ -13,31 +13,27 @@ export const maxDuration = 30
 const STATE_COOKIE = 'oauth_vk_state'
 const VERIFIER_COOKIE = 'oauth_vk_verifier'
 
-const DISCOVERY_URL = 'https://id.vk.com/.well-known/openid-configuration'
-
-type VkDiscovery = {
-  authorization_endpoint: string
-  token_endpoint: string
-  userinfo_endpoint: string
-}
+const AUTHORIZE_URL = 'https://id.vk.ru/authorize'
+const TOKEN_URL = 'https://id.vk.ru/oauth2/auth'
+const USERINFO_URL = 'https://id.vk.ru/oauth2/user_info'
 
 type VkUserInfo = {
-  email?: string
-  given_name?: string
-  family_name?: string
-  name?: string
+  user?: {
+    user_id?: string
+    email?: string
+    first_name?: string
+    last_name?: string
+    phone?: string
+  }
 }
 
 /**
  * Один эндпоинт обслуживает обе стороны Authorization Code + PKCE флоу:
  * без `code` — старт (редирект на VK ID), с `code` — обработка callback'а.
- * Endpoints берём через OIDC discovery (id.vk.com/.well-known/openid-configuration),
- * т.к. VK ID не входит во встроенные провайдеры Supabase.
- *
- * ВНИМАНИЕ: проверьте актуальные параметры VK ID OAuth2 перед использованием —
- * API менялся, отдельные версии требуют передавать `device_id` (приходит в
- * query callback'а от VK) обратно в token endpoint. Этот код это поддерживает,
- * но если VK вернёт другой набор полей в userinfo — потребуется правка маппинга.
+ * Эндпоинты VK ID фиксированные (id.vk.ru) — OIDC discovery
+ * (id.vk.com/.well-known/openid-configuration) у VK не существует (404).
+ * `device_id` приходит в query callback'а от VK и должен быть передан
+ * обратно в token endpoint.
  */
 export async function GET(request: NextRequest) {
   const { searchParams, origin: requestOrigin } = new URL(request.url)
@@ -56,24 +52,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/auth?error=auth&reason=vk_not_configured`)
   }
 
-  let discovery: VkDiscovery
-  try {
-    const discoveryRes = await fetch(DISCOVERY_URL)
-    if (!discoveryRes.ok) {
-      throw new Error(`VK discovery failed: ${discoveryRes.status}`)
-    }
-    discovery = (await discoveryRes.json()) as VkDiscovery
-  } catch (err) {
-    console.error('[auth/oauth/vk] discovery', err)
-    return NextResponse.redirect(`${origin}/auth?error=auth&reason=oauth_failed`)
-  }
-
   if (!code) {
     const verifier = generateCodeVerifier()
     const challenge = generateCodeChallenge(verifier)
     const state = generateState()
 
-    const authorizeUrl = new URL(discovery.authorization_endpoint)
+    const authorizeUrl = new URL(AUTHORIZE_URL)
     authorizeUrl.searchParams.set('response_type', 'code')
     authorizeUrl.searchParams.set('client_id', clientId)
     authorizeUrl.searchParams.set('redirect_uri', redirectUri)
@@ -98,20 +82,18 @@ export async function GET(request: NextRequest) {
     return response
   }
 
-  const clientSecret = process.env.VK_CLIENT_SECRET
-
   try {
     const tokenBody = new URLSearchParams({
       grant_type: 'authorization_code',
       code,
+      code_verifier: verifier,
       client_id: clientId,
       redirect_uri: redirectUri,
-      code_verifier: verifier,
+      state,
     })
-    if (clientSecret) tokenBody.set('client_secret', clientSecret)
     if (deviceId) tokenBody.set('device_id', deviceId)
 
-    const tokenRes = await fetch(discovery.token_endpoint, {
+    const tokenRes = await fetch(TOKEN_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: tokenBody,
@@ -121,21 +103,26 @@ export async function GET(request: NextRequest) {
     }
     const tokenData = (await tokenRes.json()) as { access_token: string }
 
-    const userRes = await fetch(discovery.userinfo_endpoint, {
-      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    const userRes = await fetch(USERINFO_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: clientId,
+        access_token: tokenData.access_token,
+      }),
     })
     if (!userRes.ok) {
       throw new Error(`VK userinfo failed: ${userRes.status}`)
     }
-    const user = (await userRes.json()) as VkUserInfo
+    const { user } = (await userRes.json()) as VkUserInfo
 
-    if (!user.email) {
+    if (!user?.email) {
       const response = NextResponse.redirect(`${origin}/auth?error=auth&reason=oauth_no_email`)
       clearPkceCookies(response, STATE_COOKIE, VERIFIER_COOKIE)
       return response
     }
 
-    const fullName = user.name || [user.given_name, user.family_name].filter(Boolean).join(' ') || undefined
+    const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ') || undefined
 
     const result = await buildSocialLoginRedirect({ email: user.email, fullName, provider: 'vk' })
     if ('error' in result) {
