@@ -118,10 +118,12 @@ export async function GET(request: NextRequest) {
     const user = userJson.user
 
     // VK ID отдаёт email в ответе token endpoint, а не в user_info.
-    const email = tokenData.email ?? user?.email
+    // У многих VK-аккаунтов email не привязан вовсе — в этом случае используем
+    // синтетический email на основе user_id (он служит только уникальным
+    // идентификатором в Supabase, реальное письмо не отправляется).
+    const email = tokenData.email ?? user?.email ?? (user?.user_id ? `vk${user.user_id}@users.subcuro.app` : undefined)
 
     if (!email) {
-      console.error('[auth/oauth/vk] no email. tokenData:', JSON.stringify(tokenData), 'userJson:', JSON.stringify(userJson))
       const response = NextResponse.redirect(`${origin}/auth?error=auth&reason=oauth_no_email`)
       clearPkceCookies(response, STATE_COOKIE, VERIFIER_COOKIE)
       return response
