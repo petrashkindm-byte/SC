@@ -1703,7 +1703,7 @@ function ComparisonGroupMobile({ group, recommendations, cutIds, onCut, onKeepOn
 
 // ── Динамические сценарии ─────────────────────────────────────────────────
 
-type ScenarioType = 'dup' | 'package' | 'cheaper' | 'pause' | 'yearly' | 'family' | 'unused' | 'alternative'
+type ScenarioType = 'dup' | 'package' | 'cheaper' | 'yearly' | 'family' | 'unused' | 'alternative'
 
 interface YearlyItem {
   subscriptionId: string
@@ -1934,34 +1934,6 @@ function buildScenarios(
       savingsMonthly,
       currency: primaryCurrency,
       cheaperItems,
-    })
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // 4. ПАУЗА — сервисы с last_used_at > 30 дней (не в других сценариях)
-  // ─────────────────────────────────────────────────────────────────────────
-  const pauseSubs = active.filter(s => {
-    if (claimedIds.has(s.id)) return false
-    const d = daysSinceLastUse(s.last_used_at)
-    return d !== null && d >= 30
-  })
-  if (pauseSubs.length > 0) {
-    const savingsMonthly = pauseSubs.reduce((sum, s) => sum + getMonthlyAmount(s), 0)
-    pauseSubs.forEach(s => claimedIds.add(s.id))
-    const daysSuffix = lang === 'en' ? 'd' : ' дн.'
-    const names = pauseSubs.slice(0, 3)
-      .map(sub => `${sub.name} (${daysSinceLastUse(sub.last_used_at)}${daysSuffix})`)
-      .join(', ')
-    const more = pauseSubs.length > 3
-      ? (lang === 'en' ? ` +${pauseSubs.length - 3} more` : ` +ещё ${pauseSubs.length - 3}`)
-      : ''
-    scenarios.push({
-      key: 'pause', type: 'pause',
-      title: s.scenarioTitlePause,
-      subtitle: names + more,
-      affectedIds: pauseSubs.map(s => s.id),
-      savingsMonthly: Math.round(savingsMonthly),
-      currency: primaryCurrency,
     })
   }
 
@@ -2790,7 +2762,6 @@ export default function SavingsSimulatorView({
                   dup:     { border: 'border-[#fde7ea]', bg: 'bg-[#fff8f8]',  ring: 'ring-[#12b76a]/20',  text: 'text-[#12b76a]', badge: 'border-[#12b76a]/30 text-[#12b76a]', badgeText: s.scenarioBadgeActive,   panelBorder: 'border-[#d1fae5]', panelBg: 'bg-[#f0fdf4]', panelDivide: 'divide-[#d1fae5]' },
                   package: { border: 'border-[#fde7ea]', bg: 'bg-[#fff8f8]',  ring: 'ring-[#e5484d]/20',  text: 'text-[#e5484d]', badge: 'border-[#e5484d]/30 text-[#e5484d]', badgeText: s.scenarioBadgeActive,   panelBorder: 'border-[#fde7ea]', panelBg: 'bg-[#fff8f8]', panelDivide: 'divide-[#fde7ea]' },
                   cheaper: { border: 'border-[#fef3c7]', bg: 'bg-[#fffbeb]',  ring: 'ring-[#f59e0b]/20',  text: 'text-[#d97706]', badge: 'border-[#f59e0b]/30 text-[#d97706]', badgeText: s.scenarioBadgeActive,   panelBorder: 'border-[#fde68a]', panelBg: 'bg-[#fffbeb]', panelDivide: 'divide-[#fde68a]' },
-                  pause:   { border: 'border-[#e7e3dc]', bg: 'bg-white',      ring: 'ring-[#1479b8]/20',  text: 'text-[#1479b8]', badge: 'border-[#1479b8]/30 text-[#1479b8]', badgeText: s.scenarioBadgeActive,   panelBorder: 'border-[#bfdbfe]', panelBg: 'bg-[#eff6ff]', panelDivide: 'divide-[#bfdbfe]' },
                   yearly:  { border: 'border-[#e7e3dc]', bg: 'bg-white',      ring: 'ring-[#5b43d4]/20',  text: 'text-[#5b43d4]', badge: 'border-[#5b43d4]/30 text-[#5b43d4]', badgeText: s.scenarioBadgeExpanded, panelBorder: 'border-[#ede9fc]', panelBg: 'bg-[#f7f4ff]', panelDivide: 'divide-[#ede9fc]' },
                   family:  { border: 'border-[#e7e3dc]', bg: 'bg-white',      ring: 'ring-[#5b43d4]/20',  text: 'text-[#5b43d4]', badge: 'border-[#5b43d4]/30 text-[#5b43d4]', badgeText: s.scenarioBadgeExpanded, panelBorder: 'border-[#ede9fc]', panelBg: 'bg-[#f7f4ff]', panelDivide: 'divide-[#ede9fc]' },
                   unused:      { border: 'border-[#e7e3dc]', bg: 'bg-white',      ring: 'ring-[#6b6b80]/20',  text: 'text-[#6b6b80]', badge: 'border-[#6b6b80]/30 text-[#6b6b80]', badgeText: s.scenarioBadgeExpanded, panelBorder: 'border-[#e7e3dc]', panelBg: 'bg-[#fafaf9]',    panelDivide: 'divide-[#e7e3dc]' },
@@ -2800,7 +2771,6 @@ export default function SavingsSimulatorView({
                   dup:     { border: 'border-[#12b76a]', bg: 'bg-[#eef8f0]' },
                   package: { border: 'border-[#e5484d]', bg: 'bg-[#fff8f8]' },
                   cheaper: { border: 'border-[#f59e0b]', bg: 'bg-[#fffbeb]' },
-                  pause:   { border: 'border-[#1479b8]', bg: 'bg-[#eef5fc]' },
                   yearly:  { border: 'border-[#5b43d4]', bg: 'bg-[#f7f4ff]' },
                   family:  { border: 'border-[#5b43d4]', bg: 'bg-[#f7f4ff]' },
                   unused:      { border: 'border-[#6b6b80]', bg: 'bg-[#fafaf9]' },
@@ -2852,7 +2822,6 @@ export default function SavingsSimulatorView({
                       <p className="text-xs text-[#6b6b80] mt-0.5">
                         {fmtCurrency(savingYearly, scenario.currency)} {s.perYear}
                         {scenario.isInformational && s.scenarioInfoSuffix}
-                        {scenario.type === 'pause' && s.scenarioPauseSuffix(scenario.affectedIds.length)}
                         {scenario.type === 'package' && s.scenarioPackageSuffix(scenario.affectedIds.length)}
                         {scenario.type === 'cheaper' && s.scenarioCheaperSuffix}
                         {scenario.type === 'unused' && s.scenarioUnusedSuffix}
@@ -3007,13 +2976,6 @@ export default function SavingsSimulatorView({
                 )
               })}
             </div>
-
-            {/* Пустые слоты — если < 3 сценариев, показываем подсказки */}
-            {scenarios.length < 3 && !scenarios.some(sc => sc.type === 'pause') && (
-              <p className="text-[11px] text-[#8e8e93] mt-3 leading-snug">
-                {s.addUsageHint}
-              </p>
-            )}
 
             {/* Индикатор проверенных типов подписок */}
             {typeCoverage.total > 0 && (

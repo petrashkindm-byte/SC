@@ -1341,19 +1341,21 @@ body {
   .hero-img {
     right: auto;
     left: 50%;
-    transform: translateX(-20%);
-    height: 55%;
     top: auto;
     bottom: 0;
-    opacity: 0.45;
+    transform: translateX(-50%);
+    width: 160%;
+    height: auto;
+    max-width: none;
+    opacity: 0.5;
   }
 
   .hero-overlay {
     background: linear-gradient(to bottom,
       #F5F0E8 0%,
-      #F5F0E8 45%,
-      rgba(245,240,232,0.8) 70%,
-      rgba(245,240,232,0.4) 100%);
+      #F5F0E8 40%,
+      rgba(245,240,232,0.5) 65%,
+      rgba(245,240,232,0.15) 100%);
   }
 
   /* Stats — 2x2 */

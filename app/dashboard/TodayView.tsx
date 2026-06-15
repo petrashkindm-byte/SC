@@ -320,18 +320,6 @@ function AiDailyTipCard({ subs, dataFingerprint }: { subs: Subscription[]; dataF
 
 // ── Upcoming Row ──────────────────────────────────────────────
 
-function cycleTotalDays(sub: Subscription): number {
-  const interval = sub.billing_interval ?? 1
-  switch (sub.billing_cycle) {
-    case 'weekly':    return 7 * interval
-    case 'monthly':   return 30 * interval
-    case 'quarterly': return 90 * interval
-    case 'yearly':    return 365 * interval
-    case 'custom':    return sub.custom_interval_days ?? 30
-    default:          return 30
-  }
-}
-
 function UpcomingRow({ sub, isFirst, index }: { sub: Subscription; isFirst: boolean; index: number }) {
   const isDark = useDarkMode()
   const { lang } = useLang()
@@ -341,9 +329,8 @@ function UpcomingRow({ sub, isFirst, index }: { sub: Subscription; isFirst: bool
     ? CARD_COLOR_PRESETS.find(p => p.key === sub.card_color_preset) ?? null
     : null
 
-  // Progress bar
-  const totalDays = cycleTotalDays(sub)
-  const pct = Math.min(100, Math.max(0, ((totalDays - days) / totalDays) * 100))
+  // Progress bar — within the 7-day window: 0 days = 100% (max urgency), 7 days = ~4%
+  const pct = Math.min(100, Math.max(4, ((7 - days) / 7) * 100))
   const urgent = days <= 3
   const barColor = urgent
     ? 'linear-gradient(to right, #f87171, #ef4444)'
@@ -617,7 +604,6 @@ export default function TodayView({
   paymentEvents?: SubscriptionPayment[]
   userName?: string
 }) {
-  const [renderNowTs] = useState(() => Date.now())
   const { strings } = useLang()
   const tod = strings.today
   const activeSubs = useMemo(() => allSubs.filter(s => s.status === 'active'), [allSubs])
@@ -696,13 +682,9 @@ export default function TodayView({
 
   // Block 2: savings breakdown — derived directly from savingsEstimate (same source as simulator)
   const annualSwitchItems = savingsEstimate.annualSwitchItems
-  const flaggedSubs = useMemo(() => activeSubs.filter(s => {
-    const staleDays = s.last_used_at
-      ? Math.round((renderNowTs - new Date(s.last_used_at).getTime()) / 86400000)
-      : null
-    if (staleDays !== null && staleDays >= 30) return true
-    return Boolean(s.price_increase_flag || s.annual_renewal_at_risk)
-  }), [activeSubs, renderNowTs])
+  const flaggedSubs = useMemo(() => activeSubs.filter(s =>
+    Boolean(s.price_increase_flag || s.annual_renewal_at_risk)
+  ), [activeSubs])
   const flaggedSavingsGroups = useMemo(
     () => groupMonthlyByCurrency(flaggedSubs, getMonthlyAmount),
     [flaggedSubs],

@@ -19,14 +19,9 @@ export interface SavingsEstimate {
 
 export function estimateSavingsGroups(subs: Subscription[]): SavingsEstimate {
   // Primary scenario: stale subscriptions or flagged ones
-  const candidates = subs.filter((s) => {
-    if (s.status !== 'active') return false
-    const staleDays = s.last_used_at
-      ? Math.round((Date.now() - new Date(s.last_used_at).getTime()) / 86400000)
-      : null
-    if (staleDays !== null && staleDays >= 30) return true
-    return Boolean(s.price_increase_flag || s.annual_renewal_at_risk)
-  })
+  const candidates = subs.filter((s) =>
+    s.status === 'active' && Boolean(s.price_increase_flag || s.annual_renewal_at_risk)
+  )
 
   if (candidates.length > 0) {
     return {
