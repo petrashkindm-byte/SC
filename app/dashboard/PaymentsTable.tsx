@@ -17,7 +17,7 @@ import StatusPill from './ui/StatusPill'
 import { actionButtonClass } from './ui/action-button'
 import { useDarkMode } from '@/lib/hooks/use-dark-mode'
 import { useLang } from '@/lib/LangContext'
-import { lookupManagementUrl } from '@/lib/service-catalog'
+import { lookupManagementUrl } from '@/lib/subscription-templates'
 import { toast } from './ui/toast'
 
 export type PaymentsFilter = 'all' | 'active' | 'soon' | 'overdue' | 'paused' | 'cancelled'

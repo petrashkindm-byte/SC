@@ -13,7 +13,19 @@ export function mapAuthError(message: string): string {
     return 'Ссылка из письма устарела или уже использована. Нажмите «Забыли пароль?» и запросите новое письмо.'
   }
   if (m.includes('pkce') && m.includes('code verifier')) {
-    return 'Сессия входа истекла. Закройте вкладку и нажмите «Продолжить с Google» снова.'
+    return 'Сессия входа истекла. Попробуйте войти снова.'
+  }
+  if (m === 'oauth_state_mismatch' || m === 'access_denied') {
+    return 'Вход через соцсеть отменён или сессия истекла. Попробуйте снова.'
+  }
+  if (m === 'oauth_no_email') {
+    return 'Провайдер не передал email. Зарегистрируйтесь по email и паролю.'
+  }
+  if (m === 'yandex_not_configured' || m === 'vk_not_configured') {
+    return 'Вход через эту соцсеть временно недоступен. Попробуйте email и пароль.'
+  }
+  if (m === 'oauth_failed') {
+    return 'Не удалось войти через соцсеть. Попробуйте снова или используйте email и пароль.'
   }
   return message
 }

@@ -1,3 +1,5 @@
+import { fmtCurrency } from '@/lib/currency'
+
 export type FeatureLevel = 'good' | 'ok' | 'muted'
 
 export interface Feature {
@@ -64,6 +66,110 @@ export interface ServiceEntry {
    * Отображается в DuplicatesPanel как контекстная плашка.
    */
   bundleNote?: string
+
+  // ─── Сравнение и рекомендации ───────────────────────────────────────────
+  /**
+   * Группы сравнения — более тонкая классификация, чем `type`/`additionalTypes`.
+   * Отвечает на вопрос «честно ли вообще сравнивать A и Б и в какой роли»,
+   * а не «какие фичи показывать в таблице» (это по-прежнему делает `type`).
+   * Заполняется автоматически в `SERVICE_DB` через `applyComparisonDefaults`.
+   */
+  comparisonGroups?: ComparisonGroup[]
+  /** Основная группа сравнения — определяет, кто «прямой конкурент». */
+  primaryComparisonGroup?: ComparisonGroup
+  /** Честная информация о цене с уровнем доверия — источник истины для отображения. */
+  price?: ServicePriceInfo
+  /**
+   * Обратная связь к `includedServiceIds`: в какие пакеты входит этот сервис.
+   * Пример: youtube-music.includedInServiceIds = ['youtube-premium'].
+   */
+  includedInServiceIds?: string[]
+  /** Является ли сервис пакетом, объединяющим несколько направлений. */
+  isBundle?: boolean
+  /** IDs сервисов, сравнение с которыми вводит в заблуждение (разные категории). */
+  notComparableWith?: string[]
+  /** Контекстное пояснение для честного сравнения (показывается в панели сравнения). */
+  comparisonNotes?: string
+}
+
+/**
+ * Группа сравнения — более узкая классификация «зачем вообще сравнивать A и Б»,
+ * ортогональная `ServiceType` (тот отвечает за то, какие фичи показывать).
+ */
+export type ComparisonGroup =
+  | 'music_streaming'
+  | 'video_streaming'
+  | 'ecosystem_bundle'
+  | 'ai_assistant'
+  | 'ai_image_generation'
+  | 'dev_tools'
+  | 'cloud_storage'
+  | 'creative_design'
+  | 'creative_video'
+  | 'education_language'
+  | 'education_courses'
+  | 'productivity_notes'
+  | 'office_suite'
+  | 'fitness'
+  | 'health_wellness'
+
+/** Роль сервиса-кандидата в сравнении с базовым сервисом пользователя. */
+export type ServiceRoleInComparison =
+  | 'direct_competitor'
+  | 'bundle'
+  | 'included_service'
+  | 'alternative'
+  | 'not_comparable'
+
+/** Насколько мы уверены в цене сервиса. */
+export type PriceConfidence = 'verified' | 'high' | 'medium' | 'low' | 'unknown'
+
+/** Как честно отображать цену пользователю. */
+export type PriceDisplayType = 'fixed' | 'approximate' | 'from' | 'region_dependent' | 'unknown' | 'promo'
+
+export interface ServicePriceInfo {
+  amount?: number
+  currency?: string
+  confidence: PriceConfidence
+  displayType: PriceDisplayType
+  /** Контекстная пометка — например, «Цена ориентировочная — подтвердите перед сравнением». */
+  note?: string
+}
+
+/** Сервис-кандидат для сравнения с базовым, с присвоенной ролью и кратким объяснением. */
+export interface ComparisonCandidate {
+  entry: ServiceEntry
+  role: ServiceRoleInComparison
+  reason: string
+}
+
+export type RecommendationAction = 'keep' | 'cancel' | 'replace' | 'check' | 'not_enough_data'
+export type RecommendationConfidence = 'high' | 'medium' | 'low'
+
+/** Рекомендация по конкретной подписке пользователя — решение, а не просто факт сравнения. */
+export interface ServiceRecommendation {
+  subscriptionId: string
+  entry?: ServiceEntry
+  action: RecommendationAction
+  confidence: RecommendationConfidence
+  title: string
+  /** Положительные основания для рекомендации. */
+  reasons: string[]
+  /** Что пользователь потеряет, если последует рекомендации. */
+  tradeoffs: string[]
+  /** Заполняется только когда оба сервиса имеют надёжную цену в одной валюте. */
+  estimatedMonthlySaving?: { amount: number; currency: string }
+  /** Предупреждение вместо точной экономии — когда цена ненадёжна. */
+  warning?: string
+  /** Сервис-кандидат, на который можно переключиться (для action === 'replace'). */
+  candidate?: ServiceEntry
+}
+
+/** Результат поиска сервиса по имени — с оценкой уверенности и типом совпадения. */
+export interface ServiceMatch {
+  entry: ServiceEntry
+  score: number
+  matchType: 'exact' | 'alias_contains' | 'token' | 'keyword'
 }
 
 export const TYPE_FEATURE_KEYS: Record<ServiceType, { key: string; label: string }[]> = {
@@ -142,7 +248,8 @@ export const TYPE_FEATURE_KEYS: Record<ServiceType, { key: string; label: string
   ],
 }
 
-export const SERVICE_DB: ServiceEntry[] = [
+/** Сырые данные — без вычисляемых полей сравнения (см. `applyComparisonDefaults` ниже). */
+const RAW_SERVICE_DB: ServiceEntry[] = [
   // ─── MUSIC ───────────────────────────────────────────────────────────────
   {
     id: 'spotify',
@@ -735,44 +842,223 @@ export const SERVICE_DB: ServiceEntry[] = [
   },
 ]
 
+// ─── Comparison classification (ComparisonGroup / price) ──────────────────
+//
+// Большинство сервисов классифицируются по умолчанию через `type` —
+// этого достаточно, потому что `type` уже отражает их основную задачу.
+// Только сервисы, для которых `type` не передаёт реальную роль в сравнении
+// (пакеты, нишевые ИИ, офисные пакеты и т.п.), получают явный override —
+// без этого, например, YouTube Premium сравнивался бы как «обычный конкурент»
+// YouTube Music, а не как пакет, в который тот уже включён.
+
+const DEFAULT_COMPARISON_GROUP: Record<ServiceType, ComparisonGroup> = {
+  music: 'music_streaming',
+  video: 'video_streaming',
+  ai: 'ai_assistant',
+  dev: 'dev_tools',
+  cloud: 'cloud_storage',
+  creative: 'creative_design',
+  productivity: 'productivity_notes',
+  education: 'education_language',
+}
+
+interface ComparisonOverride {
+  primaryComparisonGroup?: ComparisonGroup
+  extraComparisonGroups?: ComparisonGroup[]
+  isBundle?: boolean
+  includedInServiceIds?: string[]
+  notComparableWith?: string[]
+  comparisonNotes?: string
+}
+
+const COMPARISON_OVERRIDES: Record<string, ComparisonOverride> = {
+  midjourney: { primaryComparisonGroup: 'ai_image_generation' },
+  'adobe-cc': { primaryComparisonGroup: 'creative_design', extraComparisonGroups: ['creative_video'] },
+  skillbox: { primaryComparisonGroup: 'education_courses' },
+  'microsoft-365': { primaryComparisonGroup: 'office_suite' },
+  'yandex-plus': {
+    primaryComparisonGroup: 'ecosystem_bundle',
+    extraComparisonGroups: ['music_streaming', 'video_streaming'],
+    isBundle: true,
+    comparisonNotes:
+      'Это пакет с кешбэком, Такси и Маркетом, а не отдельный музыкальный или видеосервис — Кинопоиск уже включён, но не заменяет Netflix или Disney+.',
+  },
+  'youtube-premium': {
+    primaryComparisonGroup: 'video_streaming',
+    extraComparisonGroups: ['music_streaming'],
+    isBundle: true,
+    comparisonNotes:
+      'YouTube Music уже включён в эту подписку — отдельно платить за него не нужно. При этом пакет не заменяет сервисы с лицензионным видеоконтентом вроде Netflix.',
+  },
+  kinopoisk: { includedInServiceIds: ['yandex-plus'] },
+  'youtube-music': { includedInServiceIds: ['youtube-premium'] },
+}
+
+const APPROXIMATE_PRICE_NOTE = 'Цена ориентировочная — подтвердите перед сравнением.'
+const UNKNOWN_PRICE_NOTE = 'Стоимость неизвестна — проверьте перед сравнением.'
+
+function derivePrice(entry: ServiceEntry): ServicePriceInfo {
+  if (entry.monthlyPrice != null) {
+    return {
+      amount: entry.monthlyPrice,
+      currency: entry.priceCurrency ?? 'RUB',
+      // Цены в базе — кураторские оценки (апрель 2025), не верифицированные напрямую,
+      // поэтому по умолчанию честно показываем их как приблизительные.
+      confidence: 'medium',
+      displayType: 'approximate',
+      note: APPROXIMATE_PRICE_NOTE,
+    }
+  }
+  return { confidence: 'unknown', displayType: 'unknown', note: UNKNOWN_PRICE_NOTE }
+}
+
+function applyComparisonDefaults(entry: ServiceEntry): ServiceEntry {
+  const override = COMPARISON_OVERRIDES[entry.id]
+  const primaryComparisonGroup = override?.primaryComparisonGroup ?? DEFAULT_COMPARISON_GROUP[entry.type]
+  const comparisonGroups = Array.from(
+    new Set<ComparisonGroup>([primaryComparisonGroup, ...(override?.extraComparisonGroups ?? [])]),
+  )
+
+  return {
+    ...entry,
+    primaryComparisonGroup,
+    comparisonGroups,
+    price: derivePrice(entry),
+    isBundle: override?.isBundle,
+    includedInServiceIds: override?.includedInServiceIds,
+    notComparableWith: override?.notComparableWith,
+    comparisonNotes: override?.comparisonNotes,
+  }
+}
+
+/** Полная база сервисов с заполненными полями для честного сравнения (`comparisonGroups`, `price`, …). */
+export const SERVICE_DB: ServiceEntry[] = RAW_SERVICE_DB.map(applyComparisonDefaults)
+
 // ─── Matching ─────────────────────────────────────────────────────────────
 
 function normalise(s: string): string {
   return s.toLowerCase().replace(/[^a-zа-я0-9 ]/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
-// Слова-суффиксы, которые встречаются во многих сервисах и не несут смысловой нагрузки для матчинга.
-// Без этого «Duolingo Plus» матчится на «yandex plus» по слову «plus».
+// Слова, которые встречаются во многих сервисах и не несут смысловой нагрузки для матчинга.
+// Без этого «Duolingo Plus» матчится на «yandex plus» по слову «plus», а «AI Chat»
+// матчится на любой ИИ-сервис по слову «chat»/«ai».
 const MATCH_STOPWORDS = new Set([
   'plus', 'pro', 'premium', 'one', 'max', 'ultra', 'super', 'free',
   'plan', 'base', 'lite', 'mini', 'team', 'solo', 'duo', 'basic',
   'standard', 'advanced', 'family', 'personal', 'individual',
+  'chat', 'music', 'video', 'cloud', 'assistant',
 ])
 
-export function findServiceEntry(name: string): ServiceEntry | undefined {
-  const norm = normalise(name)
+const MIN_CONFIDENT_MATCH_SCORE = 60
 
-  // Проход 1: точное совпадение или вхождение строки целиком
+function pickBetterMatch(current: ServiceMatch | undefined, next: ServiceMatch): ServiceMatch {
+  return !current || next.score > current.score ? next : current
+}
+
+/**
+ * Ищет сервисы из базы по имени и возвращает ранжированный список совпадений
+ * с оценкой уверенности — вместо «угадывания» первого попавшегося.
+ *
+ * Правила скоринга (от самого надёжного к самому слабому):
+ * - `exact` (100): нормализованное имя совпадает с одним из алиасов целиком
+ * - `alias_contains` (80): запрос содержит алиас или наоборот — но только если
+ *   обе строки достаточно длинные (≥4 симв.) и не являются «общими» словами
+ *   (иначе «Plus» матчился бы на «Яндекс Плюс»)
+ * - `token` (50): есть общее значимое слово (≥5 симв., не stopword)
+ * - `keyword` (25): более слабое пересечение по словам алиаса (≥4 симв., не stopword)
+ */
+export function findServiceMatches(name: string, limit = 5): ServiceMatch[] {
+  const norm = normalise(name)
+  if (!norm) return []
+
+  const normIsMeaningful = norm.length >= 4 && !MATCH_STOPWORDS.has(norm)
+  const normTokens = norm.split(' ').filter(w => w.length >= 5 && !MATCH_STOPWORDS.has(w))
+
+  const matches: ServiceMatch[] = []
+
   for (const entry of SERVICE_DB) {
+    let best: ServiceMatch | undefined
+
     for (const alias of entry.names) {
-      if (norm === alias || norm.includes(alias) || alias.includes(norm)) {
-        return entry
+      if (norm === alias) {
+        best = pickBetterMatch(best, { entry, score: 100, matchType: 'exact' })
+        continue
+      }
+
+      const aliasIsMeaningful = alias.length >= 4 && !MATCH_STOPWORDS.has(alias)
+      if (normIsMeaningful && aliasIsMeaningful && (norm.includes(alias) || alias.includes(norm))) {
+        best = pickBetterMatch(best, { entry, score: 80, matchType: 'alias_contains' })
+        continue
+      }
+
+      if (normTokens.length > 0) {
+        const aliasTokens = alias.split(' ').filter(w => w.length >= 5 && !MATCH_STOPWORDS.has(w))
+        if (aliasTokens.some(w => normTokens.includes(w))) {
+          best = pickBetterMatch(best, { entry, score: 50, matchType: 'token' })
+          continue
+        }
+      }
+
+      const aliasKeywords = alias.split(' ').filter(w => w.length >= 4 && !MATCH_STOPWORDS.has(w))
+      if (normIsMeaningful && aliasKeywords.some(w => norm.includes(w) || w.includes(norm))) {
+        best = pickBetterMatch(best, { entry, score: 25, matchType: 'keyword' })
       }
     }
+
+    if (best) matches.push(best)
   }
 
-  // Проход 2: пересечение значимых слов (≥5 букв, не stopword)
-  // Требуем ≥5 символов, чтобы исключить «plus», «pro», «one» и т.д.
-  const words = norm.split(' ').filter(w => w.length >= 5 && !MATCH_STOPWORDS.has(w))
-  if (words.length === 0) return undefined   // только generic-слова — не матчим вслепую
+  matches.sort((a, b) => b.score - a.score)
+  return matches.slice(0, limit)
+}
 
-  for (const entry of SERVICE_DB) {
-    for (const alias of entry.names) {
-      const aliasWords = alias.split(' ').filter(w => w.length >= 5 && !MATCH_STOPWORDS.has(w))
-      if (aliasWords.length > 0 && words.some(w => aliasWords.includes(w))) return entry
-    }
+/**
+ * Тонкая обёртка над `findServiceMatches` — сохраняет старый контракт
+ * (один сервис или `undefined`) для существующих вызывающих сторон
+ * ([lib/openrouter.ts](lib/openrouter.ts), [lib/savings-estimate.ts](lib/savings-estimate.ts)),
+ * но возвращает `undefined` вместо угаданного совпадения с низкой уверенностью.
+ */
+export function findServiceEntry(name: string): ServiceEntry | undefined {
+  const [top] = findServiceMatches(name, 1)
+  return top && top.score >= MIN_CONFIDENT_MATCH_SCORE ? top.entry : undefined
+}
+
+/**
+ * Честно форматирует цену сервиса в зависимости от уровня доверия и типа отображения —
+ * вместо того чтобы представлять приблизительную оценку как точный факт.
+ * Если `price` не задан, использует `legacyMonthlyPrice`/`legacyCurrency` как приблизительную оценку.
+ */
+export function formatPrice(
+  price: ServicePriceInfo | undefined,
+  legacyMonthlyPrice?: number,
+  legacyCurrency?: string,
+): string {
+  const amount = price?.amount ?? legacyMonthlyPrice
+  const currency = price?.currency ?? legacyCurrency ?? 'RUB'
+  const displayType: PriceDisplayType = price?.displayType ?? (amount != null ? 'approximate' : 'unknown')
+  const confidence: PriceConfidence = price?.confidence ?? (amount != null ? 'medium' : 'unknown')
+
+  switch (displayType) {
+    case 'region_dependent':
+      return 'Цена зависит от региона'
+    case 'unknown':
+      return 'Проверьте стоимость на сайте'
+    case 'from':
+      return amount != null ? `от ${fmtCurrency(amount, currency)}/мес` : 'Проверьте стоимость на сайте'
+    case 'promo':
+      return amount != null
+        ? `${fmtCurrency(amount, currency)}/мес · промо-цена, может измениться`
+        : 'Проверьте стоимость на сайте'
+    case 'fixed':
+      if (amount == null) return 'Проверьте стоимость на сайте'
+      return confidence === 'verified' || confidence === 'high'
+        ? `${fmtCurrency(amount, currency)}/мес`
+        : `≈${fmtCurrency(amount, currency)}/мес`
+    case 'approximate':
+    default:
+      return amount != null ? `≈${fmtCurrency(amount, currency)}/мес` : 'Проверьте стоимость на сайте'
   }
-  return undefined
 }
 
 // ─── Heuristic type inference for unknown services ─────────────────────────
@@ -905,4 +1191,238 @@ export function getUniqueAdvantages(
           other.features.some(of => of.key === f.key && of.level === 'good'),
       ),
   )
+}
+
+// ─── Comparison engine ─────────────────────────────────────────────────────
+
+/**
+ * Решает, в какой роли каждый сервис из базы соотносится с базовым —
+ * это и есть честный ответ на вопрос «можно ли вообще их сравнивать».
+ *
+ * Порядок правил важен: сначала исключаем заведомо нечестные пары, затем
+ * распознаём пакетные отношения (бандл/included) — и только в последнюю
+ * очередь решаем, прямой это конкурент или просто «частичная альтернатива».
+ */
+export function getComparisonCandidates(
+  baseEntry: ServiceEntry,
+  allEntries: ServiceEntry[],
+): ComparisonCandidate[] {
+  const baseGroups = new Set(baseEntry.comparisonGroups ?? [])
+  const candidates: ComparisonCandidate[] = []
+
+  for (const other of allEntries) {
+    if (other.id === baseEntry.id) continue
+
+    if (baseEntry.notComparableWith?.includes(other.id) || other.notComparableWith?.includes(baseEntry.id)) {
+      candidates.push({ entry: other, role: 'not_comparable', reason: 'разные категории сервисов — сравнение было бы нечестным' })
+      continue
+    }
+
+    const otherIncludesBase =
+      other.includedServiceIds?.includes(baseEntry.id) || baseEntry.includedInServiceIds?.includes(other.id)
+    if (otherIncludesBase) {
+      candidates.push({
+        entry: other,
+        role: 'bundle',
+        reason: `${getServiceDisplayName(baseEntry)} уже входит в ${getServiceDisplayName(other)} — отдельно платить не нужно`,
+      })
+      continue
+    }
+
+    const baseIncludesOther =
+      baseEntry.includedServiceIds?.includes(other.id) || other.includedInServiceIds?.includes(baseEntry.id)
+    if (baseIncludesOther) {
+      candidates.push({
+        entry: other,
+        role: 'included_service',
+        reason: `входит в ${getServiceDisplayName(baseEntry)} — пользуйтесь им бесплатно`,
+      })
+      continue
+    }
+
+    if (baseEntry.primaryComparisonGroup && baseEntry.primaryComparisonGroup === other.primaryComparisonGroup) {
+      candidates.push({ entry: other, role: 'direct_competitor', reason: 'оба решают одну и ту же задачу' })
+      continue
+    }
+
+    if (other.comparisonGroups?.some(g => baseGroups.has(g))) {
+      candidates.push({ entry: other, role: 'alternative', reason: 'частично пересекаются по задачам, но не заменяют друг друга полностью' })
+      continue
+    }
+
+    candidates.push({ entry: other, role: 'not_comparable', reason: 'разные категории сервисов' })
+  }
+
+  return candidates
+}
+
+const LEVEL_RANK: Record<FeatureLevel, number> = { good: 2, ok: 1, muted: 0 }
+
+function isConfidentPrice(confidence: PriceConfidence | undefined): boolean {
+  return confidence === 'medium' || confidence === 'high' || confidence === 'verified'
+}
+
+/** True, если кандидат не хуже базового сервиса минимум по половине общих характеристик. */
+function scoresAtLeastAsWell(base: ServiceEntry, candidate: ServiceEntry): boolean {
+  const sharedKeys = base.features.map(f => f.key).filter(key => candidate.features.some(f => f.key === key))
+  if (sharedKeys.length === 0) return false
+
+  let atLeastAsGood = 0
+  for (const key of sharedKeys) {
+    const baseLevel = LEVEL_RANK[base.features.find(f => f.key === key)!.level]
+    const candidateLevel = LEVEL_RANK[candidate.features.find(f => f.key === key)!.level]
+    if (candidateLevel >= baseLevel) atLeastAsGood++
+  }
+  return atLeastAsGood / sharedKeys.length >= 0.5
+}
+
+const STRONG_UNUSED_DAYS = 30
+
+export interface ServiceRecommendationInput {
+  subscriptionId: string
+  subscriptionName: string
+  monthlyAmount: number
+  currency: string
+  /** Сколько дней пользователь не отмечал использование (или null — не отмечалось). */
+  usageDays: number | null
+  entry?: ServiceEntry
+  candidates: ComparisonCandidate[]
+  /** IDs сервисов из SERVICE_DB, на которые у пользователя уже есть активные подписки. */
+  ownedEntryIds: Set<string>
+}
+
+/**
+ * Строит честную рекомендацию по конкретной подписке — решение (keep/cancel/replace/check),
+ * а не просто факт сравнения. Намеренно консервативна: «отменить» только при сильном сигнале
+ * неиспользования, «заменить» — без обещания точной экономии, если цены ненадёжны.
+ */
+export function buildServiceRecommendation(input: ServiceRecommendationInput): ServiceRecommendation {
+  const { subscriptionId, subscriptionName, monthlyAmount, currency, usageDays, entry, candidates, ownedEntryIds } = input
+
+  if (!entry) {
+    return {
+      subscriptionId,
+      action: 'not_enough_data',
+      confidence: 'low',
+      title: `${subscriptionName}: недостаточно данных для сравнения`,
+      reasons: ['Сервис не найден в базе сравнения — честное сравнение пока недоступно.'],
+      tradeoffs: [],
+    }
+  }
+
+  const comparable = candidates.filter(c => c.role !== 'not_comparable')
+  const directCompetitors = comparable.filter(c => c.role === 'direct_competitor')
+  const coveringCandidates = comparable.filter(c => c.role === 'direct_competitor' || c.role === 'bundle')
+  const ownedCovering = coveringCandidates.filter(c => ownedEntryIds.has(c.entry.id))
+
+  const uniqueAdvantages = getUniqueAdvantages(entry, directCompetitors.map(c => c.entry))
+  const hasExclusive = uniqueAdvantages.some(f => f.key === 'exclusive')
+
+  const priceConfidence = entry.price?.confidence
+  const priceIsUncertain = priceConfidence == null || priceConfidence === 'low' || priceConfidence === 'unknown'
+  const priceNeedsCheck = entry.price?.displayType === 'region_dependent'
+
+  // 1. cancel — сильный сигнал неиспользования + у пользователя уже есть чем закрыть задачу
+  if (usageDays !== null && usageDays >= STRONG_UNUSED_DAYS && ownedCovering.length > 0) {
+    const covering = ownedCovering[0]
+    return {
+      subscriptionId,
+      entry,
+      action: 'cancel',
+      // Никогда не 'high' — решение опирается на сигнал использования, а не на цену.
+      confidence: 'medium',
+      title: `${subscriptionName}: похоже, можно отключить`,
+      reasons: [
+        `Вы не отмечали использование ${subscriptionName} ${usageDays} дн.`,
+        `${getServiceDisplayName(covering.entry)} закрывает ту же задачу — ${covering.reason}.`,
+      ],
+      tradeoffs: hasExclusive
+        ? [`При отключении вы потеряете: ${uniqueAdvantages.map(f => f.label).join(', ')}.`]
+        : ['Если понадобится снова — можно будет подключить в любой момент.'],
+    }
+  }
+
+  // 2. replace — есть прямой конкурент не хуже минимум по половине общих характеристик
+  const replaceCandidate = directCompetitors.find(
+    c => !ownedEntryIds.has(c.entry.id) && scoresAtLeastAsWell(entry, c.entry),
+  )
+  if (replaceCandidate && !hasExclusive) {
+    const candidateEntry = replaceCandidate.entry
+    const bothPricesConfident =
+      entry.price?.amount != null &&
+      candidateEntry.price?.amount != null &&
+      isConfidentPrice(entry.price.confidence) &&
+      isConfidentPrice(candidateEntry.price.confidence) &&
+      (entry.price.currency ?? 'RUB') === (candidateEntry.price.currency ?? 'RUB')
+
+    const tradeoffs = uniqueAdvantages.length
+      ? [`При переходе вы потеряете: ${uniqueAdvantages.map(f => f.label).join(', ')}.`]
+      : ['Перед переходом сравните детали тарифа — они могут отличаться.']
+
+    const rec: ServiceRecommendation = {
+      subscriptionId,
+      entry,
+      candidate: candidateEntry,
+      action: 'replace',
+      confidence: bothPricesConfident ? 'medium' : 'low',
+      title: `${subscriptionName} → ${getServiceDisplayName(candidateEntry)}: можно сравнить и перейти`,
+      reasons: [`${getServiceDisplayName(candidateEntry)} закрывает ту же задачу — ${replaceCandidate.reason}.`],
+      tradeoffs,
+    }
+
+    if (bothPricesConfident) {
+      const diff = Math.round(monthlyAmount - (candidateEntry.price!.amount as number))
+      if (diff > 0) {
+        rec.estimatedMonthlySaving = { amount: diff, currency: entry.price!.currency ?? currency }
+      }
+    } else {
+      rec.warning = 'Точная разница в цене неизвестна — сравните вручную перед переходом.'
+    }
+
+    return rec
+  }
+
+  // 3. keep — явное уникальное преимущество или сравнивать вовсе не с чем
+  if (hasExclusive || comparable.length === 0) {
+    return {
+      subscriptionId,
+      entry,
+      action: 'keep',
+      confidence: hasExclusive ? 'medium' : 'low',
+      title: `${subscriptionName}: стоит оставить`,
+      reasons: hasExclusive
+        ? [`Есть то, чего нет у альтернатив: ${uniqueAdvantages.map(f => f.label).join(', ')}.`]
+        : ['Среди ваших подписок нет прямых аналогов для честного сравнения.'],
+      tradeoffs: [],
+    }
+  }
+
+  // 4. check — цена ненадёжна или зависит от региона/способа оплаты
+  if (priceIsUncertain || priceNeedsCheck) {
+    return {
+      subscriptionId,
+      entry,
+      action: 'check',
+      confidence: 'low',
+      title: `${subscriptionName}: стоит проверить условия`,
+      reasons: [
+        priceNeedsCheck
+          ? 'Цена зависит от региона или способа оплаты — уточните актуальную стоимость.'
+          : 'Точная стоимость неизвестна — сравнение может быть неточным.',
+      ],
+      tradeoffs: [],
+      warning: 'Не делайте выводов об экономии, пока не проверите актуальную цену.',
+    }
+  }
+
+  // 5. not_enough_data — нет ни сигнала неиспользования, ни явно лучшей альтернативы
+  return {
+    subscriptionId,
+    entry,
+    action: 'not_enough_data',
+    confidence: 'low',
+    title: `${subscriptionName}: пока недостаточно сигналов`,
+    reasons: ['Не нашлось ни признаков неиспользования, ни явно более выгодной альтернативы.'],
+    tradeoffs: [],
+  }
 }

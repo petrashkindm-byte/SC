@@ -10,16 +10,7 @@ import { createClient } from '@/lib/supabase/client'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-
-// Google Identity Services type stubs
-declare global {
-  interface Window {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    google?: any
-  }
-}
-const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? ''
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
 
 type AuthTab = 'login' | 'register'
 
@@ -51,10 +42,6 @@ export default function AuthLanding() {
   const [newPasswordConfirm, setNewPasswordConfirm] = useState('')
   const [showLoginPassword, setShowLoginPassword] = useState(false)
   const [showRegisterPassword, setShowRegisterPassword] = useState(false)
-  const [oauthLoading, setOauthLoading] = useState<'google' | 'apple' | null>(null)
-  const gisReady = useRef(false)
-  const [gisRendered, setGisRendered] = useState(false)
-  const gisContainerRef = useRef<HTMLDivElement>(null)
   // true когда Supabase обнаруживает PASSWORD_RECOVERY из хэш-токена в URL
   const [hashRecoveryMode, setHashRecoveryMode] = useState(false)
 
@@ -176,98 +163,6 @@ export default function AuthLanding() {
       return
     }
     setResetDone('Отправили письмо для сброса пароля. Проверьте почту и спам.')
-  }
-
-  // ── GIS (Google Identity Services) — renderButton popup flow ────────────────
-  // Uses Google's own sign-in button (opens real popup, no redirect to supabase.co).
-  // Works in Russia without VPN. Falls back to redirect only if GIS script fails.
-  useEffect(() => {
-    if (!GOOGLE_CLIENT_ID) return
-    if (document.getElementById('gis-script')) return
-
-    const load = () => {
-      if (document.getElementById('gis-script')) return
-      const script = document.createElement('script')
-      script.id = 'gis-script'
-      script.src = 'https://accounts.google.com/gsi/client'
-      script.async = true
-      script.defer = true
-      script.onload = () => {
-      window.google?.accounts?.id?.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: async (response: { credential: string }) => {
-          setOauthLoading('google')
-          const supabase = createClient()
-          const { error: idErr } = await supabase.auth.signInWithIdToken({
-            provider: 'google',
-            token: response.credential,
-          })
-          if (idErr) {
-            setError(mapAuthError(idErr.message))
-            setOauthLoading(null)
-            return
-          }
-          router.push('/dashboard')
-        },
-      })
-      gisReady.current = true
-      setGisRendered(true) // triggers re-render → renderButton useEffect fires
-    }
-      document.head.appendChild(script)
-    }
-
-    // Defer loading until page is idle to avoid blocking initial render
-    if ('requestIdleCallback' in window) {
-      requestIdleCallback(load, { timeout: 3000 })
-    } else {
-      setTimeout(load, 500)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // When GIS is ready and overlay container mounts — render invisible GIS button into it.
-  // The button fills the overlay div, so user clicks go through to Google's popup.
-  useEffect(() => {
-    if (!gisRendered || !gisContainerRef.current) return
-    // Render at large width — overflow:hidden on container clips it to button width
-    window.google?.accounts?.id?.renderButton(gisContainerRef.current, {
-      theme: 'outline',
-      size: 'large',
-      text: 'signin_with',
-      shape: 'rectangular',
-      width: '1000',
-    })
-  }, [gisRendered])
-
-  async function handleOAuth(provider: 'google' | 'apple') {
-    setOauthLoading(provider)
-    setError(null)
-    // Google: handled via GIS renderButton (user clicks Google's own button directly)
-    // This function is only used for Apple now
-    await handleOAuthRedirect(provider)
-  }
-
-  async function handleOAuthRedirect(provider: 'google' | 'apple') {
-    setOauthLoading(provider)
-    const supabase = createClient()
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: `${location.origin}/auth/callback`,
-      },
-    })
-    if (error) {
-      console.error('[OAuth] signInWithOAuth error:', error)
-      setError(mapAuthError(error.message))
-      setOauthLoading(null)
-      return
-    }
-    if (!data?.url) {
-      console.error('[OAuth] No redirect URL returned from Supabase')
-      setError('Не удалось получить ссылку для входа. Попробуйте позже.')
-      setOauthLoading(null)
-    }
-    // При успешном redirect — spinner остаётся до ухода со страницы
   }
 
   async function handleSetNewPassword(e: React.FormEvent) {
@@ -649,54 +544,21 @@ export default function AuthLanding() {
 
               <div className="auth-divider">или</div>
               <div className="auth-social">
-                {/* Our styled Google button — always visible.
-                    When GIS is ready, an invisible GIS iframe overlays it so clicks
-                    go through GIS (popup, no supabase.co redirect). */}
-                <div style={{ position: 'relative', width: '100%' }}>
-                  <button
-                    type="button"
-                    className="auth-social-btn"
-                    disabled={oauthLoading !== null}
-                    onClick={gisRendered ? undefined : () => void handleOAuthRedirect('google')}
-                  >
-                    {oauthLoading === 'google' ? (
-                      <svg className="auth-spinner" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                        <circle cx="12" cy="12" r="9" stroke="#9ca3af" strokeWidth="2" strokeDasharray="28 56" />
-                      </svg>
-                    ) : (
-                      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                      </svg>
-                    )}
-                    {oauthLoading === 'google' ? 'Вход…' : 'Продолжить с Google'}
-                  </button>
-                  {/* Invisible GIS overlay — intercepts clicks when GIS is ready */}
-                  {gisRendered && oauthLoading === null && (
-                    <div
-                      ref={gisContainerRef}
-                      style={{
-                        position: 'absolute', inset: 0, zIndex: 10,
-                        opacity: 0.001, overflow: 'hidden',
-                        pointerEvents: 'auto',
-                      }}
-                    />
-                  )}
-                </div>
-                <button
-                  type="button"
-                  className="auth-social-btn auth-social-btn--soon"
-                  disabled
-                  title="Скоро"
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-                    <path fill="#9ca3af" d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701" />
+                <a className="auth-social-btn auth-social-btn--yandex" href="/auth/oauth/yandex">
+                  <span className="auth-social-badge auth-social-badge--yandex" aria-hidden="true">Я</span>
+                  Продолжить с Яндексом
+                </a>
+                <a className="auth-social-btn auth-social-btn--vk" href="/auth/oauth/vk">
+                  <svg className="auth-social-badge auth-social-badge--vk" viewBox="0 0 1000 1000" aria-hidden="true">
+                    <path fill="#0077FF" d="M479.6,1000.4h41.7c226.7,0,339.6,0,409.6-70c69.6-70,69.6-183.3,69.6-409.2v-42.5c0-225,0-338.3-69.6-408.3
+	c-70-70-183.3-70-409.6-70h-41.7c-226.7,0-339.6,0-409.6,70C0.5,140.4,0.5,253.8,0.5,479.6v42.5c0,225,0,338.3,70,408.3
+	S253.8,1000.4,479.6,1000.4z"/>
+                    <path fill="#fff" d="M532.6,720.8c-227.9,0-357.9-156.2-363.3-416.2h114.2c3.8,190.8,87.9,271.7,154.6,288.3V304.6h107.5v164.6
+	c65.8-7.1,135-82.1,158.3-164.6h107.5c-17.8,86.5-70.8,161.7-146.3,207.5C749.4,554,811.7,630,836.3,720.8H718
+	c-22.3-79.8-90.3-138.4-172.5-148.8v148.8C545.5,720.8,532.6,720.8,532.6,720.8z"/>
                   </svg>
-                  Продолжить с Apple
-                  <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, color: '#9ca3af', background: 'rgba(0,0,0,0.06)', borderRadius: 6, padding: '2px 7px' }}>Скоро</span>
-                </button>
+                  Продолжить с VK
+                </a>
               </div>
               {tab === 'register' && (
                 <p className="auth-footnote auth-footnote--legal">
@@ -771,16 +633,15 @@ export default function AuthLanding() {
         .auth-divider { display: flex; align-items: center; gap: 16px; margin: 12px 0; color: #9ca3af; font-size: 13px; }
         .auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: rgba(15,11,56,.1); }
         .auth-social { display: flex; flex-direction: column; gap: 8px; }
-        .auth-social-btn { width: 100%; height: 42px; border: 1px solid rgba(15,11,56,.1); border-radius: 12px; background: #fff; font: inherit; font-size: 14px; font-weight: 600; color: #374151; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .auth-social-btn { width: 100%; height: 42px; border: 1px solid rgba(15,11,56,.1); border-radius: 12px; background: #fff; font: inherit; font-size: 14px; font-weight: 600; color: #374151; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; text-decoration: none; }
+        .auth-social-btn:hover { background: #f9fafb; }
+        .auth-social-badge { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; font-size: 12px; font-weight: 700; line-height: 1; flex-shrink: 0; }
+        .auth-social-badge--yandex { background: #FC3F1D; color: #fff; }
         .auth-footnote { margin-top: 12px; text-align: center; font-size: 12px; color: #6b7280; display: flex; align-items: center; justify-content: center; gap: 8px; }
         .auth-footnote svg { color: #9ca3af; flex-shrink: 0; }
         .auth-footnote--legal { display: block; line-height: 1.55; }
         .auth-footnote-link { color: #6c5ce7; text-decoration: underline; text-decoration-color: rgba(108,92,231,0.35); text-underline-offset: 2px; }
         .auth-footnote-link:hover { color: #5a4bd1; text-decoration-color: rgba(90,75,209,0.7); }
-        .auth-social-btn:disabled { opacity: .6; cursor: not-allowed; }
-        .auth-social-btn--soon { opacity: .5; color: #9ca3af; }
-        @keyframes auth-spin { to { transform: rotate(360deg); } }
-        .auth-spinner { animation: auth-spin .8s linear infinite; }
         @media (max-width: 760px) {
           .auth-shell { flex-direction: column; height: auto; min-height: 100vh; }
           /* Form first on mobile */

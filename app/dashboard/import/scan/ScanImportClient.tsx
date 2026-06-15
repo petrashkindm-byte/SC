@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { searchCatalog } from '@/lib/service-catalog'
+import { searchSubscriptionTemplates } from '@/lib/subscription-templates'
 import { actionButtonClass } from '@/app/dashboard/ui/action-button'
 import type { AiDetectedSubscription } from '@/lib/ai/scan-subscriptions'
 
@@ -35,7 +35,7 @@ function formatDate(d: string) {
 
 function guessIcon(merchant: string): string {
   const m = merchant.toLowerCase()
-  const matches = searchCatalog(m.split(' ')[0])
+  const matches = searchSubscriptionTemplates(m.split(' ')[0])
   return matches[0]?.icon ?? 'payments'
 }
 

@@ -2,11 +2,27 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { categoryLabel, formatBillingCycle } from '@/lib/subscription-labels'
 import type { Subscription } from '@/lib/supabase/types'
 import { fmtCurrency, groupMonthlyByCurrency, getMonthlyAmount, type CurrencyGroup } from '@/lib/currency'
-import { findServiceEntry, inferTypeFromName, getServicesByType, getServiceDisplayName, getUniqueAdvantages, TYPE_FEATURE_KEYS, type ServiceEntry, type ServiceType } from '@/lib/service-comparison-db'
+import {
+  findServiceEntry,
+  inferTypeFromName,
+  getServicesByType,
+  getServiceDisplayName,
+  getUniqueAdvantages,
+  getComparisonCandidates,
+  buildServiceRecommendation,
+  formatPrice,
+  TYPE_FEATURE_KEYS,
+  type ServiceEntry,
+  type ServiceType,
+  type ServiceRoleInComparison,
+  type ServiceRecommendation,
+  type RecommendationAction,
+  type RecommendationConfidence,
+} from '@/lib/service-comparison-db'
 import { actionButtonClass } from './ui/action-button'
 import { useLang } from '@/lib/LangContext'
 import { useDarkMode } from '@/lib/hooks/use-dark-mode'
@@ -416,7 +432,7 @@ function daysSinceLastUse(lastUsedAt: string | null): number | null {
   return Number.isFinite(d) ? Math.max(0, d) : null
 }
 
-type ServiceGroup = {
+export type ServiceGroup = {
   groupKey: string        // type from DB, or category slug as fallback
   label: string
   subs: Subscription[]   // sorted by monthly cost descending
@@ -477,63 +493,101 @@ function getTypeLabelsShort(lang: string): Record<string, string> {
   return lang === 'en' ? TYPE_LABELS_SHORT_EN : TYPE_LABELS_SHORT_RU
 }
 
-// Groups subscriptions by semantic type (from DB) or category as fallback.
-// Only returns groups with 2+ subs of the SAME type — avoids false duplicates.
+// Группы сравнения — заголовки для ComparisonPanel. Тоньше, чем ServiceType:
+// например, «ИИ-ассистенты» и «Генерация изображений» больше не считаются
+// одной группой, хотя у обоих type === 'ai'.
+const COMPARISON_GROUP_LABELS_RU: Record<string, string> = {
+  music_streaming: 'Музыкальные стриминги',
+  video_streaming: 'Видеостриминги',
+  ecosystem_bundle: 'Экосистемные пакеты',
+  ai_assistant: 'ИИ-ассистенты',
+  ai_image_generation: 'Генерация изображений',
+  dev_tools: 'Инструменты разработки',
+  cloud_storage: 'Облачные хранилища',
+  creative_design: 'Дизайн-инструменты',
+  creative_video: 'Видео и креатив',
+  education_language: 'Изучение языков',
+  education_courses: 'Онлайн-курсы',
+  productivity_notes: 'Заметки и продуктивность',
+  office_suite: 'Офисные пакеты',
+  fitness: 'Фитнес',
+  health_wellness: 'Здоровье и wellness',
+}
+
+const COMPARISON_GROUP_LABELS_EN: Record<string, string> = {
+  music_streaming: 'Music streaming',
+  video_streaming: 'Video streaming',
+  ecosystem_bundle: 'Ecosystem bundles',
+  ai_assistant: 'AI assistants',
+  ai_image_generation: 'AI image generation',
+  dev_tools: 'Developer tools',
+  cloud_storage: 'Cloud storage',
+  creative_design: 'Design tools',
+  creative_video: 'Video & creative',
+  education_language: 'Language learning',
+  education_courses: 'Online courses',
+  productivity_notes: 'Notes & productivity',
+  office_suite: 'Office suites',
+  fitness: 'Fitness',
+  health_wellness: 'Health & wellness',
+}
+
+function getComparisonGroupLabels(lang: string): Record<string, string> {
+  return lang === 'en' ? COMPARISON_GROUP_LABELS_EN : COMPARISON_GROUP_LABELS_RU
+}
+
+// Groups subscriptions by comparison group (finer-grained than ServiceType — decides
+// whether comparing two services is even fair) or by inferred type as a fallback.
+// Only returns groups with 2+ subs in the SAME comparison group — avoids false duplicates.
 function getCategoryComparisons(active: Subscription[], lang: string): ServiceGroup[] {
-  // 1. Try DB match
-  const byType = new Map<string, { subs: Subscription[]; entries: (ServiceEntry | undefined)[] }>()
+  const byGroup = new Map<string, { subs: Subscription[]; entries: (ServiceEntry | undefined)[] }>()
   const unmatched: Subscription[] = []
 
   for (const s of active) {
     const entry = findServiceEntry(s.name)
-    if (entry) {
-      // Все типы сервиса: основной + дополнительные (для пакетов типа Яндекс Плюс)
-      const allTypes = [entry.type, ...(entry.additionalTypes ?? [])]
-      for (const t of allTypes) {
-        const g = byType.get(t) ?? { subs: [], entries: [] }
-        // Добавляем только если ещё нет в этой типовой группе
+    // Кросс-листинг по всем группам сравнения (а не только по основной) — иначе
+    // пакет вроде YouTube Premium не попадёт в группу с YouTube Music и не будет
+    // распознан как «бандл», а не как «дубликат».
+    const groupKeys = entry
+      ? (entry.comparisonGroups?.length ? entry.comparisonGroups : [entry.primaryComparisonGroup ?? entry.type])
+      : (() => { const inferred = inferTypeFromName(s.name); return inferred ? [inferred] : [] })()
+
+    if (groupKeys.length > 0) {
+      for (const groupKey of groupKeys) {
+        const g = byGroup.get(groupKey) ?? { subs: [], entries: [] }
         if (!g.subs.some(x => x.id === s.id)) {
           g.subs.push(s)
           g.entries.push(entry)
-          byType.set(t, g)
+          byGroup.set(groupKey, g)
         }
       }
     } else {
-      // попробуем угадать тип по ключевым словам
-      const inferred = inferTypeFromName(s.name)
-      if (inferred) {
-        const g = byType.get(inferred) ?? { subs: [], entries: [] }
-        if (!g.subs.some(x => x.id === s.id)) {
-          g.subs.push(s)
-          g.entries.push(undefined)
-          byType.set(inferred, g)
-        }
-      } else {
-        unmatched.push(s)
-      }
+      unmatched.push(s)
     }
   }
 
   const groups: ServiceGroup[] = []
-
-  // 2. DB-matched groups (same semantic type → real potential duplicates)
+  const GROUP_LABELS = getComparisonGroupLabels(lang)
   const TYPE_LABELS = getModuleTypeLabels(lang)
 
-  for (const [type, { subs, entries }] of byType) {
+  for (const [groupKey, { subs, entries }] of byGroup) {
     if (subs.length < 2) continue
     const sorted = subs
       .map((s, i) => ({ s, e: entries[i] }))
       .sort((a, b) => getMonthlyAmount(b.s) - getMonthlyAmount(a.s))
+    // Таблица фич по-прежнему ведётся по ServiceType — берём тип первой найденной записи
+    // (внутри одной группы сравнения сервисы почти всегда одного типа).
+    const representativeType = sorted.find(x => x.e)?.e?.type ?? (groupKey as ServiceType)
     groups.push({
-      groupKey: type,
-      label: TYPE_LABELS[type] ?? type,
+      groupKey,
+      label: GROUP_LABELS[groupKey] ?? TYPE_LABELS[representativeType] ?? groupKey,
       subs: sorted.map(x => x.s),
       entries: sorted.map(x => x.e),
-      featureKeys: TYPE_FEATURE_KEYS[type as ServiceType],
+      featureKeys: TYPE_FEATURE_KEYS[representativeType],
     })
   }
 
-  // Сервисы без определённого типа (unmatched) намеренно исключаем из сравнения —
+  // Сервисы без определённой группы (unmatched) намеренно исключаем из сравнения —
   // лучше ничего не показать, чем показать в чужой группе с чужими характеристиками.
   // (void unmatched — чтобы линтер не жаловался на неиспользуемую переменную)
   void unmatched
@@ -567,87 +621,7 @@ function rowWinners(entries: (ServiceEntry | undefined)[], key: string): {
 }
 
 
-/** Генерирует одну ключевую рекомендацию для группы сервисов */
-function generateGroupInsight(subs: Subscription[], entries: (ServiceEntry | undefined)[]): string | null {
-  if (subs.length < 2) return null
-
-  const data = subs.map((s, i) => ({
-    sub: s,
-    entry: entries[i],
-    days: daysSinceLastUse(s.last_used_at),
-    monthly: getMonthlyAmount(s),
-  }))
-
-  // Правило 1: один не использовался >30 дн, другой — активен (<14 дн)
-  const unused = data.filter(d => d.days !== null && d.days >= 30)
-  const recent = data.filter(d => d.days !== null && d.days < 14)
-  if (unused.length > 0 && recent.length > 0) {
-    const u = unused[0]
-    const r = recent[0]
-    return `Вы не открывали ${u.sub.name} ${u.days} дн., а ${r.sub.name} используете регулярно — сэкономите ${fmtCurrency(u.monthly, u.sub.currency)}/мес, отключив его.`
-  }
-
-  // Правило 2: пакетный сервис перекрывает отдельные подписки
-  const bundle = data.find(d => {
-    const feat = d.entry?.features.find(f => f.key === 'extras')
-    return feat?.level === 'good' && !feat.value.includes('только')
-  })
-  if (bundle) {
-    const feat = bundle.entry?.features.find(f => f.key === 'extras')
-    const others = data.filter(d => d.sub.id !== bundle.sub.id)
-    if (others.length > 0) {
-      const saving = others.reduce((sum, d) => sum + d.monthly, 0)
-      // Если у бандла есть bundleNote — добавляем контекст об ограничениях
-      const limitNote = bundle.entry?.bundleNote
-        ? ` Учтите: ${bundle.entry.bundleNote.toLowerCase()}.`
-        : ''
-      return `${bundle.sub.name} уже включает ${feat?.value}. Если вы пользуетесь этими сервисами, переплата ${fmtCurrency(saving, bundle.sub.currency)}/мес может быть лишней.${limitNote}`
-    }
-  }
-
-  // Правило 3: уникальный эксклюзивный контент — объясняем, почему дорогой стоит оставить
-  const defined = data.filter(d => d.entry !== undefined) as (typeof data[0] & { entry: ServiceEntry })[]
-  if (defined.length >= 2) {
-    const allEntries = defined.map(d => d.entry)
-    const exclusiveLeader = defined.find(d => {
-      const uniq = getUniqueAdvantages(d.entry, allEntries)
-      return uniq.some(f => f.key === 'exclusive')
-    })
-    if (exclusiveLeader) {
-      const sorted2 = [...data].sort((a, b) => b.monthly - a.monthly)
-      const isExpensive = sorted2[0]?.sub.id === exclusiveLeader.sub.id
-      const priceSuffix = isExpensive
-        ? ` Это объясняет более высокую цену — ${fmtCurrency(exclusiveLeader.monthly, exclusiveLeader.sub.currency)}/мес.`
-        : ''
-      return `${exclusiveLeader.sub.name} предлагает эксклюзивный контент, которого нет у конкурентов.${priceSuffix} Если он вам важен — это весомый аргумент в пользу этой подписки.`
-    }
-  }
-
-  // Правило 4: существенная разница в цене (>25%)
-  const sorted = [...data].sort((a, b) => a.monthly - b.monthly)
-  const cheapest = sorted[0]
-  const priciest = sorted[sorted.length - 1]
-  const diff = priciest.monthly - cheapest.monthly
-  const pct = Math.round((diff / priciest.monthly) * 100)
-  if (pct >= 25 && diff >= 80) {
-    return `${cheapest.sub.name} на ${pct}% дешевле — переход сэкономит ${fmtCurrency(diff, cheapest.sub.currency)}/мес (${fmtCurrency(diff * 12, cheapest.sub.currency)}/год).`
-  }
-
-  // Правило 5: семейный план выгоднее индивидуального
-  for (const d of data) {
-    const fp = d.entry?.familyPlan
-    if (!fp) continue
-    const perPerson = Math.round(fp.monthlyApprox / fp.slots)
-    if (perPerson < d.monthly * 0.85) { // семейный на ≥15% дешевле на человека
-      const saving = d.monthly - perPerson
-      return `${d.sub.name} Family на ${fp.slots} чел. стоит ≈${fmtCurrency(fp.monthlyApprox, fp.currency)}/мес. Если делить на ${fp.slots} — ≈${fmtCurrency(perPerson, fp.currency)}/чел. Экономия ${fmtCurrency(saving, fp.currency)}/мес с каждого.`
-    }
-  }
-
-  return null
-}
-
-interface DuplicatesPanelProps {
+export interface ComparisonPanelProps {
   groups: ServiceGroup[]
   cutIds: Set<string>
   onCut: (id: string) => void
@@ -665,311 +639,1065 @@ function usageLabel(days: number | null, lang: string): { text: string; cls: str
   return               { text: dAgo(days), cls: 'font-medium text-[#e5484d]' }
 }
 
-function DuplicatesPanel({ groups, cutIds, onCut, onKeepOnly }: DuplicatesPanelProps) {
-  const { lang, strings } = useLang()
+// ── Comparison panel — decision-first redesign ────────────────────────────
+//
+// Replaces the old "duplicates" framing (which presented every overlap as a
+// problem and prices as facts) with a panel that explains the ROLE of each
+// service in the comparison and surfaces a conservative, confidence-aware
+// recommendation — never a bare "X is N% more expensive" claim from guessed prices.
+
+const MAX_TABLE_COLUMNS = 4
+
+type FeatureSectionId = 'content' | 'quality' | 'family' | 'limits'
+
+const FEATURE_SECTION_BY_KEY: Record<string, FeatureSectionId> = {
+  quality: 'quality', lossless: 'quality', screens: 'quality', originals: 'quality', completions: 'quality',
+  family: 'family',
+  offline: 'limits', ads: 'limits', extras: 'limits',
+}
+
+function featureSectionFor(key: string): FeatureSectionId {
+  return FEATURE_SECTION_BY_KEY[key] ?? 'content'
+}
+
+function sectionLabelFor(id: FeatureSectionId, s: ReturnType<typeof useLang>['strings']['simulator']): string {
+  switch (id) {
+    case 'quality': return s.sectionQuality
+    case 'family':  return s.sectionFamily
+    case 'limits':  return s.sectionLimits
+    case 'content':
+    default:        return s.sectionContent
+  }
+}
+
+function groupFeatureSections(
+  featureKeys: { key: string; label: string }[] | undefined,
+): { id: FeatureSectionId; rows: { key: string; label: string }[] }[] {
+  if (!featureKeys || featureKeys.length === 0) return []
+  const order: FeatureSectionId[] = ['content', 'quality', 'family', 'limits']
+  return order
+    .map(id => ({ id, rows: featureKeys.filter(fk => featureSectionFor(fk.key) === id) }))
+    .filter(section => section.rows.length > 0)
+}
+
+const ROLE_PRIORITY: ServiceRoleInComparison[] = ['bundle', 'included_service', 'direct_competitor', 'alternative', 'not_comparable']
+
+/** Самая «информативная» роль сервиса относительно остальных видимых членов группы. */
+function primaryRoleAmong(entry: ServiceEntry, others: ServiceEntry[]): ServiceRoleInComparison {
+  if (others.length === 0) return 'direct_competitor'
+  const candidates = getComparisonCandidates(entry, others)
+  for (const role of ROLE_PRIORITY) {
+    if (candidates.some(c => c.role === role)) return role
+  }
+  return 'direct_competitor'
+}
+
+function roleLabelFor(role: ServiceRoleInComparison, s: ReturnType<typeof useLang>['strings']['simulator']): string | null {
+  switch (role) {
+    case 'bundle':            return s.roleBundle
+    case 'included_service':  return s.roleIncludedService
+    case 'alternative':       return s.roleAlternative
+    case 'direct_competitor': return s.roleDirectCompetitor
+    case 'not_comparable':
+    default:                  return null
+  }
+}
+
+const SOFT_BADGE_CLASS = {
+  green:  'text-[#12b76a] bg-[#eef8f0] border-[#cdeedb]',
+  blue:   'text-[#2563eb] bg-[#eff6ff] border-[#bfdbfe]',
+  amber:  'text-[#92400e] bg-[#fef3c7] border-[#fde68a]',
+  gray:   'text-[#6b6b80] bg-[#f5f4f1] border-[#e7e3dc]',
+  violet: 'text-[#5b43d4] bg-[#ede9fc] border-[#d9d0fb]',
+} as const
+
+/**
+ * Мягкий смысловой бейдж — замена категоричным «дороже/дешевле».
+ * Объясняет, что вообще означает это сравнение, а не просто кто дороже.
+ */
+function comparisonBadge(
+  role: ServiceRoleInComparison,
+  rec: ServiceRecommendation | undefined,
+  hasUniqueExclusive: boolean,
+  isCheapestDirectCompetitor: boolean,
+  s: ReturnType<typeof useLang>['strings']['simulator'],
+): { label: string; cls: string } | null {
+  if (role === 'bundle' || role === 'included_service') return { label: s.badgeBundle, cls: SOFT_BADGE_CLASS.blue }
+  if (role === 'alternative') return { label: s.badgeNotDirectCompetitor, cls: SOFT_BADGE_CLASS.gray }
+  if (rec?.action === 'check') return { label: s.badgeCheck, cls: SOFT_BADGE_CLASS.amber }
+  if (hasUniqueExclusive) return { label: s.badgeUniqueFeature, cls: SOFT_BADGE_CLASS.violet }
+  if (isCheapestDirectCompetitor) return { label: s.badgeBestPrice, cls: SOFT_BADGE_CLASS.green }
+  if (rec?.entry?.price?.confidence === 'low' || rec?.entry?.price?.confidence === 'unknown') {
+    return { label: s.badgePriceUnverified, cls: SOFT_BADGE_CLASS.gray }
+  }
+  if (role === 'direct_competitor') return { label: s.badgeDuplicate, cls: SOFT_BADGE_CLASS.gray }
+  return null
+}
+
+const ACTION_PRIORITY: Record<RecommendationAction, number> = { cancel: 4, replace: 3, check: 2, keep: 1, not_enough_data: 0 }
+const CONFIDENCE_RANK: Record<RecommendationConfidence, number> = { high: 2, medium: 1, low: 0 }
+
+function actionTitleFor(action: RecommendationAction, s: ReturnType<typeof useLang>['strings']['simulator']): string {
+  switch (action) {
+    case 'cancel':  return s.actionCancel
+    case 'replace': return s.actionReplace
+    case 'check':   return s.actionCheck
+    case 'keep':    return s.actionKeep
+    case 'not_enough_data':
+    default:        return s.actionNotEnoughData
+  }
+}
+
+function confidenceLabelFor(
+  confidence: RecommendationConfidence,
+  s: ReturnType<typeof useLang>['strings']['simulator'],
+): string {
+  switch (confidence) {
+    case 'high':   return s.compareConfidenceHigh
+    case 'medium': return s.compareConfidenceMedium
+    case 'low':
+    default:       return s.compareConfidenceLow
+  }
+}
+
+function formatNextChargeShort(iso: string | null | undefined, lang: string, fallback: string): string {
+  if (!iso) return fallback
+  try {
+    return new Date(iso).toLocaleDateString(lang === 'en' ? 'en-US' : 'ru-RU', {
+      day: 'numeric',
+      month: 'short',
+    })
+  } catch {
+    return fallback
+  }
+}
+
+function pickDecisionCards(recommendations: ServiceRecommendation[]): ServiceRecommendation[] {
+  return [...recommendations]
+    .filter(r => r.action !== 'not_enough_data')
+    .sort((a, b) => {
+      const byAction = ACTION_PRIORITY[b.action] - ACTION_PRIORITY[a.action]
+      if (byAction !== 0) return byAction
+      return CONFIDENCE_RANK[b.confidence] - CONFIDENCE_RANK[a.confidence]
+    })
+    .slice(0, 3)
+}
+
+function includedSummaryFor(
+  entry: ServiceEntry,
+  others: ServiceEntry[],
+  s: ReturnType<typeof useLang>['strings']['simulator'],
+): string {
+  if (entry.bundleNote) return entry.bundleNote
+  if (entry.comparisonNotes) return entry.comparisonNotes
+
+  const includes = others
+    .filter(other => entry.includedServiceIds?.includes(other.id))
+    .map(other => getServiceDisplayName(other))
+  if (includes.length > 0) return s.compareIncludesServices(includes.join(', '))
+
+  const includedIn = others
+    .filter(other => entry.includedInServiceIds?.includes(other.id))
+    .map(other => getServiceDisplayName(other))
+  if (includedIn.length > 0) return s.compareIncludedInBundle(includedIn.join(', '))
+
+  return s.compareIncludedNone
+}
+
+function overlapSummaryFor(
+  entry: ServiceEntry,
+  others: ServiceEntry[],
+  s: ReturnType<typeof useLang>['strings']['simulator'],
+): string {
+  const candidate = getComparisonCandidates(entry, others).find(c => c.role !== 'not_comparable')
+  if (!candidate) return s.compareNoOverlap
+
+  const name = getServiceDisplayName(candidate.entry)
+  switch (candidate.role) {
+    case 'bundle':           return s.compareOverlapBundle(name)
+    case 'included_service': return s.compareOverlapIncluded(name)
+    case 'alternative':      return s.compareOverlapAlternative(name)
+    case 'direct_competitor':
+    default:                 return s.compareOverlapDirect(name)
+  }
+}
+
+function buildPairOptions(
+  subs: Subscription[],
+  entries: (ServiceEntry | undefined)[],
+  recommendations: ServiceRecommendation[],
+): Array<[number, number]> {
+  const options: Array<[number, number]> = []
+  const seen = new Set<string>()
+
+  const pushPair = (a: number, b: number) => {
+    if (a < 0 || b < 0 || a === b || !entries[a] || !entries[b]) return
+    const key = [a, b].sort((x, y) => x - y).join(':')
+    if (seen.has(key)) return
+    seen.add(key)
+    options.push([a, b])
+  }
+
+  if (subs.length >= 2) {
+    const priciestIdx = 0
+    const priciestRec = recommendations[priciestIdx]
+    if (priciestRec?.candidate) {
+      pushPair(priciestIdx, entries.findIndex(e => e?.id === priciestRec.candidate?.id))
+    }
+  }
+
+  for (let i = 0; i < Math.min(subs.length, 4); i += 1) {
+    for (let j = i + 1; j < Math.min(subs.length, 5); j += 1) {
+      const a = entries[i]
+      const b = entries[j]
+      if (!a || !b) continue
+      if (primaryRoleAmong(a, [b]) === 'not_comparable' && primaryRoleAmong(b, [a]) === 'not_comparable') continue
+      pushPair(i, j)
+    }
+  }
+
+  if (options.length === 0 && subs.length >= 2) pushPair(0, 1)
+  return options
+}
+
+/** Выбирает «главную» рекомендацию группы — самое решительное действие с наибольшей уверенностью. */
+function pickHeadlineRecommendation(recs: ServiceRecommendation[]): ServiceRecommendation | undefined {
+  if (recs.length === 0) return undefined
+  return [...recs].sort((a, b) => {
+    const byAction = ACTION_PRIORITY[b.action] - ACTION_PRIORITY[a.action]
+    if (byAction !== 0) return byAction
+    return CONFIDENCE_RANK[b.confidence] - CONFIDENCE_RANK[a.confidence]
+  })[0]
+}
+
+interface GroupComparisonData {
+  recommendations: ServiceRecommendation[]
+  recByEntryId: Map<string, ServiceRecommendation>
+  headline: ServiceRecommendation | undefined
+  possibleSaving: { amount: number; currency: string } | undefined
+}
+
+function useGroupComparisonData(
+  group: ServiceGroup,
+  ownedEntryIds: Set<string>,
+): GroupComparisonData {
+  const { subs, entries } = group
+  return useMemo(() => {
+    const definedEntries = entries.filter((e): e is ServiceEntry => e !== undefined)
+    const recommendations = subs.map((sub, i) => {
+      const entry = entries[i]
+      const candidates = entry ? getComparisonCandidates(entry, definedEntries) : []
+      return buildServiceRecommendation({
+        subscriptionId: sub.id,
+        subscriptionName: sub.name,
+        monthlyAmount: getMonthlyAmount(sub),
+        currency: sub.currency,
+        usageDays: daysSinceLastUse(sub.last_used_at),
+        entry,
+        candidates,
+        ownedEntryIds,
+      })
+    })
+    const recByEntryId = new Map<string, ServiceRecommendation>()
+    recommendations.forEach((rec, i) => {
+      const entry = entries[i]
+      if (entry) recByEntryId.set(entry.id, rec)
+    })
+    const headline = pickHeadlineRecommendation(recommendations.filter(r => r.action !== 'not_enough_data'))
+    const possibleSaving = recommendations.find(r => r.estimatedMonthlySaving)?.estimatedMonthlySaving
+    return { recommendations, recByEntryId, headline, possibleSaving }
+  }, [subs, entries, ownedEntryIds])
+}
+
+export function ComparisonPanel({ groups, cutIds, onCut, onKeepOnly }: ComparisonPanelProps) {
+  const { strings } = useLang()
   const s = strings.simulator
+
+  // Общий набор «уже оплаченных» сервисов по ВСЕМ группам — нужен, чтобы
+  // распознать «у вас уже есть чем закрыть эту задачу», даже если покрывающий
+  // сервис попал в другую группу сравнения (например, бандл — в «видео», а не в «музыку»).
+  const ownedEntryIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const g of groups) for (const e of g.entries) if (e) ids.add(e.id)
+    return ids
+  }, [groups])
+
   if (groups.length === 0) return null
   return (
     <section className="space-y-4">
       <p className="text-xs font-semibold text-[#6b6b80] uppercase tracking-wide">
         {s.dupComparisons}
       </p>
-      {groups.map(({ groupKey, label, subs, entries, featureKeys }) => {
-        const n = subs.length
-        const groupIds = subs.map(s => s.id)
-        // Показываем таблицу только если хотя бы ОДИН сервис есть в базе И есть ключи характеристик.
-        // entries[i] === undefined означает, что сервис не найден в базе — для него будет прочерк.
-        const hasDb = entries.some(e => e !== undefined) && featureKeys && featureKeys.length > 0
-        // Предупреждение, если часть сервисов не распознана
-        const unknownCount = entries.filter(e => e === undefined).length
-        // Уникальные преимущества по сервисам (для значка 👑)
-        const definedEntries = entries.filter((e): e is ServiceEntry => e !== undefined)
-        const uniqueAdvPerEntry = entries.map(entry =>
-          entry ? getUniqueAdvantages(entry, definedEntries) : [],
-        )
-        return (
-          <div key={groupKey} className="rounded-2xl border border-[#e7e3dc] bg-white shadow-[0_1px_3px_rgba(26,26,61,0.06)] overflow-hidden">
+      {groups.map((group) => (
+        <ComparisonGroupCard
+          key={group.groupKey}
+          group={group}
+          cutIds={cutIds}
+          onCut={onCut}
+          onKeepOnly={onKeepOnly}
+          ownedEntryIds={ownedEntryIds}
+        />
+      ))}
+    </section>
+  )
+}
 
-            {/* Label — общий заголовок группы */}
-            <div className="px-4 pt-4 pb-2">
-              <p className="text-[11px] font-bold text-[#6b6b80] uppercase tracking-wider">{label}</p>
+interface ComparisonGroupCardProps {
+  group: ServiceGroup
+  cutIds: Set<string>
+  onCut: (id: string) => void
+  onKeepOnly: (keepId: string, groupIds: string[]) => void
+  ownedEntryIds: Set<string>
+}
+
+function ComparisonGroupCard({ group, cutIds, onCut, onKeepOnly, ownedEntryIds }: ComparisonGroupCardProps) {
+  const { lang, strings } = useLang()
+  const s = strings.simulator
+  const [showDesktopDetails, setShowDesktopDetails] = useState(false)
+  const { label, subs, entries, featureKeys } = group
+  const groupIds = subs.map(x => x.id)
+  const definedEntries = entries.filter((e): e is ServiceEntry => e !== undefined)
+  const hasDb = definedEntries.length > 0 && featureKeys && featureKeys.length > 0
+  const unknownCount = entries.filter(e => e === undefined).length
+
+  const { recommendations, recByEntryId, headline, possibleSaving } = useGroupComparisonData(group, ownedEntryIds)
+  const actionCards = useMemo(() => pickDecisionCards(recommendations), [recommendations])
+
+  const visibleSubs = subs.slice(0, MAX_TABLE_COLUMNS)
+  const visibleEntries = entries.slice(0, MAX_TABLE_COLUMNS)
+  const overflowCount = subs.length - visibleSubs.length
+  const definedVisible = visibleEntries.filter((e): e is ServiceEntry => e !== undefined)
+  const cheapestDirectId = (() => {
+    let best: { id: string; amount: number } | undefined
+    visibleSubs.forEach((sub, i) => {
+      const role = visibleEntries[i] ? primaryRoleAmong(visibleEntries[i] as ServiceEntry, definedVisible.filter(e => e.id !== visibleEntries[i]!.id)) : 'direct_competitor'
+      if (role !== 'direct_competitor') return
+      const amount = getMonthlyAmount(sub)
+      if (!best || amount < best.amount) best = { id: sub.id, amount }
+    })
+    return best?.id
+  })()
+
+  const sections = groupFeatureSections(featureKeys)
+
+  return (
+    <div className="rounded-2xl border border-[#e7e3dc] bg-white shadow-[0_1px_3px_rgba(26,26,61,0.06)] overflow-hidden">
+
+      {/* Заголовок группы */}
+      <div className="px-4 pt-4 pb-2">
+        <p className="text-[11px] font-bold text-[#6b6b80] uppercase tracking-wider">{label}</p>
+      </div>
+
+      {/* ── Итоговый блок: решение прежде таблицы (одинаков на обоих брейкпоинтах) ── */}
+      <div className="px-4 pb-3">
+        <div className="rounded-xl border border-[#e7e3dc] bg-[#fafaf9] p-3 space-y-1.5">
+          <p className="text-[12px] text-[#6b6b80]">{s.compareSummaryOverlap(subs.length)}</p>
+          {possibleSaving ? (
+            <p className="text-[13px] font-semibold text-[#12b76a]">
+              {s.compareSummarySaving(fmtCurrency(possibleSaving.amount, possibleSaving.currency))}
+            </p>
+          ) : (
+            <p className="text-[12px] text-[#8e8e93]">{s.compareSummaryNeutral}</p>
+          )}
+          {headline && (
+            <div className="pt-1.5 border-t border-[#f0ece6] mt-1.5">
+              <p className="text-[13px] font-bold text-[#1a1a2e]">{headline.title}</p>
+              {headline.reasons[0] && (
+                <p className="text-[12px] text-[#6b6b80] mt-0.5">{headline.reasons[0]}</p>
+              )}
+              {headline.tradeoffs[0] && (
+                <p className="text-[11px] text-[#92400e] mt-1">
+                  <span className="font-semibold">{s.compareTradeoffsTitle}:</span> {headline.tradeoffs[0]}
+                </p>
+              )}
+              <p className="text-[11px] text-[#8e8e93] mt-1">
+                {s.compareConfidenceLabel}: {confidenceLabelFor(headline.confidence, s)}
+              </p>
             </div>
+          )}
+        </div>
+      </div>
 
-            {/* ── DESKTOP: карточки сервисов ── */}
-            <div className="hidden md:block px-4 pb-3 border-b border-[#f0ece6]">
-              <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${n}, 1fr)` }}>
-                {subs.map((s, i) => {
-                  const entry = entries[i]
-                  const isMax = i === 0
-                  const isCut = cutIds.has(s.id)
-                  const exclusiveUniq = uniqueAdvPerEntry[i].filter(f => f.key === 'exclusive')
+      <DecisionActionCards
+        className="hidden min-[900px]:block px-4 pb-3"
+        recommendations={actionCards}
+        subs={subs}
+        entries={entries}
+        definedEntries={definedEntries}
+        cutIds={cutIds}
+        onCut={onCut}
+        onKeepOnly={onKeepOnly}
+        groupIds={groupIds}
+      />
+
+      {/* Уведомление о нераспознанных сервисах */}
+      {unknownCount > 0 && (
+        <div className="px-4 py-2 border-b border-[#f0ece6] bg-[#fffbeb]">
+          <p className="text-[11px] text-[#92400e]">
+            {unknownCount === subs.length ? s.dupUnknownAll : s.dupUnknownPartial(unknownCount)}
+          </p>
+        </div>
+      )}
+      {/* Контекст для пакетных сервисов — что бандл перекрывает, а что нет */}
+      {entries.map((entry, i) => entry?.comparisonNotes ? (
+        <div key={i} className="px-4 py-2 border-b border-[#bfdbfe] bg-[#eff6ff]">
+          <p className="text-[11px] text-[#1e40af] leading-snug">
+            <span className="font-semibold">{subs[i].name}:</span>{' '}{entry.comparisonNotes}
+          </p>
+        </div>
+      ) : entry?.bundleNote ? (
+        <div key={i} className="px-4 py-2 border-b border-[#bfdbfe] bg-[#eff6ff]">
+          <p className="text-[11px] text-[#1e40af] leading-snug">
+            <span className="font-semibold">{subs[i].name}:</span>{' '}{entry.bundleNote}
+          </p>
+        </div>
+      ) : null)}
+
+      {/* ── DESKTOP: короткое decision-first сравнение ── */}
+      <div className="hidden min-[900px]:block px-4 pb-3">
+        <p className="mb-1.5 text-[11px] font-bold text-[#6b6b80] uppercase tracking-wider">{s.compareCompactTitle}</p>
+        <div className="overflow-x-auto rounded-xl border border-[#f0ece6]">
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr>
+                <th className="bg-[#fafaf9] px-4 py-2.5 text-left text-[#6b6b80] font-medium w-[170px] border-b border-[#f0ece6]"> </th>
+                {visibleSubs.map((sub) => {
+                  const isCut = cutIds.has(sub.id)
                   return (
-                    <div key={s.id} className={`flex flex-col gap-1 rounded-xl p-2.5 border transition-colors ${
-                      isCut ? 'border-[#fde7ea] bg-[#fff8f8]' : 'border-[#f0ece6] bg-[#fafaf9]'
-                    }`}>
-                      {/* name + price badge */}
-                      <div className="flex items-start justify-between gap-1 flex-wrap">
-                        <p className={`text-[13px] font-bold leading-snug ${isCut ? 'text-[#8e8e93] line-through' : 'text-[#1a1a2e]'}`}>
-                          {s.name}
-                        </p>
-                        {n > 1 && (
-                          <span className={`text-[10px] font-bold rounded-full px-2 py-0.5 shrink-0 border ${
-                            isMax
-                              ? 'text-[#e5484d] bg-white border-[#fde7ea]'
-                              : 'text-[#6b6b80] bg-white border-[#e7e3dc]'
-                          }`}>
-                            {isMax ? strings.simulator.dupMore : strings.simulator.dupLess}
-                          </span>
-                        )}
-                      </div>
-                      {/* Значок уникальных эксклюзивов */}
-                      {exclusiveUniq.length > 0 && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#92400e] bg-[#fef3c7] border border-[#fde68a] rounded-full px-2 py-0.5 w-fit">
-                          {exclusiveUniq[0].value}
-                        </span>
-                      )}
-                      {/* tagline */}
-                      {entry && (
-                        <p className="text-[11px] text-[#8e8e93] leading-snug">{(lang === 'en' && entry.taglineEn) ? entry.taglineEn : entry.tagline}</p>
-                      )}
-                      {/* family plan badge */}
-                      {entry?.familyPlan && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[#5b43d4] bg-[#ede9fc] rounded-full px-2 py-0.5 w-fit">
-                          {strings.simulator.familyBadge(entry.familyPlan.slots)}
-                        </span>
-                      )}
-                      {/* price + cost-per-day */}
-                      <p className="text-base font-bold text-[#1a1a2e] mt-0.5">
-                        {fmtCurrency(getMonthlyAmount(s), s.currency)}
-                        <span className="text-xs font-normal text-[#8e8e93]"> {strings.simulator.perMonthSuffix}</span>
+                    <th key={sub.id} className="bg-[#fafaf9] px-3 py-2.5 text-left border-b border-[#f0ece6] whitespace-nowrap min-w-[150px]">
+                      <p className={`text-[13px] font-bold ${isCut ? 'text-[#8e8e93] line-through' : 'text-[#1a1a2e]'}`}>{sub.name}</p>
+                      <p className="text-[11px] font-normal text-[#6b6b80] mt-0.5">
+                        {fmtCurrency(getMonthlyAmount(sub), sub.currency)}{strings.simulator.perMonthSuffix}
                       </p>
-                      <p className="text-[11px] text-[#8e8e93]">
-                        {formatBillingCycle(s, lang)}
-                        {' · '}
-                        <span className="text-[#6b6b80]">
-                          ≈{fmtCurrency(Math.ceil(getMonthlyAmount(s) / 30), s.currency)}{strings.simulator.dayPerDay}
-                        </span>
-                      </p>
-
-                      {/* action buttons */}
-                      <div className="flex gap-1.5 mt-1.5">
-                        <button
-                          type="button"
-                          onClick={() => onCut(s.id)}
-                          className={`flex-1 rounded-lg py-1.5 text-[11px] font-semibold border transition-colors ${
-                            isCut
-                              ? 'border-[#fca5a5] bg-[#fde7ea] text-[#e5484d] hover:bg-[#ffd5d7]'
-                              : 'border-[#e7e3dc] text-[#6b6b80] hover:border-[#e5484d] hover:text-[#e5484d] hover:bg-[#fff8f8]'
-                          }`}
-                        >
-                          {isCut ? strings.simulator.dupRestore : strings.simulator.dupDisable}
-                        </button>
-                        {n > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => onKeepOnly(s.id, groupIds)}
-                            className="flex-1 rounded-lg py-1.5 text-[11px] font-semibold border border-[#e7e3dc] text-[#6b6b80] hover:border-[#12b76a] hover:text-[#12b76a] hover:bg-[#eef8f0] transition-colors"
-                          >
-                            {strings.simulator.dupKeep}
-                          </button>
-                        )}
-                      </div>
-                    </div>
+                    </th>
                   )
                 })}
+                {overflowCount > 0 && (
+                  <th className="bg-[#fafaf9] px-3 py-2.5 text-left text-[11px] text-[#8e8e93] border-b border-[#f0ece6] whitespace-nowrap">
+                    {s.compareMoreColumns(overflowCount)}
+                  </th>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="bg-white">
+                <td className="px-4 py-2 text-[#6b6b80] font-medium whitespace-nowrap w-[170px]">{s.comparePriceLabel}</td>
+                {visibleSubs.map((sub, i) => {
+                  const entry = visibleEntries[i]
+                  return (
+                    <td key={sub.id} className="px-3 py-2 text-[#1a1a2e]">
+                      {entry ? formatPrice(entry.price, entry.monthlyPrice, entry.priceCurrency) : '—'}
+                    </td>
+                  )
+                })}
+                {overflowCount > 0 && <td className="px-3 py-2 text-[#8e8e93]">—</td>}
+              </tr>
+              <tr className="bg-[#fafaf9]">
+                <td className="px-4 py-2 text-[#6b6b80] font-medium whitespace-nowrap w-[170px]">{s.compareRoleLabel}</td>
+                {visibleSubs.map((sub, i) => {
+                  const entry = visibleEntries[i]
+                  if (!entry) return <td key={sub.id} className="px-3 py-2 text-[#8e8e93]">—</td>
+                  return (
+                    <td key={sub.id} className="px-3 py-2 text-[#1a1a2e]">
+                      {roleLabelFor(primaryRoleAmong(entry, definedVisible.filter(e => e.id !== entry.id)), s)}
+                    </td>
+                  )
+                })}
+                {overflowCount > 0 && <td className="px-3 py-2 text-[#8e8e93]">—</td>}
+              </tr>
+              <tr className="bg-white">
+                <td className="px-4 py-2 text-[#6b6b80] font-medium whitespace-nowrap w-[170px]">{s.compareIncludedLabel}</td>
+                {visibleSubs.map((sub, i) => {
+                  const entry = visibleEntries[i]
+                  return (
+                    <td key={sub.id} className="px-3 py-2 text-[#6b6b80] align-top">
+                      {entry ? includedSummaryFor(entry, definedVisible.filter(e => e.id !== entry.id), s) : '—'}
+                    </td>
+                  )
+                })}
+                {overflowCount > 0 && <td className="px-3 py-2 text-[#8e8e93]">—</td>}
+              </tr>
+              <tr className="bg-[#fafaf9]">
+                <td className="px-4 py-2 text-[#6b6b80] font-medium whitespace-nowrap w-[170px]">{s.compareOverlapLabel}</td>
+                {visibleSubs.map((sub, i) => {
+                  const entry = visibleEntries[i]
+                  return (
+                    <td key={sub.id} className="px-3 py-2 text-[#6b6b80] align-top">
+                      {entry ? overlapSummaryFor(entry, definedVisible.filter(e => e.id !== entry.id), s) : '—'}
+                    </td>
+                  )
+                })}
+                {overflowCount > 0 && <td className="px-3 py-2 text-[#8e8e93]">—</td>}
+              </tr>
+              <tr className="bg-white">
+                <td className="px-4 py-2 text-[#6b6b80] font-medium whitespace-nowrap w-[170px]">{s.compareTradeoffLabel}</td>
+                {visibleSubs.map((sub, i) => {
+                  const rec = recommendations[i]
+                  return (
+                    <td key={sub.id} className="px-3 py-2 text-[#6b6b80] align-top">
+                      {rec.tradeoffs[0] ?? s.compareNoTradeoff}
+                    </td>
+                  )
+                })}
+                {overflowCount > 0 && <td className="px-3 py-2 text-[#8e8e93]">—</td>}
+              </tr>
+              <tr className="bg-[#fafaf9]">
+                <td className="px-4 py-2 text-[#6b6b80] font-medium whitespace-nowrap w-[170px]">{s.compareRecommendationLabel}</td>
+                {visibleSubs.map((sub, i) => {
+                  const rec = recommendations[i]
+                  return (
+                    <td key={sub.id} className="px-3 py-2 align-top">
+                      <p className="font-semibold text-[#1a1a2e]">{actionTitleFor(rec.action, s)}</p>
+                      <p className="text-[11px] text-[#8e8e93] mt-0.5">
+                        {s.compareConfidenceLabel}: {confidenceLabelFor(rec.confidence, s)}
+                      </p>
+                    </td>
+                  )
+                })}
+                {overflowCount > 0 && <td className="px-3 py-2 text-[#8e8e93]">—</td>}
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── DESKTOP: полная матрица только по запросу ── */}
+      <div className="hidden min-[900px]:block px-4 pb-4">
+        <button
+          type="button"
+          onClick={() => setShowDesktopDetails(v => !v)}
+          className="w-full flex items-center justify-between rounded-xl border border-[#e7e3dc] bg-white px-3 py-2.5 text-[12px] font-semibold text-[#1a1a2e]"
+        >
+          {showDesktopDetails ? s.hideAllCriteria : s.compareAdvancedDetails}
+          <span className={`text-[#8e8e93] transition-transform ${showDesktopDetails ? 'rotate-180' : ''}`}>⌄</span>
+        </button>
+        <div
+          className="overflow-hidden transition-[max-height] duration-300 ease-in-out"
+          style={{ maxHeight: showDesktopDetails ? '9999px' : '0px' }}
+        >
+          <div className="mt-2 overflow-x-auto max-h-[560px] rounded-xl border border-[#f0ece6]">
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr>
+                  <th className="sticky top-0 left-0 z-30 bg-white px-4 py-2.5 text-left text-[#6b6b80] font-medium w-[170px] border-b border-[#f0ece6]"> </th>
+                  {visibleSubs.map((sub) => {
+                    const isCut = cutIds.has(sub.id)
+                    return (
+                      <th key={sub.id} className="sticky top-0 z-20 bg-white px-3 py-2.5 text-left border-b border-[#f0ece6] whitespace-nowrap min-w-[150px]">
+                        <p className={`text-[13px] font-bold ${isCut ? 'text-[#8e8e93] line-through' : 'text-[#1a1a2e]'}`}>{sub.name}</p>
+                        <p className="text-[11px] font-normal text-[#6b6b80] mt-0.5">
+                          {fmtCurrency(getMonthlyAmount(sub), sub.currency)}{strings.simulator.perMonthSuffix}
+                        </p>
+                      </th>
+                    )
+                  })}
+                  {overflowCount > 0 && (
+                    <th className="sticky top-0 z-20 bg-white px-3 py-2.5 text-left text-[11px] text-[#8e8e93] border-b border-[#f0ece6] whitespace-nowrap">
+                      {s.compareMoreColumns(overflowCount)}
+                    </th>
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="bg-[#fafaf9]">
+                  <td className="sticky left-0 z-10 bg-[#fafaf9] px-4 py-2 text-[#6b6b80] font-medium whitespace-nowrap w-[170px]">
+                    {s.compareRoleLabel}
+                  </td>
+                  {visibleSubs.map((sub, i) => {
+                    const entry = visibleEntries[i]
+                    if (!entry) return <td key={sub.id} className="px-3 py-2 text-[#8e8e93]">—</td>
+                    const role = primaryRoleAmong(entry, definedVisible.filter(e => e.id !== entry.id))
+                    const rec = recByEntryId.get(entry.id)
+                    const uniqueAdv = role === 'direct_competitor'
+                      ? getUniqueAdvantages(entry, definedVisible.filter(e => e.id !== entry.id))
+                      : []
+                    const badge = comparisonBadge(role, rec, uniqueAdv.some(f => f.key === 'exclusive'), sub.id === cheapestDirectId, s)
+                    return (
+                      <td key={sub.id} className="px-3 py-2">
+                        <div className="flex flex-col gap-1 items-start">
+                          <span className="text-[#1a1a2e]">{roleLabelFor(role, s)}</span>
+                          {badge && (
+                            <span className={`text-[10px] font-semibold rounded-full px-2 py-0.5 border ${badge.cls}`}>
+                              {badge.label}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                    )
+                  })}
+                  {overflowCount > 0 && <td className="px-3 py-2 text-[#8e8e93]">—</td>}
+                </tr>
+
+                <tr className="bg-white">
+                  <td className="sticky left-0 z-10 bg-white px-4 py-2 text-[#6b6b80] font-medium whitespace-nowrap w-[170px]">
+                    {s.comparePriceLabel}
+                  </td>
+                  {visibleSubs.map((sub, i) => {
+                    const entry = visibleEntries[i]
+                    return (
+                      <td key={sub.id} className="px-3 py-2 text-[#1a1a2e]">
+                        {entry ? formatPrice(entry.price, entry.monthlyPrice, entry.priceCurrency) : '—'}
+                      </td>
+                    )
+                  })}
+                  {overflowCount > 0 && <td className="px-3 py-2 text-[#8e8e93]">—</td>}
+                </tr>
+
+                <tr className="bg-[#fafaf9]">
+                  <td className="sticky left-0 z-10 bg-[#fafaf9] px-4 py-2 text-[#6b6b80] font-medium whitespace-nowrap w-[170px]">
+                    {s.dupLastUsed}
+                  </td>
+                  {visibleSubs.map((sub) => {
+                    const { text, cls } = usageLabel(daysSinceLastUse(sub.last_used_at), lang)
+                    return <td key={sub.id} className={`px-3 py-2 ${cls}`}>{text}</td>
+                  })}
+                  {overflowCount > 0 && <td className="px-3 py-2 text-[#8e8e93]">—</td>}
+                </tr>
+
+                <tr className="bg-white">
+                  <td className="sticky left-0 z-10 bg-white px-4 py-2 text-[#6b6b80] font-medium whitespace-nowrap w-[170px] align-top">
+                    {s.compareRecommendationLabel}
+                  </td>
+                  {visibleSubs.map((sub, i) => {
+                    const rec = recommendations[i]
+                    return (
+                      <td key={sub.id} className="px-3 py-2 align-top">
+                        <p className="font-semibold text-[#1a1a2e]">{actionTitleFor(rec.action, s)}</p>
+                        {rec.reasons[0] && <p className="text-[11px] text-[#6b6b80] mt-0.5">{rec.reasons[0]}</p>}
+                        {rec.warning && <p className="text-[11px] text-[#92400e] mt-0.5">{rec.warning}</p>}
+                      </td>
+                    )
+                  })}
+                  {overflowCount > 0 && <td className="px-3 py-2 text-[#8e8e93]">—</td>}
+                </tr>
+
+                {hasDb && sections.map(section => (
+                  <Fragment key={section.id}>
+                    <tr className="bg-[#f5f4f1]">
+                      <td colSpan={visibleSubs.length + 1 + (overflowCount > 0 ? 1 : 0)} className="sticky left-0 z-10 px-4 py-1.5 text-[10px] font-bold text-[#6b6b80] uppercase tracking-wider bg-[#f5f4f1]">
+                        {sectionLabelFor(section.id, s)}
+                      </td>
+                    </tr>
+                    {section.rows.map(({ key, label: fLabel }, rowIdx) => {
+                      const { bestIdx, worstIdx } = rowWinners(visibleEntries, key)
+                      return (
+                        <tr key={key} className={rowIdx % 2 === 0 ? 'bg-white' : 'bg-[#fafaf9]'}>
+                          <td className={`sticky left-0 z-10 ${rowIdx % 2 === 0 ? 'bg-white' : 'bg-[#fafaf9]'} px-4 py-2 text-[#6b6b80] font-medium whitespace-nowrap w-[170px]`}>
+                            {fLabel}
+                          </td>
+                          {visibleEntries.map((entry, colIdx) => {
+                            const feat = entry?.features.find(f => f.key === key)
+                            const isBest = bestIdx.has(colIdx)
+                            const isWorst = worstIdx.has(colIdx)
+                            return (
+                              <td
+                                key={colIdx}
+                                className={`px-3 py-2 ${feat ? LEVEL_CLASS[feat.level] : 'text-[#8e8e93]'} ${
+                                  isBest ? 'bg-[#f0fdf6]' : isWorst ? 'bg-[#fff8f8]' : ''
+                                }`}
+                              >
+                                {isBest && <span className="mr-1 text-[10px] font-bold">·</span>}
+                                {feat?.value ?? '—'}
+                              </td>
+                            )
+                          })}
+                          {overflowCount > 0 && <td className="px-3 py-2 text-[#8e8e93]">—</td>}
+                        </tr>
+                      )
+                    })}
+                  </Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* ── MOBILE: отдельный, не «сжатый» интерфейс ── */}
+      <ComparisonGroupMobile
+        group={group}
+        recommendations={recommendations}
+        cutIds={cutIds}
+        onCut={onCut}
+        onKeepOnly={onKeepOnly}
+        groupIds={groupIds}
+      />
+    </div>
+  )
+}
+
+// ── Mobile comparison: decision-first cards, NOT a shrunk table ───────────
+//
+// Order: summary card → up to 3 action cards → "other options" → pairwise
+// comparison of the two most relevant services → accordion with full criteria.
+
+interface ComparisonGroupMobileProps {
+  group: ServiceGroup
+  recommendations: ServiceRecommendation[]
+  cutIds: Set<string>
+  onCut: (id: string) => void
+  onKeepOnly: (keepId: string, groupIds: string[]) => void
+  groupIds: string[]
+}
+
+const ACTION_CARD_STYLE: Record<RecommendationAction, { border: string; bg: string; title: string }> = {
+  cancel:           { border: 'border-[#fde7ea]', bg: 'bg-[#fff8f8]', title: 'text-[#e5484d]' },
+  replace:          { border: 'border-[#bfdbfe]', bg: 'bg-[#eff6ff]', title: 'text-[#2563eb]' },
+  check:            { border: 'border-[#fde68a]', bg: 'bg-[#fffbeb]', title: 'text-[#92400e]' },
+  keep:             { border: 'border-[#cdeedb]', bg: 'bg-[#f0fdf6]', title: 'text-[#12b76a]' },
+  not_enough_data:  { border: 'border-[#e7e3dc]', bg: 'bg-[#fafaf9]', title: 'text-[#6b6b80]' },
+}
+
+interface DecisionActionCardsProps {
+  className?: string
+  recommendations: ServiceRecommendation[]
+  subs: Subscription[]
+  entries: (ServiceEntry | undefined)[]
+  definedEntries: ServiceEntry[]
+  cutIds: Set<string>
+  onCut: (id: string) => void
+  onKeepOnly: (keepId: string, groupIds: string[]) => void
+  onCompare?: (subscriptionId: string) => void
+  groupIds: string[]
+}
+
+function DecisionActionCards({
+  className,
+  recommendations,
+  subs,
+  entries,
+  definedEntries,
+  cutIds,
+  onCut,
+  onKeepOnly,
+  onCompare,
+  groupIds,
+}: DecisionActionCardsProps) {
+  const { lang, strings } = useLang()
+  const s = strings.simulator
+
+  if (recommendations.length === 0) return null
+
+  return (
+    <div className={className}>
+      <div className="space-y-2 min-[600px]:grid min-[600px]:grid-cols-2 min-[600px]:gap-2 min-[600px]:space-y-0">
+        {recommendations.map(rec => {
+          const style = ACTION_CARD_STYLE[rec.action]
+          const idx = subs.findIndex(sub => sub.id === rec.subscriptionId)
+          const sub = idx >= 0 ? subs[idx] : undefined
+          const entry = idx >= 0 ? entries[idx] : undefined
+          if (!sub) return null
+
+          const isCut = cutIds.has(rec.subscriptionId)
+          const role = entry ? primaryRoleAmong(entry, definedEntries.filter(e => e.id !== entry.id)) : null
+          const roleBadge = role ? roleLabelFor(role, s) : null
+          const nextCharge = formatNextChargeShort(sub.next_charge_date, lang, s.compareNoNextCharge)
+
+          return (
+            <div key={rec.subscriptionId} className={`rounded-xl border p-3 ${style.border} ${style.bg}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className={`text-[13px] font-bold ${style.title}`}>{actionTitleFor(rec.action, s)}</p>
+                  <p className={`mt-0.5 text-[15px] font-semibold ${isCut ? 'text-[#8e8e93] line-through' : 'text-[#1a1a2e]'}`}>{sub.name}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-[12px] font-semibold text-[#1a1a2e]">
+                    {entry ? formatPrice(entry.price, entry.monthlyPrice, entry.priceCurrency) : `${fmtCurrency(getMonthlyAmount(sub), sub.currency)}${s.perMonthSuffix}`}
+                  </p>
+                  <p className="mt-0.5 text-[10px] text-[#8e8e93]">
+                    {s.compareNextChargeLabel}: {nextCharge}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {roleBadge && (
+                  <span className="rounded-full border border-[#d8d4cb] bg-white/80 px-2 py-0.5 text-[10px] font-semibold text-[#6b6b80]">
+                    {roleBadge}
+                  </span>
+                )}
+                <span className="rounded-full border border-[#d8d4cb] bg-white/80 px-2 py-0.5 text-[10px] font-semibold text-[#6b6b80]">
+                  {s.compareConfidenceLabel}: {confidenceLabelFor(rec.confidence, s)}
+                </span>
+              </div>
+
+              {rec.reasons.slice(0, 3).map((reason, i) => (
+                <p key={i} className="mt-1 text-[12px] text-[#6b6b80]">{reason}</p>
+              ))}
+              <p className="mt-1 text-[11px] text-[#92400e]">
+                <span className="font-semibold">{s.compareTradeoffsTitle}:</span> {rec.tradeoffs[0] ?? s.compareNoTradeoff}
+              </p>
+              {rec.warning && <p className="mt-1 text-[11px] text-[#92400e]">{rec.warning}</p>}
+              {rec.estimatedMonthlySaving && (
+                <p className="mt-1 text-[12px] font-semibold text-[#12b76a]">
+                  {s.compareSummarySaving(fmtCurrency(rec.estimatedMonthlySaving.amount, rec.estimatedMonthlySaving.currency))}
+                </p>
+              )}
+
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => onCut(rec.subscriptionId)}
+                  className={`flex-1 rounded-lg py-1.5 text-[11px] font-semibold border transition-colors ${
+                    isCut
+                      ? 'border-[#fca5a5] bg-white text-[#e5484d]'
+                      : 'border-[#e7e3dc] bg-white text-[#6b6b80] hover:border-[#e5484d] hover:text-[#e5484d]'
+                  }`}
+                >
+                  {isCut ? s.dupRestore : s.dupDisable}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onKeepOnly(rec.subscriptionId, groupIds)}
+                  className="flex-1 rounded-lg py-1.5 text-[11px] font-semibold border border-[#e7e3dc] bg-white text-[#6b6b80] hover:border-[#12b76a] hover:text-[#12b76a]"
+                >
+                  {s.dupKeep}
+                </button>
+                {onCompare && (
+                  <button
+                    type="button"
+                    onClick={() => onCompare(rec.subscriptionId)}
+                    className="flex-1 rounded-lg py-1.5 text-[11px] font-semibold border border-[#d9d0fb] bg-white text-[#5b43d4] hover:border-[#5b43d4]"
+                  >
+                    {s.compareButton}
+                  </button>
+                )}
               </div>
             </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
-            {/* Уведомление о нераспознанных сервисах */}
-            {unknownCount > 0 && (
-              <div className="px-4 py-2 border-b border-[#f0ece6] bg-[#fffbeb]">
-                <p className="text-[11px] text-[#92400e]">
-                  {unknownCount === subs.length
-                    ? s.dupUnknownAll
-                    : s.dupUnknownPartial(unknownCount)}
-                </p>
-              </div>
-            )}
-            {/* Контекст для пакетных сервисов — что бандл перекрывает, а что нет */}
-            {entries.map((entry, i) => entry?.bundleNote ? (
-              <div key={i} className="px-4 py-2 border-b border-[#bfdbfe] bg-[#eff6ff]">
-                <p className="text-[11px] text-[#1e40af] leading-snug">
-                  <span className="font-semibold">{subs[i].name}:</span>{' '}{entry.bundleNote}
-                </p>
-              </div>
-            ) : null)}
+function ComparisonGroupMobile({ group, recommendations, cutIds, onCut, onKeepOnly, groupIds }: ComparisonGroupMobileProps) {
+  const { lang, strings } = useLang()
+  const s = strings.simulator
+  const { subs, entries, featureKeys } = group
+  const [showCriteria, setShowCriteria] = useState(false)
 
-            {/* ── MOBILE: сравнение по сервисам (каждый сервис — отдельный блок) ── */}
-            <div className="md:hidden divide-y divide-[#f0ece6] border-b border-[#f0ece6]">
-              {subs.map((s, i) => {
-                const entry = entries[i]
-                const isMax = i === 0
-                const isCut = cutIds.has(s.id)
-                const exclusiveUniq = uniqueAdvPerEntry[i].filter(f => f.key === 'exclusive')
-                const usage = usageLabel(daysSinceLastUse(s.last_used_at), lang)
+  const actionCards = useMemo(() => pickDecisionCards(recommendations), [recommendations])
+  const actionCardIds = new Set(actionCards.map(c => c.subscriptionId))
+  const otherSubs = subs.filter(sub => !actionCardIds.has(sub.id))
+
+  const pairOptions = useMemo(() => buildPairOptions(subs, entries, recommendations), [subs, entries, recommendations])
+  const [selectedPairKey, setSelectedPairKey] = useState<string | null>(() => {
+    const first = pairOptions[0]
+    return first ? `${first[0]}:${first[1]}` : null
+  })
+
+  const pair = useMemo<[number, number] | null>(() => {
+    if (!selectedPairKey) return pairOptions[0] ?? null
+    const found = pairOptions.find(([a, b]) => `${a}:${b}` === selectedPairKey)
+    return found ?? pairOptions[0] ?? null
+  }, [pairOptions, selectedPairKey])
+
+  const sections = groupFeatureSections(featureKeys)
+
+  return (
+    <div className="min-[900px]:hidden">
+      {/* 1. Итоговая карточка (то же содержимое, что и в общем summary-блоке выше — здесь не дублируем) */}
+
+      {/* 2. Карточки действий */}
+      <DecisionActionCards
+        className="px-4 pb-3"
+        recommendations={actionCards}
+        subs={subs}
+        entries={entries}
+        definedEntries={entries.filter((e): e is ServiceEntry => e !== undefined)}
+        cutIds={cutIds}
+        onCut={onCut}
+        onKeepOnly={onKeepOnly}
+        onCompare={(subscriptionId) => {
+          const idx = subs.findIndex(sub => sub.id === subscriptionId)
+          if (idx < 0) return
+          const candidate = pairOptions.find(([a, b]) => a === idx || b === idx)
+          if (candidate) setSelectedPairKey(`${candidate[0]}:${candidate[1]}`)
+        }}
+        groupIds={groupIds}
+      />
+
+      {/* 3. Другие варианты — свёрнутый список оставшихся сервисов */}
+      {otherSubs.length > 0 && (
+        <div className="px-4 pb-3">
+          <p className="text-[11px] font-bold text-[#6b6b80] uppercase tracking-wider mb-1.5">{s.otherOptions}</p>
+          <div className="rounded-xl border border-[#f0ece6] divide-y divide-[#f0ece6] overflow-hidden">
+            {otherSubs.map(sub => {
+              const idx = subs.findIndex(x => x.id === sub.id)
+              const entry = entries[idx]
+              const isCut = cutIds.has(sub.id)
+              return (
+                <div key={sub.id} className={`flex items-center justify-between gap-2 px-3 py-2 ${isCut ? 'bg-[#fff8f8]' : 'bg-white'}`}>
+                  <div className="min-w-0">
+                    <p className={`text-[12px] font-semibold truncate ${isCut ? 'text-[#8e8e93] line-through' : 'text-[#1a1a2e]'}`}>{sub.name}</p>
+                    <p className="text-[11px] text-[#8e8e93]">{entry ? formatPrice(entry.price, entry.monthlyPrice, entry.priceCurrency) : fmtCurrency(getMonthlyAmount(sub), sub.currency) + s.perMonthSuffix}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onCut(sub.id)}
+                    className={`shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-semibold border transition-colors ${
+                      isCut ? 'border-[#fca5a5] text-[#e5484d]' : 'border-[#e7e3dc] text-[#6b6b80] hover:border-[#e5484d] hover:text-[#e5484d]'
+                    }`}
+                  >
+                    {isCut ? s.dupRestore : s.dupDisable}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const candidate = pairOptions.find(([a, b]) => subs[a]?.id === sub.id || subs[b]?.id === sub.id)
+                      if (candidate) setSelectedPairKey(`${candidate[0]}:${candidate[1]}`)
+                    }}
+                    className="shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-semibold border border-[#d9d0fb] bg-white text-[#5b43d4] hover:border-[#5b43d4]"
+                  >
+                    {s.compareButton}
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 4. Сравнение пары — две самые релевантные подписки бок о бок */}
+      {pair && entries[pair[0]] && entries[pair[1]] && featureKeys && (
+        <div className="px-4 pb-3">
+          <p className="text-[11px] font-bold text-[#6b6b80] uppercase tracking-wider mb-1.5">{s.compareDetailsTitle}</p>
+          {pairOptions.length > 1 && (
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              {pairOptions.map(([a, b]) => {
+                const pairKey = `${a}:${b}`
+                const active = pairKey === selectedPairKey
                 return (
-                  <div key={s.id} className={`p-4 ${isCut ? 'bg-[#fff8f8]' : ''}`}>
-                    {/* header: имя + бейдж дороже/дешевле */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className={`text-[15px] font-bold leading-snug ${isCut ? 'text-[#8e8e93] line-through' : 'text-[#1a1a2e]'}`}>{s.name}</p>
-                        {entry && (
-                          <p className="text-[12px] text-[#8e8e93] leading-snug mt-0.5">{(lang === 'en' && entry.taglineEn) ? entry.taglineEn : entry.tagline}</p>
-                        )}
-                      </div>
-                      {n > 1 && (
-                        <span className={`text-[10px] font-bold rounded-full px-2 py-0.5 shrink-0 border ${
-                          isMax ? 'text-[#e5484d] bg-white border-[#fde7ea]' : 'text-[#6b6b80] bg-white border-[#e7e3dc]'
-                        }`}>
-                          {isMax ? strings.simulator.dupMore : strings.simulator.dupLess}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* бейджи: эксклюзив + семейный */}
-                    {(exclusiveUniq.length > 0 || entry?.familyPlan) && (
-                      <div className="flex flex-wrap gap-1.5 mt-2">
-                        {exclusiveUniq.length > 0 && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#92400e] bg-[#fef3c7] border border-[#fde68a] rounded-full px-2 py-0.5">
-                            {exclusiveUniq[0].value}
-                          </span>
-                        )}
-                        {entry?.familyPlan && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[#5b43d4] bg-[#ede9fc] rounded-full px-2 py-0.5">
-                            {strings.simulator.familyBadge(entry.familyPlan.slots)}
-                          </span>
-                        )}
-                      </div>
-                    )}
-
-                    {/* цена */}
-                    <p className="text-[18px] font-bold text-[#1a1a2e] mt-2">
-                      {fmtCurrency(getMonthlyAmount(s), s.currency)}
-                      <span className="text-[13px] font-normal text-[#8e8e93]"> {strings.simulator.perMonthSuffix}</span>
-                    </p>
-                    <p className="text-[11px] text-[#8e8e93] mb-3">
-                      {formatBillingCycle(s, lang)}
-                      {' · '}
-                      ≈{fmtCurrency(Math.ceil(getMonthlyAmount(s) / 30), s.currency)}{strings.simulator.dayPerDay}
-                    </p>
-
-                    {/* характеристики: label → значение */}
-                    <dl className="rounded-xl border border-[#f0ece6] overflow-hidden">
-                      <div className="flex items-start justify-between gap-3 px-3 py-2 bg-[#fafaf9]">
-                        <dt className="text-[12px] text-[#6b6b80] shrink-0">{strings.simulator.dupLastUsed}</dt>
-                        <dd className={`text-[12px] text-right ${usage.cls}`}>{usage.text}</dd>
-                      </div>
-                      {hasDb && featureKeys && featureKeys.map(({ key, label: fLabel }, rowIdx) => {
-                        const { bestIdx } = rowWinners(entries, key)
-                        const feat = entry?.features.find(f => f.key === key)
-                        const isBest = bestIdx.has(i)
-                        return (
-                          <div key={key} className={`flex items-start justify-between gap-3 px-3 py-2 ${rowIdx % 2 === 0 ? 'bg-white' : 'bg-[#fafaf9]'}`}>
-                            <dt className="text-[12px] text-[#6b6b80] shrink-0">{fLabel}</dt>
-                            <dd className={`text-[12px] text-right ${feat ? LEVEL_CLASS[feat.level] : 'text-[#8e8e93]'} ${isBest ? 'font-semibold' : ''}`}>
-                              {feat?.value ?? '—'}
-                            </dd>
-                          </div>
-                        )
-                      })}
-                    </dl>
-
-                    {/* действия */}
-                    <div className="flex gap-2 mt-3">
-                      <button
-                        type="button"
-                        onClick={() => onCut(s.id)}
-                        className={`flex-1 rounded-lg py-2 text-[12px] font-semibold border transition-colors ${
-                          isCut
-                            ? 'border-[#fca5a5] bg-[#fde7ea] text-[#e5484d] hover:bg-[#ffd5d7]'
-                            : 'border-[#e7e3dc] text-[#6b6b80] hover:border-[#e5484d] hover:text-[#e5484d] hover:bg-[#fff8f8]'
-                        }`}
-                      >
-                        {isCut ? strings.simulator.dupRestore : strings.simulator.dupDisable}
-                      </button>
-                      {n > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => onKeepOnly(s.id, groupIds)}
-                          className="flex-1 rounded-lg py-2 text-[12px] font-semibold border border-[#e7e3dc] text-[#6b6b80] hover:border-[#12b76a] hover:text-[#12b76a] hover:bg-[#eef8f0] transition-colors"
-                        >
-                          {strings.simulator.dupKeep}
-                        </button>
-                      )}
-                    </div>
+                  <button
+                    key={pairKey}
+                    type="button"
+                    onClick={() => setSelectedPairKey(pairKey)}
+                    className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                      active
+                        ? 'border-[#5b43d4] bg-[#ede9fc] text-[#5b43d4]'
+                        : 'border-[#e7e3dc] bg-white text-[#6b6b80]'
+                    }`}
+                  >
+                    {subs[a].name} vs {subs[b].name}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+          <div className="rounded-xl border border-[#f0ece6] overflow-hidden">
+            <div className="grid grid-cols-2 divide-x divide-[#f0ece6] bg-[#fafaf9]">
+              {pair.map(idx => {
+                const sub = subs[idx]
+                const entry = entries[idx] as ServiceEntry
+                return (
+                  <div key={sub.id} className="px-3 py-2">
+                    <p className="text-[12px] font-bold text-[#1a1a2e] truncate">{sub.name}</p>
+                    <p className="text-[11px] text-[#6b6b80]">{formatPrice(entry.price, entry.monthlyPrice, entry.priceCurrency)}</p>
                   </div>
                 )
               })}
             </div>
-
-            {/* ── DESKTOP: таблица сравнения ── */}
-            <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-xs border-collapse">
-              <tbody>
-                {/* Usage row — always first */}
-                <tr className="bg-[#fafaf9]">
-                  <td className="px-4 py-2 text-[#6b6b80] font-medium whitespace-nowrap w-[140px]">
-                    {strings.simulator.dupLastUsed}
-                  </td>
-                  {subs.map((s) => {
-                    const { text, cls } = usageLabel(daysSinceLastUse(s.last_used_at), lang)
-                    return (
-                      <td key={s.id} className={`px-3 py-2 ${cls}`}>
-                        {text}
-                      </td>
-                    )
-                  })}
-                </tr>
-                {/* Feature rows from DB */}
-                {hasDb && featureKeys && featureKeys.map(({ key, label: fLabel }, rowIdx) => {
-                  const { bestIdx, worstIdx } = rowWinners(entries, key)
+            <dl className="divide-y divide-[#f0ece6]">
+              <div className="grid grid-cols-2 bg-white">
+                {pair.map(idx => {
+                  const sub = subs[idx]
+                  const entry = entries[idx] as ServiceEntry
+                  const other = pair.find(p => p !== idx)
+                  const others = other != null && entries[other] ? [entries[other] as ServiceEntry] : []
                   return (
-                    <tr key={key} className={(rowIdx + 1) % 2 === 0 ? 'bg-[#fafaf9]' : 'bg-white'}>
-                      <td className="px-4 py-2 text-[#6b6b80] font-medium whitespace-nowrap w-[140px]">
-                        {fLabel}
-                      </td>
-                      {entries.map((entry, colIdx) => {
-                        const feat = entry?.features.find(f => f.key === key)
-                        const isBest  = bestIdx.has(colIdx)
-                        const isWorst = worstIdx.has(colIdx)
-                        return (
-                          <td
-                            key={colIdx}
-                            className={`px-3 py-2 ${feat ? LEVEL_CLASS[feat.level] : 'text-[#8e8e93]'} ${
-                              isBest  ? 'bg-[#f0fdf6]' :
-                              isWorst ? 'bg-[#fff8f8]' : ''
-                            }`}
-                          >
-                            {isBest && <span className="mr-1 text-[10px] font-bold">·</span>}
-                            {feat?.value ?? '—'}
-                          </td>
-                        )
-                      })}
-                    </tr>
+                    <div key={`${sub.id}-meta`} className="px-3 py-2 border-r last:border-r-0 border-[#f0ece6]">
+                      <dt className="text-[10px] text-[#8e8e93]">{s.compareRoleLabel}</dt>
+                      <dd className="text-[12px] text-[#1a1a2e]">{roleLabelFor(primaryRoleAmong(entry, others), s) ?? '—'}</dd>
+                      <dt className="mt-2 text-[10px] text-[#8e8e93]">{s.compareTradeoffLabel}</dt>
+                      <dd className="text-[12px] text-[#6b6b80]">
+                        {recommendations[idx]?.tradeoffs[0] ?? s.compareNoTradeoff}
+                      </dd>
+                    </div>
                   )
                 })}
-              </tbody>
-            </table>
-            </div>
-
-            {/* ── Умная рекомендация ── */}
-            {(() => {
-              const insight = generateGroupInsight(subs, entries)
-              if (!insight) return (
-                <p className="px-4 py-2.5 text-[11px] text-[#8e8e93]">
-                  {strings.simulator.dupKeepHint}
-                </p>
-              )
-              return (
-                <div className="px-4 py-3 border-t border-[#f0ece6]">
-                  <p className="text-[12px] text-[#1a1a2e] leading-snug">{insight}</p>
-                </div>
-              )
-            })()}
+              </div>
+              {featureKeys.map(({ key, label: fLabel }, rowIdx) => {
+                const featA = (entries[pair[0]] as ServiceEntry).features.find(f => f.key === key)
+                const featB = (entries[pair[1]] as ServiceEntry).features.find(f => f.key === key)
+                return (
+                  <div key={key} className={`grid grid-cols-2 ${rowIdx % 2 === 0 ? 'bg-white' : 'bg-[#fafaf9]'}`}>
+                    <div className="px-3 py-2 border-r border-[#f0ece6]">
+                      <dt className="text-[10px] text-[#8e8e93]">{fLabel}</dt>
+                      <dd className={`text-[12px] ${featA ? LEVEL_CLASS[featA.level] : 'text-[#8e8e93]'}`}>{featA?.value ?? '—'}</dd>
+                    </div>
+                    <div className="px-3 py-2">
+                      <dt className="text-[10px] text-[#8e8e93]">{fLabel}</dt>
+                      <dd className={`text-[12px] ${featB ? LEVEL_CLASS[featB.level] : 'text-[#8e8e93]'}`}>{featB?.value ?? '—'}</dd>
+                    </div>
+                  </div>
+                )
+              })}
+            </dl>
           </div>
-        )
-      })}
-    </section>
+        </div>
+      )}
+
+      {/* 5. Аккордеон — полный список критериев, сгруппированный по секциям */}
+      {sections.length > 0 && (
+        <div className="px-4 pb-4">
+          <button
+            type="button"
+            onClick={() => setShowCriteria(v => !v)}
+            className="w-full flex items-center justify-between rounded-xl border border-[#e7e3dc] bg-white px-3 py-2.5 text-[12px] font-semibold text-[#1a1a2e]"
+          >
+            {showCriteria ? s.hideAllCriteria : s.seeAllCriteria}
+            <span className={`text-[#8e8e93] transition-transform ${showCriteria ? 'rotate-180' : ''}`}>⌄</span>
+          </button>
+          <div
+            className="overflow-hidden transition-[max-height] duration-300 ease-in-out"
+            style={{ maxHeight: showCriteria ? '9999px' : '0px' }}
+          >
+            <div className="mt-2 rounded-xl border border-[#f0ece6] overflow-hidden">
+              {sections.map(section => (
+                <div key={section.id}>
+                  <p className="px-3 py-1.5 text-[10px] font-bold text-[#6b6b80] uppercase tracking-wider bg-[#f5f4f1]">
+                    {sectionLabelFor(section.id, s)}
+                  </p>
+                  {section.rows.map(({ key, label: fLabel }, rowIdx) => {
+                    const { bestIdx } = rowWinners(entries, key)
+                    return (
+                      <div key={key} className={`flex items-start justify-between gap-3 px-3 py-2 ${rowIdx % 2 === 0 ? 'bg-white' : 'bg-[#fafaf9]'}`}>
+                        <dt className="text-[11px] text-[#6b6b80] shrink-0">{fLabel}</dt>
+                        <dd className="flex flex-col items-end gap-0.5 text-right">
+                          {subs.map((sub, i) => {
+                            const feat = entries[i]?.features.find(f => f.key === key)
+                            const isBest = bestIdx.has(i)
+                            return (
+                              <span key={sub.id} className={`text-[11px] ${feat ? LEVEL_CLASS[feat.level] : 'text-[#8e8e93]'} ${isBest ? 'font-semibold' : ''}`}>
+                                {sub.name}: {feat?.value ?? '—'}
+                              </span>
+                            )
+                          })}
+                        </dd>
+                      </div>
+                    )
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Использование — короткой строкой, как и раньше */}
+      <div className="px-4 pb-4 space-y-1.5">
+        {subs.map((sub) => {
+          const usage = usageLabel(daysSinceLastUse(sub.last_used_at), lang)
+          return (
+            <div key={sub.id} className="flex items-center justify-between text-[11px]">
+              <span className="text-[#6b6b80] truncate">{sub.name} · {s.dupLastUsed.toLowerCase()}</span>
+              <span className={usage.cls}>{usage.text}</span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 
@@ -2309,7 +3037,7 @@ export default function SavingsSimulatorView({
 
       {/* ── Сравнение дубликатов ── */}
       {activeScenarioKey === 'dup' && categoryComparisons.length > 0 && (
-        <DuplicatesPanel
+        <ComparisonPanel
           groups={categoryComparisons}
           cutIds={cutIds}
           onCut={handleCut}

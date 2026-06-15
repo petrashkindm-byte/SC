@@ -42,8 +42,7 @@ const nextConfig: NextConfig = {
         source: '/(.*)',
         headers: [
           { key: 'X-Frame-Options', value: 'DENY' },
-          // Allow GIS popup to postMessage back after OAuth — required for renderButton flow
-          { key: 'Cross-Origin-Opener-Policy', value: 'same-origin-allow-popups' },
+          { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
@@ -52,15 +51,13 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              // Google Identity Services (GIS) for popup OAuth — required for Russia (no VPN)
-              "script-src 'self' 'unsafe-inline' https://accounts.google.com",
-              "style-src 'self' 'unsafe-inline' https://accounts.google.com",
+              "script-src 'self' 'unsafe-inline'",
+              "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https:",
-              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://accounts.google.com https://oauth2.googleapis.com",
+              "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
               "font-src 'self' data:",
               "worker-src 'self'",
-              // GIS One Tap renders in an iframe from accounts.google.com
-              "frame-src https://accounts.google.com https://content.googleapis.com",
+              "frame-src 'none'",
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",

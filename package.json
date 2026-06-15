@@ -6,7 +6,9 @@
     "dev": "next dev --webpack",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "validate:subscription-templates": "node --experimental-strip-types scripts/validate-subscription-templates.ts",
+    "validate:service-comparison-db": "node --experimental-strip-types scripts/validate-service-comparison-db.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.2",

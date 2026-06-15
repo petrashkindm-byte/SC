@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse, type NextRequest } from 'next/server'
-import { searchCatalog } from '@/lib/service-catalog'
+import { searchSubscriptionTemplates } from '@/lib/subscription-templates'
 import { loadCategoryIdBySlug } from '@/lib/category-id'
 import type { DetectedSubscription } from '@/lib/parse-bank-statement'
 import type { CategorySlug } from '@/lib/supabase/types'
@@ -14,13 +14,13 @@ const CYCLE_TO_DAYS: Record<string, number> = {
 
 function guessCategory(merchant: string): CategorySlug {
   const m = merchant.toLowerCase()
-  const matches = searchCatalog(m.split(' ')[0])
+  const matches = searchSubscriptionTemplates(m.split(' ')[0])
   return matches[0]?.category_slug ?? 'other'
 }
 
 function guessIcon(merchant: string): string | null {
   const m = merchant.toLowerCase()
-  const matches = searchCatalog(m.split(' ')[0])
+  const matches = searchSubscriptionTemplates(m.split(' ')[0])
   return matches[0]?.icon ?? null
 }
 

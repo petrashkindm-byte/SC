@@ -5,7 +5,11 @@ import { PAYMENT_ICON_PRESETS } from '@/lib/payment-icon-presets'
 import { effectiveIconBackgroundFromViz, resolveSubscriptionIconDisplay } from '@/lib/subscription-icon-background'
 import { BILLING_FORM_OPTIONS, CATEGORY_FORM_OPTIONS } from '@/lib/subscription-labels'
 import { DEFAULT_SUBCURO_VIZ } from '@/lib/subscription-viz-notes'
-import { searchCatalog, type ServiceEntry } from '@/lib/service-catalog'
+import {
+  searchSubscriptionTemplates,
+  type SubscriptionPlanTemplate,
+  type SubscriptionTemplate,
+} from '@/lib/subscription-templates'
 import { advanceBillingDate } from '@/lib/billing-engine'
 import { createSubscription } from './subscriptions/actions'
 import PaymentServiceIcon from './PaymentServiceIcon'
@@ -44,6 +48,39 @@ function formatDateRu(iso: string): string {
   return `${d}.${m}.${y}`
 }
 
+function billingCycleLabel(cycle: string): string {
+  switch (cycle) {
+    case 'monthly': return 'в месяц'
+    case 'yearly': return 'в год'
+    case 'quarterly': return 'раз в квартал'
+    case 'weekly': return 'в неделю'
+    case 'one_time': return 'разово'
+    default: return ''
+  }
+}
+
+/** Текстовое представление суммы тарифа с учётом её надёжности (от/≈/промо). */
+function formatPlanAmount(plan: SubscriptionPlanTemplate): string {
+  if (plan.amount == null) return ''
+  const amountStr = plan.amount.toLocaleString('ru-RU')
+  const currencyStr = plan.currency ?? ''
+  const cycleLabel = billingCycleLabel(plan.billing_cycle)
+  const prefix = plan.amount_type === 'from' ? 'от '
+    : plan.amount_type === 'approximate' ? '≈'
+    : plan.amount_type === 'promo' ? 'промо: '
+    : ''
+  return `${prefix}${amountStr} ${currencyStr}${cycleLabel ? ` · ${cycleLabel}` : ''}`.trim()
+}
+
+/** Подпись цены в списке подсказок автокомплита. */
+function suggestionPriceLabel(template: SubscriptionTemplate): string {
+  const plan = template.plans[0]
+  if (template.payment_model === 'free') return 'бесплатно'
+  if (template.payment_model === 'license') return 'разовая покупка'
+  if (!plan || plan.amount == null) return 'цена зависит от региона'
+  return formatPlanAmount(plan)
+}
+
 type Props = {
   open: boolean
   onClose: () => void
@@ -68,14 +105,35 @@ export default function AddPaymentModal({ open, onClose, defaultCurrency }: Prop
   const [icon, setIcon] = useState('payments')
   const [showAdvanced, setShowAdvanced] = useState(false)
 
-  const [suggestions, setSuggestions] = useState<ServiceEntry[]>([])
+  const [suggestions, setSuggestions] = useState<SubscriptionTemplate[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [selectedTemplate, setSelectedTemplate] = useState<SubscriptionTemplate | null>(null)
   const nameRef = useRef<HTMLInputElement>(null)
 
   const nextDate = useMemo(
     () => calcNextDate(firstDate, billingCycle, customDays),
     [firstDate, billingCycle, customDays],
   )
+
+  // Подсказки про выбранный сервис: показываем рядом с полем «Сумма», когда
+  // мы не уверены в цене, чтобы пользователь не доверял автоподстановке вслепую.
+  const templateHint = useMemo(() => {
+    if (!selectedTemplate) return null
+    const mainPlan = selectedTemplate.plans[0]
+    const hasKnownAmount = mainPlan != null && mainPlan.amount != null && mainPlan.amount > 0
+    return {
+      isLicense: selectedTemplate.payment_model === 'license',
+      isFree: selectedTemplate.payment_model === 'free',
+      multiSource: (mainPlan?.payment_sources?.length ?? 0) > 1,
+      approxLabel: !selectedTemplate.should_autofill_amount && hasKnownAmount && mainPlan
+        ? formatPlanAmount(mainPlan)
+        : null,
+      warning: selectedTemplate.user_warning
+        ?? (!selectedTemplate.should_autofill_amount && hasKnownAmount
+          ? 'Цена может отличаться. Проверьте сумму списания.'
+          : null),
+    }
+  }, [selectedTemplate])
 
   useEffect(() => {
     if (!open) return
@@ -93,18 +151,41 @@ export default function AddPaymentModal({ open, onClose, defaultCurrency }: Prop
 
   function handleNameChange(val: string) {
     setName(val)
-    const results = searchCatalog(val)
+    setSelectedTemplate(null)
+    const results = searchSubscriptionTemplates(val)
     setSuggestions(results)
     setShowSuggestions(results.length > 0 && val.length >= 2)
   }
 
-  function applySuggestion(entry: ServiceEntry) {
-    setName(entry.name)
-    setAmount(String(entry.amount))
-    setCurrency(CURRENCIES.some(c => c.code === entry.currency) ? entry.currency : 'RUB')
-    setCategorySlug(entry.category_slug)
-    setBillingCycle(entry.billing_cycle)
-    setIcon(entry.icon)
+  function applySuggestion(template: SubscriptionTemplate) {
+    setName(template.display_name)
+    setCategorySlug(template.category_slug)
+    setIcon(template.icon)
+
+    const mainPlan = template.plans[0]
+
+    // Период списания подставляем, только если он определён и это не разовая
+    // покупка — иначе оставляем выбор пользователю.
+    if (mainPlan && mainPlan.billing_cycle !== 'unknown' && mainPlan.billing_cycle !== 'one_time') {
+      setBillingCycle(mainPlan.billing_cycle as BillingCycle)
+    }
+
+    // Сумму подставляем только когда автоподстановка явно разрешена —
+    // это гарантирует валидатор (фиксированная цена, проверенный регион).
+    if (template.should_autofill_amount && mainPlan?.amount != null) {
+      setAmount(String(mainPlan.amount))
+      if (mainPlan.currency) {
+        setCurrency(CURRENCIES.some(c => c.code === mainPlan.currency) ? mainPlan.currency : 'RUB')
+      }
+    } else if (template.payment_model === 'free') {
+      if (window.confirm('Это бесплатный сервис. Добавить без расходов?')) {
+        setAmount('0')
+      }
+    }
+    // В остальных случаях сумму не трогаем — рядом покажем подсказку
+    // с ориентировочной ценой и предупреждением (см. templateHint).
+
+    setSelectedTemplate(template)
     setSuggestions([])
     setShowSuggestions(false)
     nameRef.current?.focus()
@@ -122,6 +203,7 @@ export default function AddPaymentModal({ open, onClose, defaultCurrency }: Prop
     setShowAdvanced(false)
     setSuggestions([])
     setShowSuggestions(false)
+    setSelectedTemplate(null)
   }
 
   const handleClose = () => { resetForm(); onClose() }
@@ -187,31 +269,26 @@ export default function AddPaymentModal({ open, onClose, defaultCurrency }: Prop
             />
             {showSuggestions && (
               <ul className="absolute z-20 left-0 right-0 top-full mt-1 rounded-xl border border-[rgba(26,26,61,0.12)] bg-white shadow-[0_8px_24px_rgba(26,26,61,0.14)] overflow-hidden">
-                {suggestions.map((entry) => {
-                  const sugIcon = resolveSubscriptionIconDisplay(null, entry.icon, entry.category_slug)
+                {suggestions.map((template) => {
+                  const sugIcon = resolveSubscriptionIconDisplay(null, template.icon, template.category_slug)
                   return (
-                    <li key={entry.name}>
+                    <li key={template.id}>
                       <button
                         type="button"
-                        onMouseDown={() => applySuggestion(entry)}
+                        onMouseDown={() => applySuggestion(template)}
                         className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-[#f8f6f2] transition-colors"
                       >
                         <PaymentServiceIcon
-                          icon={entry.icon}
-                          categorySlug={entry.category_slug}
+                          icon={template.icon}
+                          categorySlug={template.category_slug}
                           iconBg={sugIcon.iconBg}
                           shape={sugIcon.shape}
                           size={32}
                         />
                         <div className="min-w-0">
-                          <p className="text-sm font-medium text-[#1a1a2e]">{entry.name}</p>
+                          <p className="text-sm font-medium text-[#1a1a2e]">{template.display_name}</p>
                           <p className="text-xs text-[#6b6b80]">
-                            {entry.amount > 0 ? `${entry.amount.toLocaleString('ru-RU')} ${entry.currency} · ` : ''}
-                            {entry.billing_cycle === 'monthly' ? 'в месяц'
-                              : entry.billing_cycle === 'yearly' ? 'в год'
-                              : entry.billing_cycle === 'quarterly' ? 'раз в квартал'
-                              : entry.billing_cycle === 'weekly' ? 'в неделю'
-                              : entry.billing_cycle}
+                            {suggestionPriceLabel(template)}
                           </p>
                         </div>
                       </button>
@@ -253,6 +330,26 @@ export default function AddPaymentModal({ open, onClose, defaultCurrency }: Prop
               </select>
             </div>
           </div>
+
+          {templateHint && (templateHint.warning || templateHint.approxLabel || templateHint.isLicense || templateHint.isFree || templateHint.multiSource) && (
+            <div className="-mt-1.5 space-y-1 rounded-[10px] bg-[#f8f6f2] px-3 py-2.5 text-xs text-[#6b6b80]">
+              {templateHint.isLicense && (
+                <p>Это разовая покупка, а не регулярная подписка — проверьте период списания ниже.</p>
+              )}
+              {templateHint.isFree && (
+                <p>Это бесплатный сервис — обычно по нему не должно быть регулярных списаний.</p>
+              )}
+              {templateHint.approxLabel && (
+                <p>Ориентировочная цена: <span className="font-medium text-[#1a1a2e]">{templateHint.approxLabel}</span></p>
+              )}
+              {templateHint.multiSource && (
+                <p>Способ отмены зависит от того, где оформлена подписка (магазин приложений, сайт, оператор и т.д.).</p>
+              )}
+              {templateHint.warning && (
+                <p>⚠️ {templateHint.warning}</p>
+              )}
+            </div>
+          )}
 
           {/* ── Категория ─────────────────────────────────────────────────── */}
           <div>

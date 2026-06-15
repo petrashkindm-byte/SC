@@ -14,7 +14,7 @@ import PaymentServiceIcon from '@/app/dashboard/PaymentServiceIcon'
 import { PAYMENT_ICON_PRESETS, resolvePaymentIconIdForDisplay } from '@/lib/payment-icon-presets'
 import { setSubscriptionReminderKind } from '@/app/dashboard/reminders/actions'
 import { deleteSubscription, updateSubscriptionFields } from './actions'
-import { lookupManagementUrl } from '@/lib/service-catalog'
+import { lookupManagementUrl } from '@/lib/subscription-templates'
 
 const CURRENCIES = ['RUB', 'USD', 'EUR'] as const
 

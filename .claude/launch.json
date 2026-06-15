@@ -2,7 +2,7 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "subcuro-web",
+      "name": "subcuro-web-dev-3002",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--", "--port", "3002"],
       "port": 3002,

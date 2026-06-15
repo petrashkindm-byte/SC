@@ -7,8 +7,45 @@ import PaymentServiceIcon from '@/app/dashboard/PaymentServiceIcon'
 import { resolveSubscriptionIconDisplay } from '@/lib/subscription-icon-background'
 import { BILLING_FORM_OPTIONS, CATEGORY_FORM_OPTIONS } from '@/lib/subscription-labels'
 import { resolvePaymentIconIdForDisplay } from '@/lib/payment-icon-presets'
-import { searchCatalog, type ServiceEntry } from '@/lib/service-catalog'
+import {
+  searchSubscriptionTemplates,
+  type SubscriptionPlanTemplate,
+  type SubscriptionTemplate,
+} from '@/lib/subscription-templates'
 import { advanceBillingDate } from '@/lib/billing-engine'
+
+function billingCycleLabel(cycle: string): string {
+  switch (cycle) {
+    case 'monthly': return 'в месяц'
+    case 'yearly': return 'в год'
+    case 'quarterly': return 'раз в квартал'
+    case 'weekly': return 'в неделю'
+    case 'one_time': return 'разово'
+    default: return ''
+  }
+}
+
+/** Текстовое представление суммы тарифа с учётом её надёжности (от/≈/промо). */
+function formatPlanAmount(plan: SubscriptionPlanTemplate): string {
+  if (plan.amount == null) return ''
+  const amountStr = plan.amount.toLocaleString('ru-RU')
+  const currencyStr = plan.currency ?? ''
+  const cycleLabel = billingCycleLabel(plan.billing_cycle)
+  const prefix = plan.amount_type === 'from' ? 'от '
+    : plan.amount_type === 'approximate' ? '≈'
+    : plan.amount_type === 'promo' ? 'промо: '
+    : ''
+  return `${prefix}${amountStr} ${currencyStr}${cycleLabel ? ` · ${cycleLabel}` : ''}`.trim()
+}
+
+/** Подпись цены в списке подсказок автокомплита. */
+function suggestionPriceLabel(template: SubscriptionTemplate): string {
+  const plan = template.plans[0]
+  if (template.payment_model === 'free') return 'бесплатно'
+  if (template.payment_model === 'license') return 'разовая покупка'
+  if (!plan || plan.amount == null) return 'цена зависит от региона'
+  return formatPlanAmount(plan)
+}
 
 // ── Currencies ────────────────────────────────────────────────────────────────
 const CURRENCIES = [
@@ -79,7 +116,8 @@ export default function SubscriptionFormFields({
   const initTrial = sub?.free_trial_end_date ? sub.free_trial_end_date.slice(0, 10) : ''
 
   // ── Controlled state ──────────────────────────────────────────────────────
-  const [suggestions, setSuggestions] = useState<ServiceEntry[]>([])
+  const [suggestions, setSuggestions] = useState<SubscriptionTemplate[]>([])
+  const [selectedTemplate, setSelectedTemplate] = useState<SubscriptionTemplate | null>(null)
   const [nameValue, setNameValue] = useState(sub?.name ?? '')
   const [amountValue, setAmountValue] = useState(amountStr)
   const [currencyValue, setCurrencyValue] = useState(sub?.currency ?? defaultCurrency)
@@ -109,26 +147,64 @@ export default function SubscriptionFormFields({
     [firstDate, cycleValue, customDays],
   )
 
+  // Подсказки про выбранный сервис: показываем рядом с полем «Сумма», когда
+  // мы не уверены в цене, чтобы пользователь не доверял автоподстановке вслепую.
+  const templateHint = useMemo(() => {
+    if (!selectedTemplate) return null
+    const mainPlan = selectedTemplate.plans[0]
+    const hasKnownAmount = mainPlan != null && mainPlan.amount != null && mainPlan.amount > 0
+    return {
+      isLicense: selectedTemplate.payment_model === 'license',
+      isFree: selectedTemplate.payment_model === 'free',
+      multiSource: (mainPlan?.payment_sources?.length ?? 0) > 1,
+      approxLabel: !selectedTemplate.should_autofill_amount && hasKnownAmount && mainPlan
+        ? formatPlanAmount(mainPlan)
+        : null,
+      warning: selectedTemplate.user_warning
+        ?? (!selectedTemplate.should_autofill_amount && hasKnownAmount
+          ? 'Цена может отличаться. Проверьте сумму списания.'
+          : null),
+    }
+  }, [selectedTemplate])
+
   // ── Autocomplete ──────────────────────────────────────────────────────────
   function handleNameChange(val: string) {
     setNameValue(val)
+    setSelectedTemplate(null)
     if (!sub) {
-      const results = searchCatalog(val)
+      const results = searchSubscriptionTemplates(val)
       setSuggestions(results)
       setShowSuggestions(results.length > 0 && val.length >= 2)
     }
   }
 
-  function applySuggestion(entry: ServiceEntry) {
-    setNameValue(entry.name)
-    setAmountValue(String(entry.amount))
-    setCurrencyValue(entry.currency)
-    setCategoryValue(entry.category_slug)
-    setCycleValue(entry.billing_cycle)
-    setIconValue(entry.icon)
-    if (entry.cancellation_url) setCancelUrl(entry.cancellation_url)
-    if (entry.management_url) setManageUrl(entry.management_url)
-    if (entry.pricing_url) setPricingUrl(entry.pricing_url)
+  function applySuggestion(template: SubscriptionTemplate) {
+    setNameValue(template.display_name)
+    setCategoryValue(template.category_slug)
+    setIconValue(template.icon)
+
+    const mainPlan = template.plans[0]
+
+    if (mainPlan && mainPlan.billing_cycle !== 'unknown' && mainPlan.billing_cycle !== 'one_time') {
+      setCycleValue(mainPlan.billing_cycle as typeof cycleValue)
+    }
+
+    if (template.should_autofill_amount && mainPlan?.amount != null) {
+      setAmountValue(String(mainPlan.amount))
+      if (mainPlan.currency) setCurrencyValue(mainPlan.currency)
+    } else if (template.payment_model === 'free') {
+      if (window.confirm('Это бесплатный сервис. Добавить без расходов?')) {
+        setAmountValue('0')
+      }
+    }
+    // В остальных случаях сумму не трогаем — рядом покажем подсказку
+    // с ориентировочной ценой и предупреждением (см. templateHint).
+
+    if (template.cancellation_url) setCancelUrl(template.cancellation_url)
+    if (template.management_url) setManageUrl(template.management_url)
+    if (template.pricing_url) setPricingUrl(template.pricing_url)
+
+    setSelectedTemplate(template)
     setSuggestions([])
     setShowSuggestions(false)
     nameRef.current?.focus()
@@ -168,37 +244,26 @@ export default function SubscriptionFormFields({
         />
         {showSuggestions && (
           <ul className="absolute z-20 left-0 right-0 top-full mt-1 rounded-xl border border-[#e7e3dc] bg-white shadow-[0_8px_24px_rgba(26,26,61,0.12)] overflow-hidden">
-            {suggestions.map((entry) => {
-              const sugIcon = resolveSubscriptionIconDisplay(null, entry.icon, entry.category_slug)
+            {suggestions.map((template) => {
+              const sugIcon = resolveSubscriptionIconDisplay(null, template.icon, template.category_slug)
               return (
-                <li key={entry.name}>
+                <li key={template.id}>
                   <button
                     type="button"
-                    onMouseDown={() => applySuggestion(entry)}
+                    onMouseDown={() => applySuggestion(template)}
                     className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-[#f8f6f2] transition-colors"
                   >
                     <PaymentServiceIcon
-                      icon={entry.icon}
-                      categorySlug={entry.category_slug}
+                      icon={template.icon}
+                      categorySlug={template.category_slug}
                       iconBg={sugIcon.iconBg}
                       shape={sugIcon.shape}
                       size={32}
                     />
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-[#1a1a2e]">{entry.name}</p>
+                      <p className="text-sm font-medium text-[#1a1a2e]">{template.display_name}</p>
                       <p className="text-xs text-[#6b6b80]">
-                        {entry.amount > 0
-                          ? `${entry.amount.toLocaleString('ru-RU')} ${entry.currency} · `
-                          : ''}
-                        {entry.billing_cycle === 'monthly'
-                          ? 'в месяц'
-                          : entry.billing_cycle === 'yearly'
-                          ? 'в год'
-                          : entry.billing_cycle === 'quarterly'
-                          ? 'раз в квартал'
-                          : entry.billing_cycle === 'weekly'
-                          ? 'в неделю'
-                          : entry.billing_cycle}
+                        {suggestionPriceLabel(template)}
                       </p>
                     </div>
                   </button>
@@ -244,6 +309,26 @@ export default function SubscriptionFormFields({
           </select>
         </div>
       </div>
+
+      {templateHint && (templateHint.warning || templateHint.approxLabel || templateHint.isLicense || templateHint.isFree || templateHint.multiSource) && (
+        <div className="-mt-2 space-y-1 rounded-[10px] bg-[#f8f6f2] px-3 py-2.5 text-xs text-[#6b6b80]">
+          {templateHint.isLicense && (
+            <p>Это разовая покупка, а не регулярная подписка — проверьте период списания ниже.</p>
+          )}
+          {templateHint.isFree && (
+            <p>Это бесплатный сервис — обычно по нему не должно быть регулярных списаний.</p>
+          )}
+          {templateHint.approxLabel && (
+            <p>Ориентировочная цена: <span className="font-medium text-[#1a1a2e]">{templateHint.approxLabel}</span></p>
+          )}
+          {templateHint.multiSource && (
+            <p>Способ отмены зависит от того, где оформлена подписка (магазин приложений, сайт, оператор и т.д.).</p>
+          )}
+          {templateHint.warning && (
+            <p>⚠️ {templateHint.warning}</p>
+          )}
+        </div>
+      )}
 
       {/* ── 3. Category ───────────────────────────────────────────────────── */}
       <div>
