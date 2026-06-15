@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
     if (!tokenRes.ok) {
       throw new Error(`VK token exchange failed: ${tokenRes.status}`)
     }
-    const tokenData = (await tokenRes.json()) as { access_token: string }
+    const tokenData = (await tokenRes.json()) as { access_token: string; email?: string }
 
     const userRes = await fetch(USERINFO_URL, {
       method: 'POST',
@@ -116,15 +116,18 @@ export async function GET(request: NextRequest) {
     }
     const { user } = (await userRes.json()) as VkUserInfo
 
-    if (!user?.email) {
+    // VK ID отдаёт email в ответе token endpoint, а не в user_info.
+    const email = tokenData.email ?? user?.email
+
+    if (!email) {
       const response = NextResponse.redirect(`${origin}/auth?error=auth&reason=oauth_no_email`)
       clearPkceCookies(response, STATE_COOKIE, VERIFIER_COOKIE)
       return response
     }
 
-    const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ') || undefined
+    const fullName = [user?.first_name, user?.last_name].filter(Boolean).join(' ') || undefined
 
-    const result = await buildSocialLoginRedirect({ email: user.email, fullName, provider: 'vk' })
+    const result = await buildSocialLoginRedirect({ email, fullName, provider: 'vk' })
     if ('error' in result) {
       const response = NextResponse.redirect(`${origin}/auth?error=auth&reason=${encodeURIComponent(result.error)}`)
       clearPkceCookies(response, STATE_COOKIE, VERIFIER_COOKIE)
