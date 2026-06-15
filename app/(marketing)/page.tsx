@@ -361,7 +361,7 @@ export default function LandingPage() {
           <div className="how-card-body-plain">
             <h3 className="how-card-title" data-i18n="how.step2.title">Получай уведомления</h3>
             <p className="how-card-text" data-i18n="how.step2.text">
-              SubCuro предупредит о списании заранее, напомнит об окончании триала и покажет, где можно сэкономить.
+              SubCuro предупредит о списании заранее, напомнит об окончании пробного периода и покажет, где можно сэкономить.
             </p>
           </div>
         </div>
@@ -545,7 +545,7 @@ export default function LandingPage() {
                   </li>
                   <li className="who2-panel-list-item who2-panel-list-item--green">
                     <span className="who2-panel-list-dot who2-panel-list-dot--green" />
-                    <span data-i18n="forwhom.l4b">Напоминание об окончании триала</span>
+                    <span data-i18n="forwhom.l4b">Напоминание об окончании пробного периода</span>
                   </li>
                   <li className="who2-panel-list-item who2-panel-list-item--green">
                     <span className="who2-panel-list-dot who2-panel-list-dot--green" />

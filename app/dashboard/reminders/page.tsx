@@ -8,7 +8,7 @@ import ReminderToggle from './ReminderToggle'
 import PushPermissionButton from './PushPermissionButton'
 
 const TYPE_LABEL: Record<string, string> = {
-  trial_end: 'Конец триала',
+  trial_end: 'Конец пробного периода',
   renewal: 'Продление',
   price_check: 'Проверка цены',
 }

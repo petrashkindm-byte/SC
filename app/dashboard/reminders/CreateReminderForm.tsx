@@ -74,7 +74,7 @@ export default function CreateReminderForm({ subscriptions, defaultSubscriptionI
             className="w-full rounded-lg border border-[#dcd6ce] bg-white px-3 py-2 text-sm text-[#1a1a2e]"
           >
             <option value="renewal">Продление</option>
-            <option value="trial_end">Конец триала</option>
+            <option value="trial_end">Конец пробного периода</option>
             <option value="price_check">Проверка цены</option>
           </select>
         </div>
