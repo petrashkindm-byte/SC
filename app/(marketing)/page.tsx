@@ -581,11 +581,11 @@ export default function LandingPage() {
             <div className="price-card-tag price-card-tag--light" data-i18n="pricing.startTag">Для знакомства с сервисом</div>
             <div className="price-divider price-divider--dark" />
             <ul className="price-features">
-              <li className="price-feature-item"><IconCheckCircle /><span className="price-feature-text--light" data-i18n="pricing.f1">До 10 платежей</span></li>
-              <li className="price-feature-item"><IconCheckCircle /><span className="price-feature-text--light" data-i18n="pricing.f2">Базовые напоминания</span></li>
+              <li className="price-feature-item"><IconCheckCircle /><span className="price-feature-text--light" data-i18n="pricing.f1">До 10 подписок</span></li>
+              <li className="price-feature-item"><IconCheckCircle /><span className="price-feature-text--light" data-i18n="pricing.f2">Напоминания о списаниях</span></li>
               <li className="price-feature-item"><IconCheckCircle /><span className="price-feature-text--light" data-i18n="pricing.f3">Ручное добавление</span></li>
-              <li className="price-feature-item"><IconCheckCircle /><span className="price-feature-text--light" data-i18n="pricing.f4">Веб + мобильная версия</span></li>
-              <li className="price-feature-item"><IconCheckCircle /><span className="price-feature-text--light" data-i18n="pricing.f5">Базовая аналитика</span></li>
+              <li className="price-feature-item"><IconCheckCircle /><span className="price-feature-text--light" data-i18n="pricing.f4">Загрузка банковской выписки</span></li>
+              <li className="price-feature-item"><IconCheckCircle /><span className="price-feature-text--light" data-i18n="pricing.f5">Веб + мобильное приложение</span></li>
             </ul>
             <a href="/auth?tab=register" className="price-btn-ghost" data-i18n="pricing.startCta">
               Начать бесплатно
@@ -601,13 +601,13 @@ export default function LandingPage() {
             <div className="price-card-tag price-card-tag--muted" data-i18n="pricing.proTag">Для активного контроля и экономии</div>
             <div className="price-divider price-divider--light" />
             <ul className="price-features">
-              <li className="price-feature-item"><IconCheckCircle /><span className="price-feature-text--dark" data-i18n="pricing.p1">Безлимит платежей</span></li>
-              <li className="price-feature-item"><IconCheckCircle /><span className="price-feature-text--dark" data-i18n="pricing.p2">Умные уведомления</span></li>
-              <li className="price-feature-item"><IconCheckCircle /><span className="price-feature-text--dark" data-i18n="pricing.p3">Очередь действий</span></li>
-              <li className="price-feature-item"><IconCheckCircle /><span className="price-feature-text--dark" data-i18n="pricing.p4">Симулятор экономии</span></li>
-              <li className="price-feature-item"><IconCheckCircle /><span className="price-feature-text--dark" data-i18n="pricing.p5">Расширенная аналитика</span></li>
-              <li className="price-feature-item"><IconCheckCircle /><span className="price-feature-text--dark" data-i18n="pricing.p6">Экспорт CSV и HTML-отчёт</span></li>
-              <li className="price-feature-item"><IconCheckCircle /><span className="price-feature-text--dark" data-i18n="pricing.p7">Синхронизация между устройствами</span></li>
+              <li className="price-feature-item"><IconCheckCircle /><span className="price-feature-text--dark" data-i18n="pricing.p1">Безлимит подписок</span></li>
+              <li className="price-feature-item"><IconCheckCircle /><span className="price-feature-text--dark" data-i18n="pricing.p2">Все функции Старта</span></li>
+              <li className="price-feature-item"><IconCheckCircle /><span className="price-feature-text--dark" data-i18n="pricing.p3">ИИ-анализ подписок</span></li>
+              <li className="price-feature-item"><IconCheckCircle /><span className="price-feature-text--dark" data-i18n="pricing.p4">Чат с ИИ</span></li>
+              <li className="price-feature-item"><IconCheckCircle /><span className="price-feature-text--dark" data-i18n="pricing.p5">Симулятор «что если»</span></li>
+              <li className="price-feature-item"><IconCheckCircle /><span className="price-feature-text--dark" data-i18n="pricing.p6">Экспорт CSV и HTML</span></li>
+              <li className="price-feature-item"><IconCheckCircle /><span className="price-feature-text--dark" data-i18n="pricing.p7">Приоритетная поддержка</span></li>
             </ul>
             <a href="/auth?tab=register" className="price-btn-solid" data-i18n="pricing.proCta">
               Получить Pro бесплатно
