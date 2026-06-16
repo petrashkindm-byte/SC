@@ -290,10 +290,10 @@ export default function LandingPage() {
                 </a>
                 <a href="/deals" className="btn-hero-secondary">
                   <IconTag />
-                  Найти промокод
+                  <span data-i18n="hero.ctaPromo">Найти промокод</span>
                 </a>
               </div>
-              <p className="hero-sub-hint">Коды, пробные периоды и акции на популярные сервисы</p>
+              <p className="hero-sub-hint" data-i18n="hero.subHint">Коды, пробные периоды и акции на популярные сервисы</p>
             </div>
           </div>
         </div>
