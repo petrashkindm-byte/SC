@@ -2446,10 +2446,17 @@ body {
     padding: 24px 20px;
   }
 
-  .stat-col {
+  .stat-col,
+  .stat-col:first-child,
+  .stat-col:last-child {
     padding: 20px 16px;
     border-right: none;
     border-bottom: 1px solid rgba(255,255,255,0.1);
+    min-width: 0;
+  }
+
+  .stat-col:nth-child(odd) {
+    border-right: 1px solid rgba(255,255,255,0.1);
   }
 
   .stat-col:nth-child(3),
@@ -2457,7 +2464,10 @@ body {
     border-bottom: none;
   }
 
-  .stat-num { font-size: 1.8rem; }
+  .stat-num {
+    font-size: 1.8rem;
+    white-space: normal;
+  }
 
   /* How grid */
   .how-grid {
