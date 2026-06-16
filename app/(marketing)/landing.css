@@ -2455,19 +2455,12 @@ body {
     min-width: 0;
   }
 
-  .stat-col:nth-child(odd) {
-    border-right: 1px solid rgba(255,255,255,0.1);
-  }
-
   .stat-col:nth-child(3),
   .stat-col:nth-child(4) {
     border-bottom: none;
   }
 
-  .stat-num {
-    font-size: 1.8rem;
-    white-space: normal;
-  }
+  .stat-num { font-size: 1.8rem; }
 
   /* How grid */
   .how-grid {
