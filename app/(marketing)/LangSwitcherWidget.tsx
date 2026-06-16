@@ -1,16 +1,25 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 export default function LangSwitcherWidget() {
-  const [lang, setLang] = useState<'ru' | 'en'>(() => {
+  // First render must match the server ('ru') to avoid a hydration mismatch
+  // that can break hydration of the whole page in this forked Next.
+  const [lang, setLang] = useState<'ru' | 'en'>('ru')
+
+  useEffect(() => {
     try {
       const saved = localStorage.getItem('landingLang')
-      return saved === 'en' ? 'en' : 'ru'
-    } catch {
-      return 'ru'
+      if (saved === 'en') setLang('en')
+    } catch { /* ignore */ }
+    // keep the toggle in sync if the language changes elsewhere
+    const onLang = (e: Event) => {
+      const next = (e as CustomEvent).detail
+      if (next === 'ru' || next === 'en') setLang(next)
     }
-  })
+    window.addEventListener('subcuro:lang', onLang)
+    return () => window.removeEventListener('subcuro:lang', onLang)
+  }, [])
 
   const toggle = (next: 'ru' | 'en') => {
     setLang(next)
