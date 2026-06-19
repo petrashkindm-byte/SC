@@ -786,6 +786,7 @@ export default function LandingPage() {
               <li><a href="mailto:hello@subcuro.app" className="footer-link" data-i18n="footer.l9">Контакты</a></li>
               <li><a href="/privacy" className="footer-link" data-i18n="footer.l10">Политика конфиденциальности</a></li>
               <li><a href="/terms" className="footer-link" data-i18n="footer.l11">Условия использования</a></li>
+              <li><a href="/personal-data-consent" className="footer-link">Согласие на обработку данных</a></li>
             </ul>
           </div>
         </div>
@@ -795,6 +796,7 @@ export default function LandingPage() {
           <div className="footer-legal">
             <a href="/privacy" className="footer-legal-link" data-i18n="footer.privacy">Конфиденциальность</a>
             <a href="/terms" className="footer-legal-link" data-i18n="footer.terms">Условия</a>
+            <a href="/personal-data-consent" className="footer-legal-link">Согласие на данные</a>
           </div>
         </div>
       </footer>

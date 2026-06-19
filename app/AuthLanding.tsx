@@ -42,6 +42,10 @@ export default function AuthLanding() {
   const [newPasswordConfirm, setNewPasswordConfirm] = useState('')
   const [showLoginPassword, setShowLoginPassword] = useState(false)
   const [showRegisterPassword, setShowRegisterPassword] = useState(false)
+  const [consentTerms, setConsentTerms] = useState(false)
+  const [consentData, setConsentData] = useState(false)
+  const [consentConsent, setConsentConsent] = useState(false)
+  const [consentError, setConsentError] = useState(false)
   // true когда Supabase обнаруживает PASSWORD_RECOVERY из хэш-токена в URL
   const [hashRecoveryMode, setHashRecoveryMode] = useState(false)
 
@@ -107,9 +111,15 @@ export default function AuthLanding() {
 
   async function handleRegisterSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setLoading(true)
     setError(null)
     setResetDone(null)
+
+    if (!consentTerms || !consentConsent) {
+      setConsentError(true)
+      return
+    }
+    setConsentError(false)
+    setLoading(true)
 
     const normalizedEmail = normalizeEmail(email)
     if (!normalizedEmail) {
@@ -529,6 +539,56 @@ export default function AuthLanding() {
                         </button>
                       </div>
                     </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, margin: '4px 0 16px' }}>
+                      <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={consentTerms}
+                          onChange={(e) => { setConsentTerms(e.target.checked); setConsentError(false) }}
+                          style={{ flexShrink: 0, width: 18, height: 18, marginTop: 2, accentColor: '#161148', cursor: 'pointer' }}
+                        />
+                        <span style={{ fontSize: 13, color: '#374151', lineHeight: 1.5 }}>
+                          Я принимаю{' '}
+                          <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: '#6c5ce7', textDecoration: 'underline', textDecorationColor: 'rgba(108,92,231,0.35)', textUnderlineOffset: '2px' }}>
+                            Пользовательское соглашение
+                          </a>
+                        </span>
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={consentConsent}
+                          onChange={(e) => { setConsentConsent(e.target.checked); setConsentError(false) }}
+                          style={{ flexShrink: 0, width: 18, height: 18, marginTop: 2, accentColor: '#161148', cursor: 'pointer' }}
+                        />
+                        <span style={{ fontSize: 13, color: '#374151', lineHeight: 1.5 }}>
+                          Я даю согласие на обработку персональных данных в соответствии с{' '}
+                          <a href="/personal-data-consent" target="_blank" rel="noopener noreferrer" style={{ color: '#6c5ce7', textDecoration: 'underline', textDecorationColor: 'rgba(108,92,231,0.35)', textUnderlineOffset: '2px' }}>
+                            Согласием на обработку персональных данных
+                          </a>
+                          {' '}и{' '}
+                          <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: '#6c5ce7', textDecoration: 'underline', textDecorationColor: 'rgba(108,92,231,0.35)', textUnderlineOffset: '2px' }}>
+                            Политикой обработки персональных данных
+                          </a>
+                        </span>
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={consentData}
+                          onChange={(e) => setConsentData(e.target.checked)}
+                          style={{ flexShrink: 0, width: 18, height: 18, marginTop: 2, accentColor: '#161148', cursor: 'pointer' }}
+                        />
+                        <span style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.5 }}>
+                          Я согласен получать новости, промокоды и предложения SubCuro. Можно отказаться в любой момент.
+                        </span>
+                      </label>
+                    </div>
+                    {consentError && (
+                      <p style={{ color: '#dc2626', fontSize: 13, marginBottom: 10 }}>
+                        Чтобы продолжить, примите Пользовательское соглашение и дайте согласие на обработку персональных данных.
+                      </p>
+                    )}
                     {done && (
                       <p style={{ color: '#166534', fontSize: 13, marginBottom: 10 }}>
                         Проверьте почту: мы отправили ссылку для подтверждения.
@@ -560,14 +620,6 @@ export default function AuthLanding() {
                   Продолжить с VK
                 </a>
               </div>
-              {tab === 'register' && (
-                <p className="auth-footnote auth-footnote--legal">
-                  Нажимая «Зарегистрироваться», вы соглашаетесь с{' '}
-                  <a href="/terms" className="auth-footnote-link">Условиями использования</a>
-                  {' '}и{' '}
-                  <a href="/privacy" className="auth-footnote-link">Политикой конфиденциальности</a>
-                </p>
-              )}
             </div>
           </main>
         </div>
