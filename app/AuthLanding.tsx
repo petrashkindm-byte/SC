@@ -460,7 +460,7 @@ export default function AuthLanding() {
                   </form>
                 </div>
               ) : (
-                <div className="auth-panel auth-panel-fixed">
+                <div className="auth-panel auth-panel-fixed auth-panel--reg">
                   <h2 className="auth-panel-title">Создать аккаунт</h2>
                   <p className="auth-panel-sub">Бесплатно. Без банковских данных.</p>
                   <form onSubmit={handleRegisterSubmit}>
@@ -539,7 +539,7 @@ export default function AuthLanding() {
                         </button>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, margin: '4px 0 16px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 7, margin: '2px 0 12px' }}>
                       <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
                         <input
                           type="checkbox"
@@ -663,14 +663,18 @@ export default function AuthLanding() {
         .auth-stat-label { font-size: clamp(11px,1.05vw,13px); line-height: 1.4; color: rgba(255,255,255,.6); }
         .auth-main { flex: 1; min-width: 0; min-height: 100vh; background: #f8f7f4; display: flex; align-items: flex-start; justify-content: center; padding: clamp(20px,4vh,48px) clamp(20px,3.5vw,40px); overflow-y: auto; }
         .auth-card { width: 100%; max-width: min(500px,100%); background: #fff; border-radius: 24px; box-shadow: 0 4px 6px rgba(15,11,56,.04), 0 24px 48px rgba(15,11,56,.08); padding: 20px 28px 20px; }
-        .auth-panel-fixed { min-height: 390px; }
-        .auth-tabs { display: flex; gap: 4px; padding: 4px; background: #f5f5f0; border-radius: 14px; margin-bottom: 22px; }
+        .auth-panel-fixed { min-height: 0; }
+        .auth-tabs { display: flex; gap: 4px; padding: 4px; background: #f5f5f0; border-radius: 14px; margin-bottom: 18px; }
         .auth-tab { flex: 1; border: none; border-radius: 12px; padding: 12px 16px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; color: #6b7280; background: transparent; }
         .auth-tab--active { background: #161148; color: #fff; box-shadow: 0 2px 8px rgba(22,17,72,.25); }
-        .auth-panel-title { font-size: 26px; font-weight: 800; letter-spacing: -.03em; color: #161148; margin-bottom: 8px; }
-        .auth-panel-sub { font-size: 14px; color: #6b7280; margin-bottom: 20px; line-height: 1.5; }
+        .auth-panel-title { font-size: 26px; font-weight: 800; letter-spacing: -.03em; color: #161148; margin-bottom: 6px; }
+        .auth-panel-sub { font-size: 14px; color: #6b7280; margin-bottom: 16px; line-height: 1.5; }
         .auth-field { margin-bottom: 15px; } .auth-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         .auth-label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 8px; }
+        .auth-panel--reg .auth-field { margin-bottom: 10px; }
+        .auth-panel--reg .auth-label { margin-bottom: 5px; }
+        .auth-panel--reg .auth-input { height: 44px; }
+        .auth-panel--reg .auth-panel-sub { margin-bottom: 12px; }
         .auth-input-wrap { position: relative; }
         .auth-input-wrap > svg:first-of-type { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; color: #9ca3af; pointer-events: none; }
         .auth-input { width: 100%; height: 50px; border: 1px solid rgba(15,11,56,.1); border-radius: 12px; padding: 0 14px 0 44px; font: inherit; font-size: 15px; color: #0d0d2b; background: #fff; }
