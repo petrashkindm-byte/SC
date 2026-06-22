@@ -18,6 +18,7 @@ import { actionButtonClass } from './ui/action-button'
 import { useDarkMode } from '@/lib/hooks/use-dark-mode'
 import { useLang } from '@/lib/LangContext'
 import { lookupManagementUrl } from '@/lib/subscription-templates'
+import { getSafeExternalUrl } from '@/lib/safe-url'
 import { toast } from './ui/toast'
 
 export type PaymentsFilter = 'all' | 'active' | 'soon' | 'overdue' | 'paused' | 'cancelled'
@@ -270,7 +271,7 @@ function SubscriptionDetailPanel({
               </button>
             )}
             {(() => {
-              const mgmtUrl = sub.management_url || lookupManagementUrl(sub.name)
+              const mgmtUrl = getSafeExternalUrl(sub.management_url) ?? lookupManagementUrl(sub.name)
               const icon = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
               return mgmtUrl ? (
                 <a href={mgmtUrl} target="_blank" rel="noopener noreferrer"

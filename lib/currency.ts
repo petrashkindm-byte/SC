@@ -3,17 +3,27 @@ import type { Subscription } from '@/lib/supabase/types'
 
 /** Нормализованная сумма подписки в месяц (shared, используется повсюду). */
 export function getMonthlyAmount(sub: Subscription): number {
+  // billing-type parity with mobile: free/trial/one_time are NOT recurring spend.
+  // Fallback for rows without billing_type (web-created or pre-0004): 0-amount → free,
+  // иначе → paid.
+  const billingType = sub.billing_type ?? (Number(sub.amount) === 0 ? 'free' : 'paid')
+  if (billingType === 'free' || billingType === 'trial' || billingType === 'one_time') {
+    return 0
+  }
+
   const amount = coerceNumber(sub.amount)
   // billing_interval = «каждые N циклов», поэтому месячный эквивалент делится на интервал
   const interval = Math.max(1, sub.billing_interval || 1)
+  let monthly: number
   switch (sub.billing_cycle) {
-    case 'weekly':    return (amount * 4.33) / interval
-    case 'monthly':   return amount / interval
-    case 'quarterly': return amount / (3 * interval)
-    case 'yearly':    return amount / (12 * interval)
-    case 'custom':    return sub.custom_interval_days ? (amount / sub.custom_interval_days) * 30 : amount
-    default:          return amount
+    case 'weekly':    monthly = (amount * 4.33) / interval; break
+    case 'monthly':   monthly = amount / interval; break
+    case 'quarterly': monthly = amount / (3 * interval); break
+    case 'yearly':    monthly = amount / (12 * interval); break
+    case 'custom':    monthly = sub.custom_interval_days ? (amount / sub.custom_interval_days) * 30 : amount; break
+    default:          monthly = amount
   }
+  return Number.isFinite(monthly) ? monthly : 0
 }
 
 export interface CurrencyGroup {

@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse, type NextRequest } from 'next/server'
 import { searchSubscriptionTemplates } from '@/lib/subscription-templates'
 import { loadCategoryIdBySlug } from '@/lib/category-id'
+import { normalizeAllowedCurrency } from '@/lib/allowed-currencies'
 import type { DetectedSubscription } from '@/lib/parse-bank-statement'
 import type { CategorySlug } from '@/lib/supabase/types'
 
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
       category_slug: categorySlug,
       name: sub.merchant.length > 60 ? sub.merchant.slice(0, 60) : sub.merchant,
       amount: sub.amount,
-      currency: sub.currency || 'RUB',
+      currency: normalizeAllowedCurrency(sub.currency),
       billing_cycle: sub.billingCycle,
       billing_interval: 1,
       custom_interval_days: null,

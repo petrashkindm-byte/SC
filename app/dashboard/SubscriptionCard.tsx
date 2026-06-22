@@ -5,6 +5,12 @@ import { categoryLabelRu, STATUS_BADGE_RU } from '@/lib/subscription-labels'
 import { resolveSubscriptionIconDisplay } from '@/lib/subscription-icon-background'
 import PaymentServiceIcon from './PaymentServiceIcon'
 
+const BILLING_TYPE_BADGE: Record<string, string> = {
+  free: 'Бесплатно',
+  trial: 'Пробный',
+  one_time: 'Разовый',
+}
+
 const CATEGORY_COLORS: Record<string, string> = {
   entertainment: 'bg-[#ede9fc] text-[#5b43d4]',
   productivity: 'bg-[#e8efff] text-[#3457d5]',
@@ -44,6 +50,7 @@ export default function SubscriptionCard({
   const urgency = days <= 3 ? 'text-[#e5484d]' : days <= 7 ? 'text-[#b35a00]' : 'text-[#6b6b80]'
   const categoryColor = CATEGORY_COLORS[sub.category_slug] ?? CATEGORY_COLORS.other
   const statusExtra = STATUS_BADGE_RU[sub.status] ?? ''
+  const billingTypeBadge = sub.billing_type ? BILLING_TYPE_BADGE[sub.billing_type] ?? null : null
   const href = `/dashboard/subscriptions/${sub.id}`
   const iconDisplay = resolveSubscriptionIconDisplay(sub.notes, sub.icon, sub.category_slug)
 
@@ -104,6 +111,11 @@ export default function SubscriptionCard({
               {statusExtra ? (
                 <span className="text-xs px-1.5 py-0.5 rounded-md bg-[#ececf0] text-[#6b6b80]">
                   {statusExtra}
+                </span>
+              ) : null}
+              {billingTypeBadge ? (
+                <span className="text-xs px-1.5 py-0.5 rounded-md bg-[#e8faf0] text-[#0d9f6e]">
+                  {billingTypeBadge}
                 </span>
               ) : null}
             </div>

@@ -9,6 +9,7 @@ export type CategorySlug =
   | 'other'
 
 export type BillingCycle = 'weekly' | 'monthly' | 'quarterly' | 'yearly' | 'custom'
+export type BillingType = 'paid' | 'free' | 'trial' | 'one_time'
 export type RenewalType = 'auto_renew' | 'manual'
 export type SubscriptionStatus = 'active' | 'paused' | 'cancelled' | 'archived'
 export type ReminderChannel = 'local_push' | 'email' | 'in_app'
@@ -117,6 +118,12 @@ export interface Database {
           first_charge_date: string
           next_charge_date: string
           free_trial_end_date: string | null
+          // Billing-type parity with mobile (DB columns added by migration 0004).
+          // Optional so pre-0004 / web-created rows (no column) still typecheck.
+          billing_type?: BillingType | null
+          price_after_trial?: number | null
+          plan_name?: string | null
+          pause_state?: string | null
           renewal_type: RenewalType
           cancellation_url: string | null
           management_url: string | null
@@ -148,6 +155,11 @@ export interface Database {
           first_charge_date: string
           next_charge_date: string
           free_trial_end_date?: string | null
+          // Billing-type parity (migration 0004). Write-path stays unused in Phase 1.
+          billing_type?: BillingType | null
+          price_after_trial?: number | null
+          plan_name?: string | null
+          pause_state?: string | null
           renewal_type?: RenewalType
           cancellation_url?: string | null
           management_url?: string | null

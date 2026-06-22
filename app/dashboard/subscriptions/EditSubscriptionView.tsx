@@ -244,6 +244,22 @@ export default function EditSubscriptionView({
             name="free_trial_end_date"
             value={sub.free_trial_end_date?.slice(0, 10) ?? ''}
           />
+          {/* Billing type fields — pass through existing values so server saves them correctly */}
+          <input
+            type="hidden"
+            name="billing_type"
+            value={sub.billing_type ?? (Number(sub.amount) === 0 ? 'free' : 'paid')}
+          />
+          <input
+            type="hidden"
+            name="price_after_trial"
+            value={sub.price_after_trial != null ? String(sub.price_after_trial) : ''}
+          />
+          <input
+            type="hidden"
+            name="plan_name"
+            value={sub.plan_name ?? ''}
+          />
 
           {error ? (
             <p className="rounded-xl border border-[#f3c5c7] bg-[#fdecec] px-4 py-3 text-sm text-[#e5484d]">

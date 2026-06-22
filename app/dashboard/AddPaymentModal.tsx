@@ -13,19 +13,15 @@ import {
 import { advanceBillingDate } from '@/lib/billing-engine'
 import { createSubscription } from './subscriptions/actions'
 import PaymentServiceIcon from './PaymentServiceIcon'
-import type { BillingCycle } from '@/lib/supabase/types'
+import type { BillingCycle, BillingType } from '@/lib/supabase/types'
 
+// Temporarily limited to RUB/USD/EUR until mobile supports more currencies
+// (shared Supabase DB; mobile only has RUB/USD/EUR conversion rates). The
+// init/template guards below already fall back to RUB for anything else.
 const CURRENCIES = [
   { code: 'RUB', label: '🇷🇺 RUB — рубль' },
   { code: 'USD', label: '🇺🇸 USD — доллар' },
   { code: 'EUR', label: '🇪🇺 EUR — евро' },
-  { code: 'GBP', label: '🇬🇧 GBP — фунт' },
-  { code: 'TRY', label: '🇹🇷 TRY — лира' },
-  { code: 'CNY', label: '🇨🇳 CNY — юань' },
-  { code: 'KZT', label: '🇰🇿 KZT — тенге' },
-  { code: 'AMD', label: '🇦🇲 AMD — драм' },
-  { code: 'GEL', label: '🇬🇪 GEL — лари' },
-  { code: 'BYN', label: '🇧🇾 BYN — рубль (BY)' },
 ]
 
 function calcNextDate(firstDate: string, cycle: string, customDays: number): string {
@@ -96,7 +92,10 @@ export default function AddPaymentModal({ open, onClose, defaultCurrency }: Prop
   const initCurrency = CURRENCIES.some(c => c.code === defaultCurrency) ? defaultCurrency : 'RUB'
 
   const [name, setName] = useState('')
+  const [billingType, setBillingType] = useState<BillingType>('paid')
   const [amount, setAmount] = useState('299')
+  const [priceAfterTrial, setPriceAfterTrial] = useState('')
+  const [trialDate, setTrialDate] = useState('')
   const [currency, setCurrency] = useState(initCurrency)
   const [categorySlug, setCategorySlug] = useState('other')
   const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly')
@@ -104,6 +103,27 @@ export default function AddPaymentModal({ open, onClose, defaultCurrency }: Prop
   const [firstDate, setFirstDate] = useState(today)
   const [icon, setIcon] = useState('payments')
   const [showAdvanced, setShowAdvanced] = useState(false)
+
+  const showAmount = billingType === 'paid' || billingType === 'one_time'
+  const showCycleAndRenewal = billingType === 'paid'
+  const firstDateLabel =
+    billingType === 'one_time' ? 'Дата платежа'
+    : billingType === 'free' ? 'Дата начала использования'
+    : 'Дата первого списания'
+
+  function handleBillingTypeChange(next: BillingType) {
+    setBillingType(next)
+    if (next === 'free' || next === 'trial') setAmount('0')
+    if (next === 'paid' || next === 'one_time') setPriceAfterTrial('')
+    if (next !== 'trial') { setTrialDate(''); setPriceAfterTrial('') }
+  }
+
+  const BILLING_TYPE_OPTIONS: { value: BillingType; label: string }[] = [
+    { value: 'paid', label: 'Платный' },
+    { value: 'free', label: 'Бесплатный' },
+    { value: 'trial', label: 'Пробный период' },
+    { value: 'one_time', label: 'Разовый платёж' },
+  ]
 
   const [suggestions, setSuggestions] = useState<SubscriptionTemplate[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -193,7 +213,10 @@ export default function AddPaymentModal({ open, onClose, defaultCurrency }: Prop
 
   function resetForm() {
     setName('')
+    setBillingType('paid')
     setAmount('299')
+    setPriceAfterTrial('')
+    setTrialDate('')
     setCurrency(initCurrency)
     setCategorySlug('other')
     setBillingCycle('monthly')
@@ -241,14 +264,19 @@ export default function AddPaymentModal({ open, onClose, defaultCurrency }: Prop
 
         <form action={createSubscription} className="space-y-4">
           <input type="hidden" name="after_create" value="payments" />
+          <input type="hidden" name="billing_type" value={billingType} />
           <input type="hidden" name="currency" value={currency} />
           <input type="hidden" name="first_charge_date" value={firstDate} />
           <input type="hidden" name="next_charge_date" value={nextDate || firstDate} />
           <input type="hidden" name="icon" value={icon} />
           <input type="hidden" name="billing_interval" value="1" />
+          {!showCycleAndRenewal && <input type="hidden" name="billing_cycle" value="monthly" />}
+          {!showCycleAndRenewal && <input type="hidden" name="renewal_type" value="auto_renew" />}
           {billingCycle !== 'custom'
             ? <input type="hidden" name="custom_interval_days" value="" />
             : null}
+          {billingType !== 'trial' && <input type="hidden" name="free_trial_end_date" value="" />}
+          {billingType !== 'trial' && <input type="hidden" name="price_after_trial" value="" />}
 
           {/* ── Название + автокомплит ─────────────────────────────────────── */}
           <div className="relative">
@@ -299,37 +327,81 @@ export default function AddPaymentModal({ open, onClose, defaultCurrency }: Prop
             )}
           </div>
 
-          {/* ── Сумма + Валюта ─────────────────────────────────────────────── */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls}>Сумма</label>
-              <input
-                name="amount"
-                type="text"
-                inputMode="decimal"
-                required
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className={inputCls}
-                placeholder="599"
-              />
-            </div>
-            <div>
-              <label className={labelCls}>Валюта</label>
-              <select
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value)}
-                className={inputCls}
-              >
-                {CURRENCIES.map((c) => (
-                  <option key={c.code} value={c.code}>{c.label}</option>
-                ))}
-                {!CURRENCIES.some(c => c.code === currency) && (
-                  <option value={currency}>{currency}</option>
-                )}
-              </select>
+          {/* ── Тип платежа ────────────────────────────────────────────────── */}
+          <div>
+            <span className={labelCls}>Тип платежа</span>
+            <div className="flex flex-wrap gap-2 mt-1.5">
+              {BILLING_TYPE_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => handleBillingTypeChange(opt.value)}
+                  className={`rounded-[10px] border px-3 py-1.5 text-sm font-medium transition-colors ${
+                    billingType === opt.value
+                      ? 'border-[#5b43d4] bg-[#ede9fc] text-[#5b43d4]'
+                      : 'border-[rgba(26,26,61,0.08)] bg-white text-[#6b6b80] hover:bg-[#f8f6f2]'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
           </div>
+
+          {/* ── Сумма + Валюта ─────────────────────────────────────────────── */}
+          {showAmount ? (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>Сумма</label>
+                <input
+                  name="amount"
+                  type="text"
+                  inputMode="decimal"
+                  required
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className={inputCls}
+                  placeholder="599"
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Валюта</label>
+                <select
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value)}
+                  className={inputCls}
+                >
+                  {CURRENCIES.map((c) => (
+                    <option key={c.code} value={c.code}>{c.label}</option>
+                  ))}
+                  {!CURRENCIES.some(c => c.code === currency) && (
+                    <option value={currency}>{currency}</option>
+                  )}
+                </select>
+              </div>
+            </div>
+          ) : (
+            <>
+              <input type="hidden" name="amount" value="0" />
+              {billingType === 'trial' && (
+                <div>
+                  <label className={labelCls}>Валюта</label>
+                  <select
+                    value={currency}
+                    onChange={(e) => setCurrency(e.target.value)}
+                    className={inputCls}
+                  >
+                    {CURRENCIES.map((c) => (
+                      <option key={c.code} value={c.code}>{c.label}</option>
+                    ))}
+                    {!CURRENCIES.some(c => c.code === currency) && (
+                      <option value={currency}>{currency}</option>
+                    )}
+                  </select>
+                </div>
+              )}
+            </>
+          )}
 
           {templateHint && (templateHint.warning || templateHint.approxLabel || templateHint.isLicense || templateHint.isFree || templateHint.multiSource) && (
             <div className="-mt-1.5 space-y-1 rounded-[10px] bg-[#f8f6f2] px-3 py-2.5 text-xs text-[#6b6b80]">
@@ -351,6 +423,39 @@ export default function AddPaymentModal({ open, onClose, defaultCurrency }: Prop
             </div>
           )}
 
+          {/* ── Trial-specific fields ─────────────────────────────────────── */}
+          {billingType === 'trial' && (
+            <>
+              <div>
+                <label className={labelCls}>Пробный период до</label>
+                <input
+                  name="free_trial_end_date"
+                  type="date"
+                  required
+                  value={trialDate}
+                  onChange={(e) => setTrialDate(e.target.value)}
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Цена после пробного периода</label>
+                <input
+                  name="price_after_trial"
+                  type="text"
+                  inputMode="decimal"
+                  required
+                  value={priceAfterTrial}
+                  onChange={(e) => setPriceAfterTrial(e.target.value)}
+                  className={inputCls}
+                  placeholder="599"
+                />
+                <p className="mt-1 text-xs text-[#6b6b80]">
+                  SubCuro напомнит до первого списания после пробного периода.
+                </p>
+              </div>
+            </>
+          )}
+
           {/* ── Категория ─────────────────────────────────────────────────── */}
           <div>
             <label className={labelCls}>Категория</label>
@@ -367,50 +472,54 @@ export default function AddPaymentModal({ open, onClose, defaultCurrency }: Prop
           </div>
 
           {/* ── Период списания ────────────────────────────────────────────── */}
-          <div>
-            <label className={labelCls}>Период списания</label>
-            <select
-              name="billing_cycle"
-              value={billingCycle}
-              onChange={(e) => setBillingCycle(e.target.value as BillingCycle)}
-              className={inputCls}
-            >
-              {BILLING_FORM_OPTIONS.map((c) => (
-                <option key={c.value} value={c.value}>{c.label}</option>
-              ))}
-            </select>
-          </div>
-          {billingCycle === 'custom' && (
-            <div>
-              <label className={labelCls}>Дней между списаниями</label>
-              <input
-                name="custom_interval_days"
-                type="number"
-                min={1}
-                value={customDays}
-                onChange={(e) => setCustomDays(Number(e.target.value) || 1)}
-                className={inputCls}
-                placeholder="30"
-              />
-            </div>
+          {showCycleAndRenewal && (
+            <>
+              <div>
+                <label className={labelCls}>Период списания</label>
+                <select
+                  name="billing_cycle"
+                  value={billingCycle}
+                  onChange={(e) => setBillingCycle(e.target.value as BillingCycle)}
+                  className={inputCls}
+                >
+                  {BILLING_FORM_OPTIONS.map((c) => (
+                    <option key={c.value} value={c.value}>{c.label}</option>
+                  ))}
+                </select>
+              </div>
+              {billingCycle === 'custom' && (
+                <div>
+                  <label className={labelCls}>Дней между списаниями</label>
+                  <input
+                    name="custom_interval_days"
+                    type="number"
+                    min={1}
+                    value={customDays}
+                    onChange={(e) => setCustomDays(Number(e.target.value) || 1)}
+                    className={inputCls}
+                    placeholder="30"
+                  />
+                </div>
+              )}
+
+              {/* ── Продление ─────────────────────────────────────────────────── */}
+              <div>
+                <label className={labelCls}>Продление</label>
+                <select
+                  name="renewal_type"
+                  defaultValue="auto_renew"
+                  className={inputCls}
+                >
+                  <option value="auto_renew">Автопродление</option>
+                  <option value="manual">Вручную</option>
+                </select>
+              </div>
+            </>
           )}
 
-          {/* ── Продление ─────────────────────────────────────────────────── */}
-          <div>
-            <label className={labelCls}>Продление</label>
-            <select
-              name="renewal_type"
-              defaultValue="auto_renew"
-              className={inputCls}
-            >
-              <option value="auto_renew">Автопродление</option>
-              <option value="manual">Вручную</option>
-            </select>
-          </div>
-
-          {/* ── Дата первого списания ──────────────────────────────────────── */}
+          {/* ── Дата первого/единственного/начала ─────────────────────────── */}
           <div className="space-y-1.5">
-            <label className={labelCls}>Дата первого списания</label>
+            <label className={labelCls}>{firstDateLabel}</label>
             <input
               type="date"
               required
@@ -418,7 +527,7 @@ export default function AddPaymentModal({ open, onClose, defaultCurrency }: Prop
               onChange={(e) => setFirstDate(e.target.value)}
               className={inputCls}
             />
-            {nextDate && (
+            {nextDate && showCycleAndRenewal && (
               <p className="text-xs text-[#6b6b80] flex items-center gap-1.5">
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#5b43d4]" />
                 Следующее списание:&nbsp;
