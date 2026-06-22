@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState, useMemo } from 'react'
-import type { Subscription } from '@/lib/supabase/types'
+import type { BillingType, Subscription } from '@/lib/supabase/types'
 import { coerceNumber } from '@/lib/coerce-number'
 import PaymentServiceIcon from '@/app/dashboard/PaymentServiceIcon'
 import { resolveSubscriptionIconDisplay } from '@/lib/subscription-icon-background'
@@ -48,17 +48,14 @@ function suggestionPriceLabel(template: SubscriptionTemplate): string {
 }
 
 // ── Currencies ────────────────────────────────────────────────────────────────
+// Temporarily limited to RUB/USD/EUR until mobile supports more currencies
+// (mobile convertAmount only has RUB/USD/EUR rates, so other currencies would
+// be miscounted in the shared Supabase DB). Existing subscriptions in other
+// currencies stay selectable on edit via the "keep unknown currencies" option.
 const CURRENCIES = [
   { code: 'RUB', label: '🇷🇺 RUB — рубль' },
   { code: 'USD', label: '🇺🇸 USD — доллар' },
   { code: 'EUR', label: '🇪🇺 EUR — евро' },
-  { code: 'GBP', label: '🇬🇧 GBP — фунт' },
-  { code: 'TRY', label: '🇹🇷 TRY — лира' },
-  { code: 'CNY', label: '🇨🇳 CNY — юань' },
-  { code: 'KZT', label: '🇰🇿 KZT — тенге' },
-  { code: 'AMD', label: '🇦🇲 AMD — драм' },
-  { code: 'GEL', label: '🇬🇪 GEL — лари' },
-  { code: 'BYN', label: '🇧🇾 BYN — рубль (BY)' },
 ]
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
@@ -115,11 +112,22 @@ export default function SubscriptionFormFields({
   const initFirst = sub ? sub.first_charge_date.slice(0, 10) : today
   const initTrial = sub?.free_trial_end_date ? sub.free_trial_end_date.slice(0, 10) : ''
 
+  // Infer billing_type from existing record: missing/null + amount=0 → free, else paid
+  const initBillingType = ((): BillingType => {
+    if (!sub) return 'paid'
+    if (sub.billing_type) return sub.billing_type
+    return coerceNumber(sub.amount) === 0 ? 'free' : 'paid'
+  })()
+
   // ── Controlled state ──────────────────────────────────────────────────────
   const [suggestions, setSuggestions] = useState<SubscriptionTemplate[]>([])
   const [selectedTemplate, setSelectedTemplate] = useState<SubscriptionTemplate | null>(null)
   const [nameValue, setNameValue] = useState(sub?.name ?? '')
+  const [billingType, setBillingType] = useState<BillingType>(initBillingType)
   const [amountValue, setAmountValue] = useState(amountStr)
+  const [priceAfterTrial, setPriceAfterTrial] = useState(
+    sub?.price_after_trial != null ? String(sub.price_after_trial) : '',
+  )
   const [currencyValue, setCurrencyValue] = useState(sub?.currency ?? defaultCurrency)
   const [categoryValue, setCategoryValue] = useState(sub?.category_slug ?? 'other')
   const [cycleValue, setCycleValue] = useState(sub?.billing_cycle ?? 'monthly')
@@ -136,6 +144,29 @@ export default function SubscriptionFormFields({
   const [cancelUrl, setCancelUrl] = useState(sub?.cancellation_url ?? '')
   const [manageUrl, setManageUrl] = useState(sub?.management_url ?? '')
   const [pricingUrl, setPricingUrl] = useState(sub?.pricing_url ?? '')
+
+  // Whether billing type shows billing cycle / renewal
+  const showCycleAndRenewal = billingType === 'paid'
+  const showAmount = billingType === 'paid' || billingType === 'one_time'
+  const firstDateLabel =
+    billingType === 'one_time' ? 'Дата платежа'
+    : billingType === 'free' ? 'Дата начала использования'
+    : 'Дата первого списания'
+
+  function handleBillingTypeChange(next: BillingType) {
+    setBillingType(next)
+    // Clear incompatible fields when switching
+    if (next === 'free' || next === 'trial') {
+      setAmountValue('0')
+    }
+    if (next === 'paid' || next === 'one_time') {
+      setPriceAfterTrial('')
+    }
+    if (next !== 'trial') {
+      setTrialDate('')
+      setPriceAfterTrial('')
+    }
+  }
 
   const nameRef = useRef<HTMLInputElement>(null)
 
@@ -191,7 +222,11 @@ export default function SubscriptionFormFields({
 
     if (template.should_autofill_amount && mainPlan?.amount != null) {
       setAmountValue(String(mainPlan.amount))
-      if (mainPlan.currency) setCurrencyValue(mainPlan.currency)
+      // Only adopt a template currency if it's in the supported list (same guard
+      // as AddPaymentModal) — keeps new subscriptions within RUB/USD/EUR.
+      if (mainPlan.currency) {
+        setCurrencyValue(CURRENCIES.some((c) => c.code === mainPlan.currency) ? mainPlan.currency : 'RUB')
+      }
     } else if (template.payment_model === 'free') {
       if (window.confirm('Это бесплатный сервис. Добавить без расходов?')) {
         setAmountValue('0')
@@ -213,12 +248,20 @@ export default function SubscriptionFormFields({
   const inputCls = 'w-full rounded-lg border border-[#dcd6ce] bg-white px-3 py-2 text-[#1a1a2e] text-sm focus:outline-none focus:ring-2 focus:ring-[#5b43d4]/30 focus:border-[#5b43d4]'
   const labelCls = 'block text-sm text-[#6b6b80] mb-1'
 
+  const BILLING_TYPE_OPTIONS: { value: BillingType; label: string }[] = [
+    { value: 'paid', label: 'Платный' },
+    { value: 'free', label: 'Бесплатный' },
+    { value: 'trial', label: 'Пробный период' },
+    { value: 'one_time', label: 'Разовый платёж' },
+  ]
+
   return (
     <form
       action={action}
       className="space-y-5 max-w-lg rounded-2xl border border-[#e7e3dc] bg-white p-5 shadow-[0_1px_3px_rgba(26,26,61,0.06),0_8px_24px_rgba(26,26,61,0.06)]"
     >
       {sub ? <input type="hidden" name="subscription_id" value={sub.id} /> : null}
+      <input type="hidden" name="billing_type" value={billingType} />
 
       {error ? (
         <p className="rounded-lg bg-[#fdecec] border border-[#f3c5c7] text-[#e5484d] text-sm px-4 py-3">
@@ -274,41 +317,92 @@ export default function SubscriptionFormFields({
         )}
       </div>
 
-      {/* ── 2. Amount + Currency ───────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className={labelCls}>Сумма</label>
-          <input
-            name="amount"
-            type="text"
-            inputMode="decimal"
-            required
-            value={amountValue}
-            onChange={(e) => setAmountValue(e.target.value)}
-            className={inputCls}
-            placeholder="599"
-          />
-        </div>
-        <div>
-          <label className={labelCls}>Валюта</label>
-          <select
-            name="currency"
-            value={currencyValue}
-            onChange={(e) => setCurrencyValue(e.target.value)}
-            className={inputCls}
-          >
-            {CURRENCIES.map((c) => (
-              <option key={c.code} value={c.code}>
-                {c.label}
-              </option>
-            ))}
-            {/* Keep unknown currencies selectable */}
-            {!CURRENCIES.some((c) => c.code === currencyValue) && (
-              <option value={currencyValue}>{currencyValue}</option>
-            )}
-          </select>
+      {/* ── 1b. Billing type chips ────────────────────────────────────────── */}
+      <div>
+        <span className={labelCls}>Тип платежа</span>
+        <div className="flex flex-wrap gap-2 mt-1.5">
+          {BILLING_TYPE_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => handleBillingTypeChange(opt.value)}
+              className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+                billingType === opt.value
+                  ? 'border-[#5b43d4] bg-[#ede9fc] text-[#5b43d4]'
+                  : 'border-[#dcd6ce] bg-white text-[#6b6b80] hover:bg-[#f8f6f2]'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
       </div>
+
+      {/* ── 2. Amount + Currency ───────────────────────────────────────────── */}
+      {showAmount ? (
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={labelCls}>Сумма</label>
+            <input
+              name="amount"
+              type="text"
+              inputMode="decimal"
+              required
+              value={amountValue}
+              onChange={(e) => setAmountValue(e.target.value)}
+              className={inputCls}
+              placeholder="599"
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Валюта</label>
+            <select
+              name="currency"
+              value={currencyValue}
+              onChange={(e) => setCurrencyValue(e.target.value)}
+              className={inputCls}
+            >
+              {CURRENCIES.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.label}
+                </option>
+              ))}
+              {!CURRENCIES.some((c) => c.code === currencyValue) && (
+                <option value={currencyValue}>{currencyValue}</option>
+              )}
+            </select>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Hidden amount=0 for free/trial */}
+          <input type="hidden" name="amount" value="0" />
+          {/* Currency still needed for trial (price_after_trial currency) */}
+          {billingType === 'trial' && (
+            <div>
+              <label className={labelCls}>Валюта</label>
+              <select
+                name="currency"
+                value={currencyValue}
+                onChange={(e) => setCurrencyValue(e.target.value)}
+                className={inputCls}
+              >
+                {CURRENCIES.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.label}
+                  </option>
+                ))}
+                {!CURRENCIES.some((c) => c.code === currencyValue) && (
+                  <option value={currencyValue}>{currencyValue}</option>
+                )}
+              </select>
+            </div>
+          )}
+          {billingType === 'free' && (
+            <input type="hidden" name="currency" value={currencyValue} />
+          )}
+        </>
+      )}
 
       {templateHint && (templateHint.warning || templateHint.approxLabel || templateHint.isLicense || templateHint.isFree || templateHint.multiSource) && (
         <div className="-mt-2 space-y-1 rounded-[10px] bg-[#f8f6f2] px-3 py-2.5 text-xs text-[#6b6b80]">
@@ -330,6 +424,43 @@ export default function SubscriptionFormFields({
         </div>
       )}
 
+      {/* ── 2c. Trial-specific fields ─────────────────────────────────────── */}
+      {billingType === 'trial' && (
+        <>
+          <div>
+            <label className={labelCls}>Пробный период до</label>
+            <input
+              name="free_trial_end_date"
+              type="date"
+              required
+              value={trialDate}
+              onChange={(e) => setTrialDate(e.target.value)}
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Цена после пробного периода</label>
+            <input
+              name="price_after_trial"
+              type="text"
+              inputMode="decimal"
+              required
+              value={priceAfterTrial}
+              onChange={(e) => setPriceAfterTrial(e.target.value)}
+              className={inputCls}
+              placeholder="599"
+            />
+            <p className="mt-1 text-xs text-[#9b9bab]">
+              SubCuro напомнит до первого списания после пробного периода.
+            </p>
+          </div>
+        </>
+      )}
+      {/* Hidden price_after_trial for non-trial types */}
+      {billingType !== 'trial' && (
+        <input type="hidden" name="price_after_trial" value="" />
+      )}
+
       {/* ── 3. Category ───────────────────────────────────────────────────── */}
       <div>
         <label className={labelCls}>Категория</label>
@@ -348,60 +479,70 @@ export default function SubscriptionFormFields({
       </div>
 
       {/* ── 4. Billing cycle ──────────────────────────────────────────────── */}
-      <div>
-        <label className={labelCls}>Период списания</label>
-        <select
-          name="billing_cycle"
-          value={cycleValue}
-          onChange={(e) => {
-            setCycleValue(e.target.value as typeof cycleValue)
-          }}
-          className={inputCls}
-        >
-          {BILLING_FORM_OPTIONS.map((c) => (
-            <option key={c.value} value={c.value}>
-              {c.label}
-            </option>
-          ))}
-        </select>
-      </div>
+      {showCycleAndRenewal ? (
+        <>
+          <div>
+            <label className={labelCls}>Период списания</label>
+            <select
+              name="billing_cycle"
+              value={cycleValue}
+              onChange={(e) => {
+                setCycleValue(e.target.value as typeof cycleValue)
+              }}
+              className={inputCls}
+            >
+              {BILLING_FORM_OPTIONS.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
-      {/* ── 5. Custom interval (only for 'custom' cycle) ──────────────────── */}
-      {cycleValue === 'custom' && (
-        <div>
-          <label className={labelCls}>Дней между списаниями</label>
-          <input
-            name="custom_interval_days"
-            type="number"
-            min={1}
-            value={customDays}
-            onChange={(e) => setCustomDays(Number(e.target.value) || 1)}
-            className={inputCls}
-            placeholder="30"
-          />
-        </div>
-      )}
-      {/* Hidden custom_interval_days when cycle != custom — send empty so server ignores it */}
-      {cycleValue !== 'custom' && (
-        <input type="hidden" name="custom_interval_days" value="" />
-      )}
+          {/* ── 5. Custom interval (only for 'custom' cycle) ──────────────────── */}
+          {cycleValue === 'custom' && (
+            <div>
+              <label className={labelCls}>Дней между списаниями</label>
+              <input
+                name="custom_interval_days"
+                type="number"
+                min={1}
+                value={customDays}
+                onChange={(e) => setCustomDays(Number(e.target.value) || 1)}
+                className={inputCls}
+                placeholder="30"
+              />
+            </div>
+          )}
+          {cycleValue !== 'custom' && (
+            <input type="hidden" name="custom_interval_days" value="" />
+          )}
 
-      {/* ── 6. Renewal ────────────────────────────────────────────────────── */}
-      <div>
-        <label className={labelCls}>Продление</label>
-        <select
-          name="renewal_type"
-          defaultValue={sub?.renewal_type ?? 'auto_renew'}
-          className={inputCls}
-        >
-          <option value="auto_renew">Автопродление</option>
-          <option value="manual">Вручную</option>
-        </select>
-      </div>
+          {/* ── 6. Renewal ────────────────────────────────────────────────────── */}
+          <div>
+            <label className={labelCls}>Продление</label>
+            <select
+              name="renewal_type"
+              defaultValue={sub?.renewal_type ?? 'auto_renew'}
+              className={inputCls}
+            >
+              <option value="auto_renew">Автопродление</option>
+              <option value="manual">Вручную</option>
+            </select>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Send fallback values so server validation doesn't fail */}
+          <input type="hidden" name="billing_cycle" value="monthly" />
+          <input type="hidden" name="custom_interval_days" value="" />
+          <input type="hidden" name="renewal_type" value="auto_renew" />
+        </>
+      )}
 
       {/* ── 7. First charge date ─────────────────────────────────────────── */}
       <div className="space-y-2">
-        <label className={labelCls}>Дата первого списания</label>
+        <label className={labelCls}>{firstDateLabel}</label>
         <input
           name="first_charge_date"
           type="date"
@@ -411,8 +552,8 @@ export default function SubscriptionFormFields({
           className={inputCls}
         />
         {/* Next charge date — auto-calculated, passed as hidden field */}
-        <input type="hidden" name="next_charge_date" value={nextDate} />
-        {nextDate && (
+        <input type="hidden" name="next_charge_date" value={nextDate || firstDate} />
+        {nextDate && showCycleAndRenewal && (
           <p className="text-xs text-[#6b6b80] flex items-center gap-1.5">
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#5b43d4]" />
             Следующее списание:&nbsp;<span className="font-medium text-[#1a1a2e]">{formatDateRu(nextDate)}</span>
@@ -420,8 +561,7 @@ export default function SubscriptionFormFields({
         )}
       </div>
 
-      {/* ── 8. Trial period (optional, collapsible via advanced) ─────────── */}
-      {/* Trial is shown inside Advanced, but it affects dates above */}
+      {/* ── 8. Trial period (optional, in advanced section) ───────────────── */}
 
       {/* ── Advanced section ──────────────────────────────────────────────── */}
       <div className="rounded-xl border border-[#ece8e1] overflow-hidden">
@@ -435,20 +575,22 @@ export default function SubscriptionFormFields({
         </button>
         {showAdvanced && (
           <div className="px-4 pb-4 pt-1 space-y-4 border-t border-[#f0ece6]">
-            {/* Trial period */}
-            <div>
-              <label className={labelCls}>Конец пробного периода (необязательно)</label>
-              <input
-                name="free_trial_end_date"
-                type="date"
-                value={trialDate}
-                onChange={(e) => setTrialDate(e.target.value)}
-                className={inputCls}
-              />
-              <p className="mt-1 text-xs text-[#9b9bab]">
-                Укажи, если есть бесплатный пробный период перед первым списанием
-              </p>
-            </div>
+            {/* Trial period — only show for non-trial billing types (trial type has it inline above) */}
+            {billingType !== 'trial' && (
+              <div>
+                <label className={labelCls}>Конец пробного периода (необязательно)</label>
+                <input
+                  name="free_trial_end_date"
+                  type="date"
+                  value={trialDate}
+                  onChange={(e) => setTrialDate(e.target.value)}
+                  className={inputCls}
+                />
+                <p className="mt-1 text-xs text-[#9b9bab]">
+                  Укажи, если есть бесплатный пробный период перед первым списанием
+                </p>
+              </div>
+            )}
 
             {/* Pricing URL */}
             <div>

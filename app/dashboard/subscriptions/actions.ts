@@ -1,18 +1,9 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-
-// Разрешаем только http/https — защита от javascript: XSS и file:// схем
-function sanitizeUrl(raw: string): string | null {
-  const trimmed = raw.trim()
-  if (!trimmed) return null
-  try {
-    const u = new URL(trimmed)
-    if (!['http:', 'https:'].includes(u.protocol)) return null
-    return trimmed
-  } catch { return null }
-}
+import { getSafeExternalUrl } from '@/lib/safe-url'
 import { loadCategoryIdBySlug } from '@/lib/category-id'
+import { ALLOWED_CURRENCIES, normalizeAllowedCurrency, type AllowedCurrency } from '@/lib/allowed-currencies'
 import { mergeUserNotesWithViz, vizFillToColorPreset, type SubcuroEditViz } from '@/lib/subscription-viz-notes'
 import { advanceBillingDate } from '@/lib/billing-engine'
 import type {
@@ -128,6 +119,10 @@ function subscriptionStatusPatch(next: SubscriptionStatus): SubscriptionUpdate {
   }
 }
 
+import type { BillingType } from '@/lib/supabase/types'
+
+const BILLING_TYPES: BillingType[] = ['paid', 'free', 'trial', 'one_time']
+
 type ParsedForm =
   | {
       ok: true
@@ -147,14 +142,17 @@ type ParsedForm =
       pricing_url: string | null
       notes: string | null
       icon: string | null
+      billing_type: BillingType
+      price_after_trial: number | null
+      plan_name: string | null
     }
-  | { ok: false; code: 'name' | 'amount' | 'dates' | 'custom' }
+  | { ok: false; code: 'name' | 'amount' | 'dates' | 'custom' | 'billing_type' }
 
 function parseSubscriptionForm(formData: FormData, billingInterval: number): ParsedForm {
   const name = String(formData.get('name') ?? '').trim()
-  const amount = Number(String(formData.get('amount') ?? '').replace(',', '.'))
-  const currencyRaw = String(formData.get('currency') ?? 'USD').toUpperCase()
-  const currency = currencyRaw.length === 3 ? currencyRaw : 'USD'
+  // Allowlist: keep RUB/USD/EUR, otherwise fall back to RUB. The update path
+  // additionally preserves an existing exotic currency (see updateSubscriptionFields).
+  const currency = normalizeAllowedCurrency(formData.get('currency') as string | null)
   const cat = String(formData.get('category_slug') ?? 'other')
   const category_slug: CategorySlug = CATEGORY_SLUGS.includes(cat as CategorySlug)
     ? (cat as CategorySlug)
@@ -176,18 +174,51 @@ function parseSubscriptionForm(formData: FormData, billingInterval: number): Par
   const trialRaw = String(formData.get('free_trial_end_date') ?? '').slice(0, 10)
   const free_trial_end_date = trialRaw || null
 
-  const cancellation_url = sanitizeUrl(String(formData.get('cancellation_url') ?? ''))
-  const management_url = sanitizeUrl(String(formData.get('management_url') ?? ''))
-  const pricing_url = sanitizeUrl(String(formData.get('pricing_url') ?? ''))
+  const cancellation_url = getSafeExternalUrl(String(formData.get('cancellation_url') ?? ''))
+  const management_url = getSafeExternalUrl(String(formData.get('management_url') ?? ''))
+  const pricing_url = getSafeExternalUrl(String(formData.get('pricing_url') ?? ''))
 
   const renewRaw = String(formData.get('renewal_type') ?? 'auto_renew')
   const renewal_type: RenewalType = renewRaw === 'manual' ? 'manual' : 'auto_renew'
 
+  // Billing type
+  const btRaw = String(formData.get('billing_type') ?? 'paid')
+  const billing_type: BillingType = BILLING_TYPES.includes(btRaw as BillingType)
+    ? (btRaw as BillingType)
+    : 'paid'
+
+  // plan_name
+  const planNameRaw = String(formData.get('plan_name') ?? '').trim().slice(0, 120)
+  const plan_name = planNameRaw || null
+
+  // price_after_trial — only for trial type
+  let price_after_trial: number | null = null
+  if (billing_type === 'trial') {
+    const patRaw = String(formData.get('price_after_trial') ?? '').replace(',', '.')
+    const patNum = Number(patRaw)
+    price_after_trial = Number.isFinite(patNum) && patNum > 0 ? patNum : null
+  }
+
+  // Derive amount from billing_type
+  let amount: number
+  if (billing_type === 'free' || billing_type === 'trial') {
+    amount = 0
+  } else {
+    amount = Number(String(formData.get('amount') ?? '').replace(',', '.'))
+  }
+
   if (name.length < 2) return { ok: false, code: 'name' }
-  if (!Number.isFinite(amount) || amount <= 0) return { ok: false, code: 'amount' }
   if (!first || !next) return { ok: false, code: 'dates' }
   if (billing_cycle === 'custom' && (!Number.isFinite(customIntervalDays) || (customIntervalDays ?? 0) <= 0)) {
     return { ok: false, code: 'custom' }
+  }
+
+  // Validate amount by billing type
+  if (billing_type === 'paid' || billing_type === 'one_time') {
+    if (!Number.isFinite(amount) || amount <= 0) return { ok: false, code: 'amount' }
+  }
+  if (billing_type === 'trial') {
+    if (price_after_trial === null) return { ok: false, code: 'billing_type' }
   }
 
   return {
@@ -208,6 +239,9 @@ function parseSubscriptionForm(formData: FormData, billingInterval: number): Par
     pricing_url,
     notes,
     icon,
+    billing_type,
+    price_after_trial,
+    plan_name,
   }
 }
 
@@ -271,7 +305,7 @@ export async function updateSubscriptionFields(formData: FormData) {
 
   const { data: existing, error: fetchErr } = await supabase
     .from('subscriptions')
-    .select('billing_interval')
+    .select('billing_interval, currency')
     .eq('id', id)
     .eq('user_id', user.id)
     .maybeSingle()
@@ -303,10 +337,21 @@ export async function updateSubscriptionFields(formData: FormData) {
   }
   const mergedNotes = mergeUserNotesWithViz(parsed.notes, viz)
 
+  // Currency on update: keep the submitted value if it's allowed; otherwise, if
+  // the user left an existing exotic currency unchanged, preserve it (don't
+  // silently convert an old TRY/KZT/GBP subscription to RUB); else fall back to RUB.
+  const submittedCurrency = String(formData.get('currency') ?? '').toUpperCase()
+  const existingCurrency = String(existing.currency ?? '').toUpperCase()
+  const resolvedCurrency: string = ALLOWED_CURRENCIES.includes(submittedCurrency as AllowedCurrency)
+    ? submittedCurrency
+    : submittedCurrency && submittedCurrency === existingCurrency
+      ? existingCurrency
+      : 'RUB'
+
   const baseUpdate = {
     name: parsed.name,
     amount: parsed.amount,
-    currency: parsed.currency,
+    currency: resolvedCurrency,
     category_slug: parsed.category_slug,
     billing_cycle: parsed.billing_cycle,
     billing_interval: parsed.billing_interval,
@@ -321,6 +366,9 @@ export async function updateSubscriptionFields(formData: FormData) {
     notes: mergedNotes,
     card_color_preset: viz ? vizFillToColorPreset(viz.cardFill) : null,
     icon: parsed.icon,
+    billing_type: parsed.billing_type,
+    price_after_trial: parsed.price_after_trial,
+    plan_name: parsed.plan_name,
     ...(nextStatus ? subscriptionStatusPatch(nextStatus) : {}),
   }
 
@@ -387,6 +435,9 @@ export async function createSubscription(formData: FormData) {
       pricing_url: parsed.pricing_url,
       notes: parsed.notes,
       icon: parsed.icon,
+      billing_type: parsed.billing_type,
+      price_after_trial: parsed.price_after_trial,
+      plan_name: parsed.plan_name,
       status: 'active',
     }),
   ])

@@ -1,4 +1,4 @@
-import type { BillingCycle, CategorySlug, Subscription, SubscriptionStatus } from '@/lib/supabase/types'
+import type { BillingCycle, BillingType, CategorySlug, Subscription, SubscriptionStatus } from '@/lib/supabase/types'
 import type { Lang } from '@/lib/translations'
 
 export const CATEGORY_LABEL_RU: Record<CategorySlug, string> = {
@@ -67,6 +67,26 @@ const STATUS_BADGE_EN: Partial<Record<SubscriptionStatus, string>> = {
 
 export function statusBadge(status: SubscriptionStatus, lang: Lang = 'ru'): string | undefined {
   return (lang === 'en' ? STATUS_BADGE_EN : STATUS_BADGE_RU)[status]
+}
+
+export const BILLING_TYPE_LABEL_RU: Record<BillingType, string> = {
+  paid: 'Платная',
+  free: 'Бесплатная',
+  trial: 'Пробный период',
+  one_time: 'Разовый платеж',
+}
+
+const BILLING_TYPE_LABEL_EN: Record<BillingType, string> = {
+  paid: 'Paid',
+  free: 'Free',
+  trial: 'Trial',
+  one_time: 'One-time payment',
+}
+
+/** Lang-aware billing type label. Falls back to 'paid' for null/undefined. */
+export function billingTypeLabel(type: BillingType | null | undefined, lang: Lang = 'ru'): string {
+  const map = lang === 'en' ? BILLING_TYPE_LABEL_EN : BILLING_TYPE_LABEL_RU
+  return map[type ?? 'paid']
 }
 
 export const BILLING_CYCLE_LABEL_RU: Record<BillingCycle, string> = {

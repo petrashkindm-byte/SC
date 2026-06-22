@@ -11,6 +11,7 @@ import PaymentServiceIcon from '@/app/dashboard/PaymentServiceIcon'
 import { resolveSubscriptionIconDisplay } from '@/lib/subscription-icon-background'
 import { parseNotesAndViz, CARD_COLOR_PRESETS } from '@/lib/subscription-viz-notes'
 import { lookupManagementUrl } from '@/lib/subscription-templates'
+import { getSafeExternalUrl } from '@/lib/safe-url'
 import SubscriptionDangerZone from './SubscriptionDangerZone'
 import SubscriptionStatusActions from './SubscriptionStatusActions'
 import MarkUsedTodayButton from './MarkUsedTodayButton'
@@ -93,7 +94,12 @@ export default async function SubscriptionDetailPage({
     maximumFractionDigits: 0,
   }).format(amount)
   const badge = nextChargeBadge(sub)
-  const managementUrl = sub.management_url ?? lookupManagementUrl(sub.name)
+  // Only render safe (https / dev-localhost) external links. Old unsafe values
+  // already in the DB stay stored but are not clickable. lookupManagementUrl is a
+  // curated catalog https URL used as a fallback when the user's own is unsafe/empty.
+  const managementUrl = getSafeExternalUrl(sub.management_url) ?? lookupManagementUrl(sub.name)
+  const safeCancellationUrl = getSafeExternalUrl(sub.cancellation_url)
+  const safePricingUrl = getSafeExternalUrl(sub.pricing_url)
 
   return (
     <main className="px-4 sm:px-6 py-6">
@@ -177,9 +183,9 @@ export default async function SubscriptionDetailPage({
             </svg>
             Напоминание
           </Link>
-          {sub.cancellation_url && (
+          {safeCancellationUrl && (
             <a
-              href={sub.cancellation_url}
+              href={safeCancellationUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 rounded-xl border border-[#fdd] bg-[#fff5f5] px-4 py-2.5 text-sm font-medium text-[#c24f00] hover:bg-[#ffecec] transition-colors"
@@ -211,9 +217,9 @@ export default async function SubscriptionDetailPage({
       </div>
 
       {/* URLs */}
-      {sub.pricing_url && (
+      {safePricingUrl && (
         <div className="grid gap-3 sm:grid-cols-2 mb-4">
-          <LinkCard label="Страница тарифов" href={sub.pricing_url} />
+          <LinkCard label="Страница тарифов" href={safePricingUrl} />
         </div>
       )}
 

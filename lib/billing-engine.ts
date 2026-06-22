@@ -49,11 +49,20 @@ function shiftByCycle(date: Date, cycle: BillingCycle, interval: number, customD
 }
 
 export function monthlyActualForSubscription(sub: Subscription, year: number, month: number): number {
+  // billing-type parity with mobile: free/trial incur no charge, and one_time is
+  // not a recurring monthly charge — so none of them contribute here. Fallback for
+  // rows without billing_type (web-created or pre-0004): 0-amount → free, else paid.
+  const billingType = sub.billing_type ?? (Number(sub.amount) === 0 ? 'free' : 'paid')
+  if (billingType === 'free' || billingType === 'trial' || billingType === 'one_time') {
+    return 0
+  }
+
   const monthStart = new Date(year, month, 1)
   const monthEnd = new Date(year, month + 1, 0, 23, 59, 59, 999)
   let cursor = parseIsoDateLocal(sub.next_charge_date)
   const interval = Number(sub.billing_interval) || 1
   const amount = coerceNumber(sub.amount)
+  if (!Number.isFinite(amount)) return 0
   if (!Number.isFinite(cursor.getTime())) return 0
   while (cursor > monthEnd) cursor = shiftByCycle(cursor, sub.billing_cycle, interval, sub.custom_interval_days, -1)
   while (cursor < monthStart) cursor = shiftByCycle(cursor, sub.billing_cycle, interval, sub.custom_interval_days, 1)
