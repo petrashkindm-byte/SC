@@ -4,6 +4,7 @@ import { useState } from 'react'
 
 import type { SavingsAction } from '@/lib/savings-history'
 import type { DbPlannedAction, PlannedActionType } from './savings/actions'
+import { formatMoney } from '@/lib/currency'
 
 function relativeDate(iso: string | Date): string {
   const date = typeof iso === 'string' ? new Date(iso) : iso
@@ -17,8 +18,7 @@ function relativeDate(iso: string | Date): string {
 }
 
 function fmtAmount(amount: number, currency: string): string {
-  const sym = currency === 'RUB' ? '₽' : currency === 'USD' ? '$' : currency === 'EUR' ? '€' : currency
-  return `${Math.round(amount).toLocaleString('ru-RU')} ${sym}`
+  return formatMoney(amount, currency)
 }
 
 const PLAN_LABELS: Record<PlannedActionType, string> = {

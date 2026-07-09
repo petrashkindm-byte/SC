@@ -598,11 +598,13 @@ export default function TodayView({
   priceAlerts = [],
   paymentEvents = [],
   userName,
+  baseCurrency = 'RUB',
 }: {
   subs: Subscription[]
   priceAlerts?: PriceAlert[]
   paymentEvents?: SubscriptionPayment[]
   userName?: string
+  baseCurrency?: string
 }) {
   const { strings } = useLang()
   const tod = strings.today

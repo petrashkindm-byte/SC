@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import { useMemo } from 'react'
 import type { PriceAlert, Subscription, SubscriptionPayment } from '@/lib/supabase/types'
 import AnalyticsView from './AnalyticsView'
 import PaymentsTable, { type PaymentsFilter } from './PaymentsTable'
@@ -15,6 +14,7 @@ type Props = {
   paymentEvents?: SubscriptionPayment[]
   paymentsFilter?: PaymentsFilter
   userName?: string
+  baseCurrency?: string
 }
 
 export default function DashboardClient({
@@ -23,21 +23,15 @@ export default function DashboardClient({
   paymentEvents = [],
   paymentsFilter = 'all',
   userName = '',
+  baseCurrency = 'RUB',
 }: Props) {
-  const currency = useMemo(
-    () => allSubs.find(s => s.status === 'active')?.currency ?? allSubs[0]?.currency ?? 'RUB',
-    [allSubs],
-  )
-
-  // Tab comes from client-side context — switching is instant, no server round-trip
   const { tab: dashTab } = useTabContext()
 
-  // Tab routing
   if (dashTab === 'payments')
-    return <PaymentsTable subs={allSubs} currency={currency} initialFilter={paymentsFilter} />
-  if (dashTab === 'analytics') return <AnalyticsView subs={allSubs} currency={currency} />
+    return <PaymentsTable subs={allSubs} baseCurrency={baseCurrency} initialFilter={paymentsFilter} />
+  if (dashTab === 'analytics')
+    return <AnalyticsView subs={allSubs} baseCurrency={baseCurrency} />
 
-  // Empty state
   if (allSubs.length === 0) {
     return (
       <section className="rounded-2xl border border-[#ebe6df] bg-white px-6 py-12 shadow-[0_1px_3px_rgba(26,26,61,0.06),0_8px_24px_rgba(26,26,61,0.06)] text-center max-w-xl mx-auto">
@@ -67,5 +61,13 @@ export default function DashboardClient({
     )
   }
 
-  return <TodayView subs={allSubs} priceAlerts={priceAlerts} paymentEvents={paymentEvents} userName={userName} />
+  return (
+    <TodayView
+      subs={allSubs}
+      priceAlerts={priceAlerts}
+      paymentEvents={paymentEvents}
+      userName={userName}
+      baseCurrency={baseCurrency}
+    />
+  )
 }

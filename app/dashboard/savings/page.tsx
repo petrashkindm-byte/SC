@@ -31,6 +31,13 @@ export default async function SavingsPage({
 
   const subs = (subsResult.data ?? []) as Subscription[]
 
+  const { data: settingsRow } = await supabase
+    .from('user_settings')
+    .select('base_currency')
+    .eq('user_id', user.id)
+    .maybeSingle()
+  const baseCurrency = (settingsRow as { base_currency?: string } | null)?.base_currency?.toUpperCase() ?? 'RUB'
+
   return (
     <main className="px-6 py-6">
       <div className="max-w-[1180px]">
@@ -49,7 +56,7 @@ export default async function SavingsPage({
               <span className="text-[11px] font-bold uppercase tracking-widest text-[#8e8e93]">Аналитика</span>
               <div className="h-px flex-1 bg-[#e7e3dc]" />
             </div>
-            <AnalyticsView subs={subs} currency="RUB" />
+            <AnalyticsView subs={subs} baseCurrency={baseCurrency} />
           </div>
         </ClientOnly>
       </div>

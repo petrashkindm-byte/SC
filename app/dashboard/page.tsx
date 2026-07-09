@@ -44,6 +44,14 @@ export default async function DashboardPage({
   // Payment events (400 rows) — only needed for the Today calendar view
   const paymentEvents = tab === 'today' ? await getCachedPaymentEvents(user.id) : []
 
+  // User's base currency — drives all aggregated displays
+  const { data: settingsRow } = await supabase
+    .from('user_settings')
+    .select('base_currency')
+    .eq('user_id', user.id)
+    .maybeSingle()
+  const baseCurrency = (settingsRow as { base_currency?: string } | null)?.base_currency?.toUpperCase() ?? 'RUB'
+
   return (
     <main className="px-6 py-6">
       <div className="max-w-[1180px]">
@@ -53,6 +61,7 @@ export default async function DashboardPage({
           priceAlerts={alerts}
           paymentEvents={paymentEvents}
           userName={userName}
+          baseCurrency={baseCurrency}
         />
       </div>
     </main>

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import AddPaymentModal from './AddPaymentModal'
+import CatalogPickerModal from './CatalogPickerModal'
 import PaymentServiceIcon from './PaymentServiceIcon'
 import { coerceNumber } from '@/lib/coerce-number'
 import { categoryLabel } from '@/lib/subscription-labels'
@@ -12,7 +13,7 @@ import type { Subscription, SubscriptionStatus } from '@/lib/supabase/types'
 import { resolveSubscriptionIconDisplay } from '@/lib/subscription-icon-background'
 import { CARD_COLOR_PRESETS } from '@/lib/subscription-viz-notes'
 import { archiveSubscription, deleteSubscription, markAsPaid, updateSubscriptionStatus } from './subscriptions/actions'
-import { fmtCurrency, groupMonthlyByCurrency, formatGroups, getMonthlyAmount } from '@/lib/currency'
+import { fmtCurrency, groupMonthlyByCurrency, formatGroups, getMonthlyAmount, formatMoney, resolveSubscriptionCurrency } from '@/lib/currency'
 import StatusPill from './ui/StatusPill'
 import { actionButtonClass } from './ui/action-button'
 import { useDarkMode } from '@/lib/hooks/use-dark-mode'
@@ -147,6 +148,7 @@ function SubscriptionDetailPanel({
   statusUpdatingId,
   p,
   lang,
+  baseCurrency = 'RUB',
 }: {
   sub: Subscription
   onClose: () => void
@@ -156,6 +158,7 @@ function SubscriptionDetailPanel({
   statusUpdatingId: string | null
   p: PaymentsStrings
   lang: Lang
+  baseCurrency?: string
 }) {
   const iconDisplay = resolveSubscriptionIconDisplay(sub.notes, sub.icon, sub.category_slug)
   const st = statusUi(sub, p)
@@ -224,7 +227,7 @@ function SubscriptionDetailPanel({
               {
                 icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
                 label: p.detailAmountLabel,
-                val: <span className="font-semibold tabular-nums">{fmtCurrency(coerceNumber(sub.amount), sub.currency ?? 'RUB')}</span>,
+                val: <span className="font-semibold tabular-nums">{fmtCurrency(coerceNumber(sub.amount), resolveSubscriptionCurrency(sub.currency, baseCurrency))}</span>,
               },
               {
                 icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
@@ -311,11 +314,13 @@ function SubscriptionDetailPanel({
 
 export default function PaymentsTable({
   subs,
-  currency,
+  baseCurrency = 'RUB',
   initialFilter = 'all',
 }: {
   subs: Subscription[]
-  currency: string
+  baseCurrency?: string
+  /** @deprecated use baseCurrency */
+  currency?: string
   initialFilter?: PaymentsFilter
 }) {
   const isDark = useDarkMode()
@@ -358,6 +363,7 @@ export default function PaymentsTable({
     })
   }
   const [addModalOpen, setAddModalOpen] = useState(false)
+  const [catalogOpen, setCatalogOpen] = useState(false)
   const [markingPaidId, setMarkingPaidId] = useState<string | null>(null)
   const [actionsOpenId, setActionsOpenId] = useState<string | null>(null)
   const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null)
@@ -615,7 +621,13 @@ export default function PaymentsTable({
 
   return (
     <>
-      <AddPaymentModal open={addModalOpen} onClose={() => setAddModalOpen(false)} defaultCurrency={currency} />
+      <AddPaymentModal open={addModalOpen} onClose={() => setAddModalOpen(false)} defaultCurrency={baseCurrency} />
+      <CatalogPickerModal
+        open={catalogOpen}
+        onClose={() => setCatalogOpen(false)}
+        defaultCurrency={baseCurrency}
+        onOpenManual={() => setAddModalOpen(true)}
+      />
 
       {/* Detail panel */}
       {detailSub && (
@@ -628,6 +640,7 @@ export default function PaymentsTable({
           statusUpdatingId={statusUpdatingId}
           p={p}
           lang={lang}
+          baseCurrency={baseCurrency}
         />
       )}
 
@@ -777,6 +790,7 @@ export default function PaymentsTable({
               {p.viewListLabel}
             </button>
           </div>
+          <button type="button" onClick={() => setCatalogOpen(true)} className={`${actionButtonClass('secondary')} gap-2 px-4 w-full sm:w-auto justify-center`}>{strings.catalog.openButton}</button>
           <button type="button" onClick={() => setAddModalOpen(true)} className={`${actionButtonClass('primary')} gap-2 px-5 w-full sm:w-auto justify-center`}>{p.addButton}</button>
         </div>
       </header>
@@ -880,7 +894,7 @@ export default function PaymentsTable({
                 </div>
                 <div className="mb-3 flex items-center justify-between text-xs text-[#6b6b80]">
                   <span>{formatDateShort(sub.next_charge_date)} · {dueRelativePhrase(days, p)}</span>
-                  <strong className="text-sm text-[#1a1a2e]">{fmtCurrency(coerceNumber(sub.amount), sub.currency ?? 'RUB')}</strong>
+                  <strong className="text-sm text-[#1a1a2e]">{fmtCurrency(coerceNumber(sub.amount), resolveSubscriptionCurrency(sub.currency, baseCurrency))}</strong>
                 </div>
                 <div className="flex items-center gap-2">
                   {sub.status === 'active' && days <= 3 && (
@@ -951,7 +965,7 @@ export default function PaymentsTable({
                         </div>
                       </td>
                       <td className="px-5 py-3.5 align-middle text-[13px] text-[#6b6b80]">{categoryLabel(sub.category_slug, lang)}</td>
-                      <td className="px-5 py-3.5 align-middle text-[14px] font-bold tabular-nums text-[#1a1a2e] whitespace-nowrap">{fmtCurrency(coerceNumber(sub.amount), sub.currency ?? 'RUB')}</td>
+                      <td className="px-5 py-3.5 align-middle text-[14px] font-bold tabular-nums text-[#1a1a2e] whitespace-nowrap">{fmtCurrency(coerceNumber(sub.amount), resolveSubscriptionCurrency(sub.currency, baseCurrency))}</td>
                       <td className="px-5 py-3.5 align-middle text-[13px] text-[#6b6b80]">{cycleLabelConcept(sub, p)}</td>
                       <td className="px-5 py-3.5 align-middle">
                         {sub.status === 'cancelled' || sub.status === 'archived' ? (
@@ -1038,7 +1052,7 @@ export default function PaymentsTable({
 
                     {/* Amount */}
                     <div className="mt-3">
-                      <span className="text-[1.05rem] font-extrabold tabular-nums text-[#1a1a2e]">{fmtCurrency(coerceNumber(sub.amount), sub.currency ?? 'RUB')}</span>
+                      <span className="text-[1.05rem] font-extrabold tabular-nums text-[#1a1a2e]">{fmtCurrency(coerceNumber(sub.amount), resolveSubscriptionCurrency(sub.currency, baseCurrency))}</span>
                       <span className="ml-1.5 text-[12px] text-[#6b6b80]">{cycleLabelConcept(sub, p).toLowerCase()}</span>
                     </div>
 

@@ -2,10 +2,10 @@
 
 import type { SavingsAction, SavingsHistoryResult } from '@/lib/savings-history'
 import { useLang } from '@/lib/LangContext'
+import { formatMoney } from '@/lib/currency'
 
 function formatAmount(amount: number, currency: string): string {
-  const sym = currency === 'RUB' ? '₽' : currency === 'USD' ? '$' : currency === 'EUR' ? '€' : currency
-  return `${Math.round(amount).toLocaleString('ru-RU')} ${sym}`
+  return formatMoney(amount, currency)
 }
 
 function relativeDate(iso: string, lang: string): string {
